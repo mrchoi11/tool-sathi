@@ -1,0 +1,403 @@
+/* ─────────────────────────────────────────────
+   Premium Mobile-First Video Player Skin
+   ───────────────────────────────────────────── */
+
+/* ── Player Wrapper ── */
+.player-wrapper {
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(99, 102, 241, 0.12);
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* ── Video Frame ── */
+.video-player-frame {
+  position: relative;
+  width: 100%;
+  background: #08080c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.video-player-frame.aspect-16-9 {
+  aspect-ratio: 16 / 9;
+}
+
+.video-player-frame video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+/* ── Controls Gradient Overlay ── */
+.player-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2.5rem 1rem 0.85rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.7) 55%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  z-index: 5;
+  transition: opacity 0.25s ease;
+}
+
+/* ── Seek Bar (Timeline) ── */
+.timeline-container {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.timeline-range {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  transition: height 0.15s ease;
+  touch-action: none; /* smooth touch scrubbing */
+}
+
+.timeline-range:hover,
+.timeline-range:focus {
+  height: 7px;
+}
+
+.timeline-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #6366f1;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.8);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.timeline-range::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+}
+
+/* ── Controls Row ── */
+.controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+  gap: 0.5rem;
+}
+
+.controls-left,
+.controls-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* ── Control Buttons ── */
+.ctrl-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.1s ease;
+  min-width: 36px;
+  min-height: 36px; /* touch-friendly tap target */
+}
+
+.ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.ctrl-btn:active {
+  transform: scale(0.95);
+}
+
+/* ── Time Display ── */
+.time-display {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+/* ── Speed Selector ── */
+.speed-selector {
+  display: flex;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 1px;
+}
+
+.speed-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  padding: 4px 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  min-height: 28px;
+}
+
+.speed-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.speed-btn.active {
+  background: #6366f1;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+}
+
+/* ── Input Panel ── */
+.vp-input-panel {
+  margin-top: 1rem;
+  padding: 1.25rem;
+  background: var(--color-surface, #12141f);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.vp-form {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.vp-input-wrap {
+  flex: 1;
+  min-width: 0; /* allow input to shrink */
+}
+
+.vp-input-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vp-action-row {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: stretch;
+}
+
+/* ── Mobile: stack form vertically ── */
+@media (max-width: 600px) {
+  .vp-form {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .vp-action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 2fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .vp-action-row .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.65rem 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  /* Slightly smaller speed buttons on mobile */
+  .speed-btn {
+    padding: 4px 5px;
+    font-size: 0.68rem;
+  }
+
+  .time-display {
+    font-size: 0.72rem;
+  }
+
+  /* Bigger touch targets for ctrl buttons */
+  .ctrl-btn {
+    padding: 10px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* Timeline thicker for finger scrubbing */
+  .timeline-range {
+    height: 6px;
+  }
+  .timeline-range::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Input panel padding reduction */
+  .vp-input-panel {
+    padding: 1rem;
+    margin-top: 0.75rem;
+    border-radius: 14px;
+  }
+
+  /* Guide section */
+  .vp-guide {
+    padding: 1.25rem !important;
+    border-radius: 14px !important;
+  }
+
+  .vp-guide-steps {
+    grid-template-columns: 1fr !important;
+  }
+
+  .vp-feature-row {
+    flex-direction: column;
+    gap: 0.75rem !important;
+  }
+
+  /* Metadata card */
+  .vp-meta-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+
+  .vp-meta-card img,
+  .vp-meta-card .vp-meta-thumb {
+    width: 100% !important;
+    height: 120px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .speed-selector {
+    display: none; /* hide speed on very small screens to save space */
+  }
+
+  .vp-action-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .vp-play-btn {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── Metadata Card ── */
+.vp-meta-card {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  background: var(--color-bg, #0d0f1c);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.vp-meta-thumb {
+  width: 96px;
+  height: 58px;
+  border-radius: 8px;
+  background: #171a2e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Guide Section ── */
+.vp-guide {
+  margin-top: 1.5rem;
+  padding: 1.75rem;
+  background: var(--color-surface, #12141f);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.vp-guide-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1.25rem;
+}
+
+.vp-guide-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: rgba(99, 102, 241, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.vp-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.vp-step-card {
+  background: var(--color-bg, #0d0f1c);
+  padding: 1.1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.vp-step-badge {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  flex-shrink: 0;
+}
+
+.vp-feature-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.vp-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted, #64748b);
+}
