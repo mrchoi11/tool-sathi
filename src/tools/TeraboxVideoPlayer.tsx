@@ -20,7 +20,9 @@ interface GatewayResolveData {
 
 export default function TeraboxVideoPlayer() {
   const [inputUrl, setInputUrl] = useState<string>('');
-  const [gatewayUrl, setGatewayUrl] = useState<string>('http://localhost:3000');
+  const [gatewayUrl, setGatewayUrl] = useState<string>(
+    import.meta.env.VITE_GATEWAY_URL || 'https://tool-sathi-tool-sathi.up.railway.app'
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<GatewayResolveData | null>(null);
   const [currentSurl, setCurrentSurl] = useState<string>('');
