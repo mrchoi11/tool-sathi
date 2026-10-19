@@ -87,6 +87,9 @@ app.use(cors({
 
 app.use(express.json());
 
+// Health check endpoint for Railway
+app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'terabox-proxy' }));
+
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 function extractSurl(rawUrl) {
