@@ -34,30 +34,42 @@ const COLLECTION = "blog_posts";
 // ─── READ ────────────────────────────────────────────────────────────────────
 
 export async function getAllPosts(): Promise<BlogPost[]> {
-  const snap = await getDocs(
-    query(collection(db, COLLECTION), orderBy("publishedAt", "desc"))
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BlogPost));
+  try {
+    const snap = await getDocs(collection(db, COLLECTION));
+    if (snap.empty) {
+      return INITIAL_POSTS;
+    }
+    const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() } as BlogPost));
+    return posts.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+  } catch (err) {
+    console.error("Error fetching all posts:", err);
+    return INITIAL_POSTS;
+  }
 }
 
 export async function getPublishedPosts(): Promise<BlogPost[]> {
-  const snap = await getDocs(
-    query(
-      collection(db, COLLECTION),
-      where("status", "==", "published"),
-      orderBy("publishedAt", "desc")
-    )
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BlogPost));
+  try {
+    const snap = await getDocs(collection(db, COLLECTION));
+    if (snap.empty) {
+      return INITIAL_POSTS.filter((p) => p.status === "published");
+    }
+    const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() } as BlogPost));
+    const published = posts.filter((p) => p.status === "published");
+    return published.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+  } catch (err) {
+    console.error("Error fetching published posts:", err);
+    return INITIAL_POSTS.filter((p) => p.status === "published");
+  }
 }
 
 export async function getPostBySlug(slug: string): Promise<BlogPost | undefined> {
-  const snap = await getDocs(
-    query(collection(db, COLLECTION), where("slug", "==", slug))
-  );
-  if (snap.empty) return undefined;
-  const d = snap.docs[0];
-  return { id: d.id, ...d.data() } as BlogPost;
+  try {
+    const all = await getAllPosts();
+    return all.find((p) => p.slug === slug);
+  } catch (err) {
+    console.error("Error fetching post by slug:", err);
+    return INITIAL_POSTS.find((p) => p.slug === slug);
+  }
 }
 
 // ─── WRITE ───────────────────────────────────────────────────────────────────
