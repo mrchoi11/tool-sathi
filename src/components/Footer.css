@@ -1,8 +1,19 @@
 .footer {
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border-subtle);
+  background: #090a0e;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
   padding: var(--space-3xl) 0 var(--space-xl);
   margin-top: var(--space-3xl);
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(229, 9, 20, 0.5) 50%, transparent 100%);
 }
 
 .footer-inner {

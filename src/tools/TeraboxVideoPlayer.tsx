@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize,
+  Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   AlertTriangle, Check, Copy, RotateCcw, Clipboard, Film, Sparkles,
   CheckCircle2, ArrowRight, ShieldCheck, Zap, HelpCircle
 } from 'lucide-react';
@@ -266,12 +266,66 @@ export default function TeraboxVideoPlayer() {
     }
   };
 
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [controlsVisible, setControlsVisible] = useState<boolean>(true);
+  const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetControlsTimeout = useCallback(() => {
+    setControlsVisible(true);
+    if (hideControlsTimerRef.current) {
+      clearTimeout(hideControlsTimerRef.current);
+    }
+    if (isPlaying) {
+      hideControlsTimerRef.current = setTimeout(() => {
+        setControlsVisible(false);
+      }, 2500);
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFull = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      setIsFullscreen(isFull);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    resetControlsTimeout();
+  }, [isPlaying, resetControlsTimeout]);
+
   const toggleFullscreen = () => {
-    if (!playerContainerRef.current) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
+    const container = playerContainerRef.current;
+    const video = videoRef.current;
+    if (!container) return;
+
+    if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
     } else {
-      playerContainerRef.current.requestFullscreen();
+      const req = container.requestFullscreen ||
+        (container as any).webkitRequestFullscreen ||
+        (container as any).mozRequestFullScreen ||
+        (container as any).msRequestFullscreen;
+
+      if (req) {
+        req.call(container).catch(() => {
+          if (video && (video as any).webkitEnterFullscreen) {
+            (video as any).webkitEnterFullscreen();
+          }
+        });
+      } else if (video && (video as any).webkitEnterFullscreen) {
+        (video as any).webkitEnterFullscreen();
+      }
     }
   };
 
@@ -279,7 +333,16 @@ export default function TeraboxVideoPlayer() {
     <div className="tool-container" style={{ maxWidth: '860px', margin: '0 auto' }}>
       {/* Video Player Display */}
       <div className="player-wrapper">
-        <div ref={playerContainerRef} className="video-player-frame aspect-16-9" style={{ position: 'relative', background: '#0a0b12', overflow: 'hidden' }}>
+        <div
+          ref={playerContainerRef}
+          className={`video-player-frame aspect-16-9 ${isFullscreen ? 'is-fullscreen' : ''} ${!controlsVisible && isPlaying ? 'controls-hidden' : ''}`}
+          onMouseMove={resetControlsTimeout}
+          onMouseEnter={resetControlsTimeout}
+          onTouchStart={resetControlsTimeout}
+          onDoubleClick={toggleFullscreen}
+          onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
+          style={{ position: 'relative', background: '#07070a', overflow: 'hidden' }}
+        >
           <video
             ref={videoRef}
             preload="auto"
@@ -471,8 +534,14 @@ export default function TeraboxVideoPlayer() {
                   ))}
                 </div>
 
-                <button type="button" onClick={toggleFullscreen} className="ctrl-btn" title="Toggle Fullscreen">
-                  <Maximize size={18} />
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="ctrl-btn"
+                  title={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen"}
+                  aria-label={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen"}
+                >
+                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
                 </button>
               </div>
             </div>

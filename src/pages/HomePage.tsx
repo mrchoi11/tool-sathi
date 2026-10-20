@@ -99,16 +99,25 @@ export default function HomePage() {
           <div className="tools-grid">
             {featuredTools.map(tool => {
               const Icon = getIconComponent(tool.icon);
+              const categoryObj = categories.find(c => c.id === tool.category);
               return (
                 <Link key={tool.id} to={`/tools/${tool.slug}`} className="tool-card card card-interactive">
-                  <div className="tool-card-icon" style={{ background: `${categories.find(c => c.id === tool.category)?.color || '#6366f1'}18` }}>
-                    <Icon size={22} style={{ color: categories.find(c => c.id === tool.category)?.color || '#6366f1' }} />
+                  <div className="tool-card-icon">
+                    <Icon size={22} style={{ color: '#ff2a44' }} />
                   </div>
                   <div className="tool-card-info">
-                    <h3 className="tool-card-name">{tool.name}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '3px' }}>
+                      <h3 className="tool-card-name">{tool.name}</h3>
+                      {tool.isNew ? (
+                        <span className="badge badge-new">New</span>
+                      ) : (
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#ff4d63', background: 'rgba(229, 9, 20, 0.1)', padding: '2px 7px', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em', border: '1px solid rgba(229, 9, 20, 0.2)' }}>
+                          {categoryObj?.name || 'Tool'}
+                        </span>
+                      )}
+                    </div>
                     <p className="tool-card-desc">{tool.description}</p>
                   </div>
-                  {tool.isNew && <span className="badge badge-new">New</span>}
                   <ArrowRight size={14} className="tool-card-arrow" />
                 </Link>
               );

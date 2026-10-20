@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────
-   Premium Mobile-First Video Player Skin
+   Premium Crimson & Black Video Player Skin
    ───────────────────────────────────────────── */
 
 /* ── Player Wrapper ── */
@@ -7,20 +7,28 @@
   width: 100%;
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(99, 102, 241, 0.12);
+  box-shadow: 0 24px 50px -12px rgba(0, 0, 0, 0.9), 0 0 24px -4px rgba(229, 9, 20, 0.22);
   background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(229, 9, 20, 0.32);
+  position: relative;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.player-wrapper:hover {
+  border-color: rgba(229, 9, 20, 0.5);
+  box-shadow: 0 28px 60px -12px rgba(0, 0, 0, 0.95), 0 0 32px -4px rgba(229, 9, 20, 0.32);
 }
 
 /* ── Video Frame ── */
 .video-player-frame {
   position: relative;
   width: 100%;
-  background: #08080c;
+  background: #050508;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  transition: cursor 0.2s ease;
 }
 
 .video-player-frame.aspect-16-9 {
@@ -32,45 +40,94 @@
   height: 100%;
   object-fit: contain;
   cursor: pointer;
+  background: #000;
 }
 
-/* ── Controls Gradient Overlay ── */
+/* ── Fullscreen Support (Standard & Webkit/iOS) ── */
+.video-player-frame:fullscreen,
+.video-player-frame:-webkit-full-screen,
+.video-player-frame.is-fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: 100vh !important;
+  aspect-ratio: auto !important;
+  background: #000 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+}
+
+.video-player-frame:fullscreen video,
+.video-player-frame:-webkit-full-screen video,
+.video-player-frame.is-fullscreen video {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  object-fit: contain !important;
+}
+
+.video-player-frame:fullscreen .player-controls,
+.video-player-frame:-webkit-full-screen .player-controls,
+.video-player-frame.is-fullscreen .player-controls {
+  padding: 4rem 2.5rem 2rem !important;
+}
+
+/* ── Controls Auto-Hide Behavior ── */
 .player-controls {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 2.5rem 1rem 0.85rem;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.7) 55%, transparent 100%);
+  padding: 3rem 1.25rem 1rem;
+  background: linear-gradient(to top, rgba(5, 5, 8, 0.98) 0%, rgba(5, 5, 8, 0.75) 55%, transparent 100%);
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  z-index: 5;
-  transition: opacity 0.25s ease;
+  gap: 0.5rem;
+  z-index: 10;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ── Seek Bar (Timeline) ── */
+/* When playing and user is idle: hide controls and cursor completely */
+.video-player-frame.controls-hidden {
+  cursor: none !important;
+}
+
+.video-player-frame.controls-hidden .player-controls {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(20px) !important;
+}
+
+/* ── Seek Bar (Timeline) with Crimson Glow ── */
 .timeline-container {
   width: 100%;
-  padding: 4px 0;
+  padding: 6px 0;
 }
 
 .timeline-range {
   width: 100%;
-  height: 4px;
+  height: 5px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
   outline: none;
   cursor: pointer;
-  transition: height 0.15s ease;
-  touch-action: none; /* smooth touch scrubbing */
+  transition: height 0.15s ease, background 0.15s ease;
+  touch-action: none;
 }
 
 .timeline-range:hover,
 .timeline-range:focus {
-  height: 7px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .timeline-range::-webkit-slider-thumb {
@@ -78,14 +135,25 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #6366f1;
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.8);
+  background: #e50914;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 14px rgba(229, 9, 20, 0.95);
   cursor: pointer;
   transition: transform 0.15s ease;
 }
 
 .timeline-range::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
+  transform: scale(1.35);
+}
+
+.timeline-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e50914;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 14px rgba(229, 9, 20, 0.95);
+  cursor: pointer;
 }
 
 /* ── Controls Row ── */
@@ -94,14 +162,14 @@
   align-items: center;
   justify-content: space-between;
   color: #fff;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .controls-left,
 .controls-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   flex-shrink: 0;
 }
 
@@ -109,21 +177,22 @@
 .ctrl-btn {
   background: transparent;
   border: none;
-  color: #fff;
+  color: #f1f1f5;
   cursor: pointer;
   padding: 8px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, transform 0.1s ease;
-  min-width: 36px;
-  min-height: 36px; /* touch-friendly tap target */
+  transition: background 0.15s ease, transform 0.1s ease, color 0.15s ease;
+  min-width: 38px;
+  min-height: 38px;
 }
 
 .ctrl-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: scale(1.05);
+  background: rgba(229, 9, 20, 0.22);
+  color: #ff3b53;
+  transform: scale(1.08);
 }
 
 .ctrl-btn:active {
@@ -132,17 +201,19 @@
 
 /* ── Time Display ── */
 .time-display {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.75);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
   white-space: nowrap;
   letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
 /* ── Speed Selector ── */
 .speed-selector {
   display: flex;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(20, 21, 28, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   padding: 2px;
   gap: 1px;
@@ -152,8 +223,8 @@
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.65);
-  padding: 4px 7px;
-  font-size: 0.72rem;
+  padding: 4px 8px;
+  font-size: 0.74rem;
   font-weight: 600;
   border-radius: 6px;
   cursor: pointer;
@@ -168,19 +239,19 @@
 }
 
 .speed-btn.active {
-  background: #6366f1;
+  background: #e50914;
   color: #fff;
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.6);
 }
 
 /* ── Input Panel ── */
 .vp-input-panel {
-  margin-top: 1rem;
-  padding: 1.25rem;
-  background: var(--color-surface, #12141f);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  margin-top: 1.25rem;
+  padding: 1.35rem;
+  background: #0d0e13;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .vp-form {
@@ -330,11 +401,12 @@
 
 /* ── Guide Section ── */
 .vp-guide {
-  margin-top: 1.5rem;
+  margin-top: 1.75rem;
   padding: 1.75rem;
-  background: var(--color-surface, #12141f);
+  background: #0d0e13;
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .vp-guide-header {
@@ -345,44 +417,57 @@
 }
 
 .vp-guide-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: rgba(99, 102, 241, 0.15);
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(229, 9, 20, 0.15);
+  border: 1px solid rgba(229, 9, 20, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6366f1;
+  color: #ff2a44;
   flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(229, 9, 20, 0.2);
 }
 
 .vp-guide-steps {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.9rem;
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
 .vp-step-card {
-  background: var(--color-bg, #0d0f1c);
-  padding: 1.1rem;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: #111218;
+  padding: 1.15rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.vp-step-card:hover {
+  border-color: rgba(229, 9, 20, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7);
 }
 
 .vp-step-badge {
-  width: 27px;
-  height: 27px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   font-weight: 800;
   font-size: 0.82rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0f172a;
+  background: linear-gradient(135deg, #ff2a44 0%, #b30018 100%);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.4);
   flex-shrink: 0;
 }
 
@@ -390,8 +475,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .vp-feature-item {
@@ -399,5 +484,5 @@
   align-items: center;
   gap: 8px;
   font-size: 0.82rem;
-  color: var(--color-text-muted, #64748b);
+  color: #8b92a9;
 }
