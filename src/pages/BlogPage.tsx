@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Calendar, Clock, ArrowRight, Tag, BookOpen } from 'lucide-react';
 import { getPublishedPosts } from '../data/blogRegistry';
@@ -8,8 +8,12 @@ import './BlogPage.css';
 export default function BlogPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
 
-  const allPosts = useMemo(() => getPublishedPosts(), []);
+  useEffect(() => {
+    getPublishedPosts().then((posts) => { setAllPosts(posts); setLoadingPosts(false); }).catch(() => setLoadingPosts(false));
+  }, []);
 
   const categories = useMemo(() => {
     const cats = new Set(allPosts.map(p => p.category));

@@ -1,24 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { ChevronRight, Calendar, Clock, ArrowLeft, Share2, Check, Bookmark, Heart } from 'lucide-react';
 import { getPostBySlug, getPublishedPosts } from '../data/blogRegistry';
+import type { BlogPost } from '../data/blogRegistry';
 import NewsletterSignup from '../components/NewsletterSignup';
 import AdPlaceholder from '../components/AdPlaceholder';
 import './BlogPostPage.css';
 
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>();
-  const post = slug ? getPostBySlug(slug) : undefined;
+  const [post, setPost] = useState<BlogPost | null | undefined>(undefined);
+  const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([]);
   const [copied, setCopied] = useState(false);
   const [likes, setLikes] = useState(48);
   const [hasLiked, setHasLiked] = useState(false);
 
-  if (!post) {
-    return <Navigate to="/blog" replace />;
-  }
+  useEffect(() => {
+    if (!slug) { setPost(null); return; }
+    getPostBySlug(slug).then((p) => {
+      setPost(p || null);
+      if (p) {
+        getPublishedPosts().then((all) => setRelatedPosts(all.filter((x) => x.id !== p.id).slice(0, 3)));
+      }
+    }).catch(() => setPost(null));
+  }, [slug]);
 
-  const allPosts = getPublishedPosts();
-  const relatedPosts = allPosts.filter(p => p.id !== post.id).slice(0, 3);
+  if (post === undefined) return <div style={{ padding: 64, textAlign: 'center', color: '#8b92a9' }}>Loading...</div>;
+  if (!post) return <Navigate to="/blog" replace />;
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
