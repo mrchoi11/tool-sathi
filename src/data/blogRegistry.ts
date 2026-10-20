@@ -1,4 +1,4 @@
-﻿import {
+import {
   collection, doc, getDocs, getDoc, setDoc, deleteDoc,
   query, where, orderBy, Timestamp, writeBatch
 } from "firebase/firestore";
@@ -72,13 +72,59 @@ export async function deletePost(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION, id));
 }
 
-// ─── IMAGE UPLOAD ─────────────────────────────────────────────────────────────
+// ─── IMAGE UPLOAD (100% Free - Auto Canvas Compression & Base64 Fallback) ──────
 
 export async function uploadCoverImage(file: File, postId: string): Promise<string> {
-  const ext = file.name.split(".").pop();
-  const storageRef = ref(storage, `blog-covers/${postId}.${ext}`);
-  await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
+  // First, convert to compressed base64 (works 100% free without Firebase Storage / Blaze plan)
+  const compressToBase64 = (imgFile: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 630;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          // High quality compressed webp/jpeg (~40KB - 80KB)
+          const dataUrl = canvas.toDataURL("image/webp", 0.82);
+          resolve(dataUrl);
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(imgFile);
+    });
+  };
+
+  try {
+    const ext = file.name.split(".").pop();
+    const storageRef = ref(storage, `blog-covers/${postId}.${ext}`);
+    await uploadBytes(storageRef, file);
+    return await getDownloadURL(storageRef);
+  } catch (err) {
+    console.warn("Firebase Storage unavailable or requires Blaze plan, using free base64 fallback:", err);
+    return await compressToBase64(file);
+  }
 }
 
 // ─── SEED DEFAULTS ───────────────────────────────────────────────────────────
