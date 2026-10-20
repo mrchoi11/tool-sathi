@@ -2,8 +2,7 @@ import {
   collection, doc, getDocs, getDoc, setDoc, deleteDoc,
   query, where, orderBy, Timestamp, writeBatch
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../lib/firebase";
+import { db } from "../lib/firebase";
 
 export interface BlogPost {
   id: string;
@@ -65,23 +64,29 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | undefined>
 
 export async function savePost(post: BlogPost): Promise<void> {
   const { id, ...data } = post;
-  await setDoc(doc(db, COLLECTION, id), data, { merge: true });
+  
+  // 12s timeout so it never hangs indefinitely
+  const savePromise = setDoc(doc(db, COLLECTION, id), data, { merge: true });
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Connection timeout: Firestore Database may not be created or Rules are blocking writes.")), 12000)
+  );
+
+  await Promise.race([savePromise, timeoutPromise]);
 }
 
 export async function deletePost(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION, id));
 }
 
-// ─── IMAGE UPLOAD (100% Free - Auto Canvas Compression & Base64 Fallback) ──────
+// ─── IMAGE UPLOAD (100% Free - Instant In-Browser WebP Compression) ──────────
 
-export async function uploadCoverImage(file: File, postId: string): Promise<string> {
-  // First, convert to compressed base64 (works 100% free without Firebase Storage / Blaze plan)
-  const compressToBase64 = (imgFile: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
+export async function uploadCoverImage(file: File, _postId: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
           const canvas = document.createElement("canvas");
           const MAX_WIDTH = 1200;
           const MAX_HEIGHT = 630;
@@ -104,27 +109,20 @@ export async function uploadCoverImage(file: File, postId: string): Promise<stri
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           ctx?.drawImage(img, 0, 0, width, height);
-          // High quality compressed webp/jpeg (~40KB - 80KB)
+          
+          // Instant base64 WebP (~30-60KB) - Saves directly to Firestore, 0ms network latency
           const dataUrl = canvas.toDataURL("image/webp", 0.82);
           resolve(dataUrl);
-        };
-        img.onerror = reject;
-        img.src = e.target?.result as string;
+        } catch (canvasErr) {
+          reject(canvasErr);
+        }
       };
-      reader.onerror = reject;
-      reader.readAsDataURL(imgFile);
-    });
-  };
-
-  try {
-    const ext = file.name.split(".").pop();
-    const storageRef = ref(storage, `blog-covers/${postId}.${ext}`);
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
-  } catch (err) {
-    console.warn("Firebase Storage unavailable or requires Blaze plan, using free base64 fallback:", err);
-    return await compressToBase64(file);
-  }
+      img.onerror = () => reject(new Error("Failed to load selected image"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("Failed to read image file"));
+    reader.readAsDataURL(file);
+  });
 }
 
 // ─── SEED DEFAULTS ───────────────────────────────────────────────────────────

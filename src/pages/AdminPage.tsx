@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   Lock, KeyRound, User, LogOut, Plus, Edit2, Trash2, Eye,
@@ -255,8 +255,11 @@ export default function AdminPage() {
       setSaveMsg("ok");
       await loadPosts();
       setTimeout(() => { setSaveMsg(""); setTab("posts"); }, 1400);
-    } catch (err) { console.error(err); setSaveMsg("err"); }
-    finally { setSaving(false); }
+    } catch (err: any) {
+      console.error("Save error:", err);
+      setSaveMsg("err");
+      alert("Publish Error: " + (err?.message || "Please check Firestore Database and Rules in Firebase Console."));
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string, title: string) => {
