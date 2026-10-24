@@ -209,14 +209,35 @@
   font-weight: 500;
 }
 
-/* ── Speed Selector ── */
-.speed-selector {
+/* ── Speed Selector & Mobile Speed Dropdown ── */
+.speed-selector-desktop {
   display: flex;
   background: rgba(20, 21, 28, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   padding: 2px;
   gap: 1px;
+}
+
+.speed-selector-mobile {
+  display: none;
+  position: relative;
+}
+
+.speed-select-native {
+  background: rgba(20, 21, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+}
+
+.speed-select-native:focus {
+  border-color: #e50914;
 }
 
 .speed-btn {
@@ -298,10 +319,13 @@
     font-size: 0.9rem;
   }
 
-  /* Slightly smaller speed buttons on mobile */
-  .speed-btn {
-    padding: 4px 5px;
-    font-size: 0.68rem;
+  .speed-selector-desktop {
+    display: none !important;
+  }
+
+  .speed-selector-mobile {
+    display: flex !important;
+    align-items: center;
   }
 
   .time-display {

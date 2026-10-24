@@ -1,57 +1,97 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Play, AlertCircle, RefreshCw, Film, ExternalLink, Download, Check, ShieldCheck, Zap, Settings } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { 
+  Play, Pause, Volume2, VolumeX, Maximize, Minimize,
+  AlertTriangle, Check, RotateCcw, Clipboard, Film, Sparkles,
+  CheckCircle2, ArrowRight, ShieldCheck, Zap
+} from 'lucide-react';
 import Hls from 'hls.js';
+import './tools.css';
 import './VideoPlayer.css';
 
-interface StreamResponse {
-  success: boolean;
-  videoUrl?: string;
-  streamUrl?: string;
-  proxyStreamUrl?: string;
-  title?: string;
-  format?: 'mp4' | 'hls' | 'webm' | string;
-  size?: number;
-  error?: string;
+interface FileMetadata {
+  name?: string;
+  size?: number | string;
+  format?: string;
 }
 
 export default function DiskwalaVideoPlayer() {
   const [inputUrl, setInputUrl] = useState<string>('');
-  const [backendUrl, setBackendUrl] = useState<string>(
+  const [backendUrl] = useState<string>(
     import.meta.env.VITE_BACKEND_URL ||
     import.meta.env.VITE_GATEWAY_URL ||
     'https://tool-sathi-tool-sathi.up.railway.app'
   );
-  const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [currentStreamUrl, setCurrentStreamUrl] = useState<string | null>(null);
-  const [videoTitle, setVideoTitle] = useState<string>('Diskwala Stream');
-  const [streamFormat, setStreamFormat] = useState<string>('mp4');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [hasStream, setHasStream] = useState<boolean>(false);
+  const [metadata, setMetadata] = useState<FileMetadata | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [useProxy, setUseProxy] = useState<boolean>(false);
-  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [pastedFeedback, setPastedFeedback] = useState<boolean>(false);
+  const [isBuffering, setIsBuffering] = useState<boolean>(false);
+
+  // Playback states
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
+  const [volume, setVolume] = useState<number>(0.9);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [controlsVisible, setControlsVisible] = useState<boolean>(true);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sample Diskwala links to test immediately
-  const sampleLinks = [
-    { label: 'Sample 1', url: 'https://www.diskwala.com/app/6acf185b2a52418b2433aeb6' },
-    { label: 'Direct HLS Stream', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
-    { label: 'Direct MP4 Stream', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' }
-  ];
-
-  // Clean up HLS instance on unmount
   useEffect(() => {
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
     };
   }, []);
 
-  // Play a given direct video or HLS stream in the HTML5 video player
-  const attachStreamToPlayer = (streamLink: string) => {
+  const formatSeconds = (sec: number): string => {
+    if (isNaN(sec) || sec <= 0) return '00:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          setInputUrl(text.trim());
+          setPastedFeedback(true);
+          setTimeout(() => setPastedFeedback(false), 2000);
+        }
+      }
+    } catch (err) {
+      console.warn('Clipboard read permission denied:', err);
+    }
+  };
+
+  const resetControlsTimeout = useCallback(() => {
+    setControlsVisible(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setControlsVisible(false);
+      }, 3500);
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    resetControlsTimeout();
+  }, [isPlaying, resetControlsTimeout]);
+
+  const attachAndPlayStream = useCallback((streamUrl: string) => {
     const video = videoRef.current;
     if (!video) return;
 
@@ -60,436 +100,488 @@ export default function DiskwalaVideoPlayer() {
       hlsRef.current = null;
     }
 
-    const isHls = streamLink.includes('.m3u8') || streamFormat === 'hls';
+    setErrorMessage(null);
+    setIsLoading(true);
+    setHasStream(true);
+
+    const isHls = streamUrl.includes('.m3u8');
+
+    const playNative = () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      video.src = streamUrl;
+      video.preload = 'auto';
+      video.load();
+
+      const onCanPlay = () => {
+        setIsLoading(false);
+        setIsBuffering(false);
+        video.removeEventListener('canplay', onCanPlay);
+        video.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      };
+
+      video.addEventListener('canplay', onCanPlay);
+
+      video.onerror = () => {
+        setIsLoading(false);
+        setIsBuffering(false);
+        setErrorMessage('Failed to load video stream. Please check your link.');
+      };
+    };
 
     if (isHls && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
+        backBufferLength: 60
       });
-      hlsRef.current = hls;
-      hls.loadSource(streamLink);
+
+      hls.loadSource(streamUrl);
       hls.attachMedia(video);
+
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(e => console.warn('Autoplay prevented:', e));
+        setIsLoading(false);
+        video.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
       });
+
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
-          console.error('HLS fatal error:', data);
-          setErrorMessage('Stream playback error. Trying standard fallback...');
-          video.src = streamLink;
+          hls.destroy();
+          hlsRef.current = null;
+          playNative();
         }
       });
+
+      hlsRef.current = hls;
+    } else if (video.canPlayType('application/vnd.apple.mpegurl') && isHls) {
+      video.src = streamUrl;
+      video.onloadeddata = () => {
+        setIsLoading(false);
+        video.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      };
+      video.onerror = () => playNative();
     } else {
-      // Direct MP4 / WebM / native HLS (Safari)
-      video.src = streamLink;
-      video.load();
-      video.play().catch(e => console.warn('Autoplay prevented by browser:', e));
+      playNative();
     }
-  };
+  }, []);
 
-  // Stream source attribution label
-  const [streamSource, setStreamSource] = useState<string | null>(null);
-  const [hintMessages, setHintMessages] = useState<string[]>([]);
+  const handlePlaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = inputUrl.trim();
+    if (!raw) return;
 
-  // Main fetch function — tries /api/diskwala-proxy first (smarter), falls back to /api/get-video-stream
-  const handlePlayVideo = async (urlToFetch?: string) => {
-    const targetUrl = (urlToFetch || inputUrl).trim();
-    if (!targetUrl) {
-      setErrorMessage('Please enter a valid Diskwala video URL!');
-      return;
-    }
-
-    setIsLoading(true);
     setErrorMessage(null);
-    setStreamSource(null);
-    setHintMessages([]);
+    setIsLoading(true);
 
-    // If already a direct MP4 or M3U8, play directly without hitting backend
-    if (targetUrl.match(/\.(mp4|m3u8|webm)(\?.*)?$/i)) {
-      setCurrentStreamUrl(targetUrl);
-      setVideoTitle('Direct Video Stream');
-      setStreamFormat(targetUrl.includes('.m3u8') ? 'hls' : 'mp4');
-      setStreamSource('direct');
-      setIsLoading(false);
-      setTimeout(() => attachStreamToPlayer(targetUrl), 100);
+    // Direct video stream passthrough
+    if (raw.match(/\.(mp4|m3u8|webm)(\?.*)?$/i)) {
+      setMetadata({ name: raw.split('/').pop()?.split('?')[0] || 'Direct Video' });
+      attachAndPlayStream(raw);
       return;
     }
 
-    const base = backendUrl.trim().replace(/\/$/, '');
-
-    // Try the new smarter proxy endpoint first
+    const cleanBackend = backendUrl.replace(/\/$/, '');
     const endpoints = [
-      `${base}/api/diskwala-proxy?url=${encodeURIComponent(targetUrl)}`,
-      `${base}/api/get-video-stream?url=${encodeURIComponent(targetUrl)}`,
+      `${cleanBackend}/api/diskwala-proxy?url=${encodeURIComponent(raw)}`,
+      `${cleanBackend}/api/get-video-stream?url=${encodeURIComponent(raw)}`
     ];
 
-    let lastError = '';
-    let lastHints: string[] = [];
+    let lastError = 'Unable to extract stream link. Please verify the URL.';
 
-    for (const apiUrl of endpoints) {
+    for (const endpoint of endpoints) {
       try {
-        const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
-        const data: any = await res.json().catch(() => ({}));
+        const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } });
+        const data = await res.json().catch(() => ({}));
 
         if (data?.success && (data.streamUrl || data.videoUrl)) {
-          const streamLink = data.streamUrl || data.videoUrl;
-          const proxyFull = data.proxyStreamUrl
-            ? (data.proxyStreamUrl.startsWith('http') ? data.proxyStreamUrl : `${base}${data.proxyStreamUrl}`)
-            : null;
-
-          const activeUrl = useProxy && proxyFull ? proxyFull : streamLink;
-          setCurrentStreamUrl(streamLink);
-          setProxyUrl(proxyFull);
-          setVideoTitle(data.title || data.fileInfo?.name || 'Diskwala Video');
-          setStreamFormat(data.format || (streamLink.includes('.m3u8') ? 'hls' : 'mp4'));
-          setStreamSource(data.source || 'backend');
-          setIsLoading(false);
-          setTimeout(() => attachStreamToPlayer(activeUrl), 100);
-          return; // ✅ success
+          const stream = data.streamUrl || data.videoUrl;
+          setMetadata({
+            name: data.title || data.fileInfo?.name || 'Diskwala Video',
+            size: data.fileInfo?.size
+          });
+          attachAndPlayStream(stream);
+          return;
         }
 
-        // Collect error/hints for display if all endpoints fail
-        lastError = data?.error || `Server responded with status ${res.status}`;
-        lastHints = data?.hint || [];
+        if (data?.error) {
+          lastError = data.error;
+        }
       } catch (err: any) {
-        lastError = err.message;
-        lastHints = [];
+        lastError = err.message || 'Connection error with streaming server.';
       }
     }
 
-    // All endpoints failed
     setIsLoading(false);
-    setErrorMessage(lastError || 'Could not extract stream link.');
-    setHintMessages(lastHints);
+    setErrorMessage(lastError);
   };
 
-  const handleToggleProxy = (enabled: boolean) => {
-    setUseProxy(enabled);
-    if (currentStreamUrl) {
-      const activeLink = enabled && proxyUrl ? proxyUrl : currentStreamUrl;
-      attachStreamToPlayer(activeLink);
-    }
-  };
-
-  const handleClear = () => {
-    setInputUrl('');
-    setCurrentStreamUrl(null);
-    setErrorMessage(null);
-    if (videoRef.current) {
+  const togglePlay = () => {
+    if (!videoRef.current) return;
+    if (isPlaying) {
       videoRef.current.pause();
-      videoRef.current.src = '';
+      setIsPlaying(false);
+    } else {
+      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
     }
   };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    setCurrentTime(time);
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+    }
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = speed;
+    }
+  };
+
+  const toggleFullscreen = () => {
+    const container = playerContainerRef.current;
+    const video = videoRef.current;
+    if (!container) return;
+
+    if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+    } else {
+      const req = container.requestFullscreen ||
+        (container as any).webkitRequestFullscreen ||
+        (container as any).mozRequestFullScreen ||
+        (container as any).msRequestFullscreen;
+
+      if (req) {
+        req.call(container).catch(() => {
+          if (video && (video as any).webkitEnterFullscreen) {
+            (video as any).webkitEnterFullscreen();
+          }
+        });
+      } else if (video && (video as any).webkitEnterFullscreen) {
+        (video as any).webkitEnterFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   return (
-    <div className="vp-container">
-      {/* Top Banner / Hero */}
-      <div className="vp-banner glass">
-        <div className="vp-badge">
-          <Film size={14} />
-          <span>Diskwala Direct Stream Engine</span>
-        </div>
-        <h2 className="vp-banner-title">Diskwala Video Player</h2>
-        <p className="vp-banner-subtitle">
-          Watch Diskwala videos directly in your browser without iframes, popups, or installing apps.
-        </p>
-
-        {/* Input Bar Form */}
-        <form
-          className="vp-url-bar"
-          onSubmit={e => {
-            e.preventDefault();
-            handlePlayVideo();
-          }}
-        >
-          <input
-            type="text"
-            className="vp-url-input"
-            value={inputUrl}
-            onChange={e => setInputUrl(e.target.value)}
-            placeholder="Paste Diskwala link (e.g., https://www.diskwala.com/app/6acf185b2a52418b2433aeb6)..."
-            disabled={isLoading}
-          />
-          {inputUrl && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={handleClear}
-              style={{ marginRight: '8px' }}
-            >
-              Clear
-            </button>
-          )}
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={isLoading || !inputUrl.trim()}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: '130px', justifyContent: 'center' }}
+    <div className="tool-container" style={{ maxWidth: '860px', margin: '0 auto' }}>
+      {/* Video Player Display — Only shown after a video link is submitted/fetched */}
+      {hasStream && (
+        <div className="player-wrapper" style={{ marginBottom: '1.25rem' }}>
+          <div
+            ref={playerContainerRef}
+            className={`video-player-frame aspect-16-9 ${isFullscreen ? 'is-fullscreen' : ''} ${!controlsVisible && isPlaying ? 'controls-hidden' : ''}`}
+            onMouseMove={resetControlsTimeout}
+            onMouseEnter={resetControlsTimeout}
+            onTouchStart={resetControlsTimeout}
+            onDoubleClick={toggleFullscreen}
+            onMouseLeave={() => { if (isPlaying) setControlsVisible(false); }}
+            style={{ position: 'relative', background: '#07070a', overflow: 'hidden' }}
           >
-            {isLoading ? (
-              <>
-                <RefreshCw size={16} className="spin-animation" />
-                <span>Loading...</span>
-              </>
-            ) : (
-              <>
-                <Play size={16} />
-                <span>Play Video</span>
-              </>
+            <video
+              ref={videoRef}
+              preload="auto"
+              onTimeUpdate={() => videoRef.current && setCurrentTime(videoRef.current.currentTime)}
+              onLoadedMetadata={() => videoRef.current && setDuration(videoRef.current.duration)}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onWaiting={() => setIsBuffering(true)}
+              onPlaying={() => setIsBuffering(false)}
+              onCanPlay={() => setIsBuffering(false)}
+              onClick={togglePlay}
+              playsInline
+              style={{ width: '100%', height: '100%', display: 'block' }}
+            />
+
+            {/* Buffering Pill Badge */}
+            {isBuffering && isPlaying && !isLoading && (
+              <div style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(8px)',
+                padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.12)',
+                display: 'flex', alignItems: 'center', gap: '8px', zIndex: 9,
+                color: '#38bdf8', fontSize: '0.8rem', fontWeight: 600, pointerEvents: 'none'
+              }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8' }} />
+                <span>Buffering stream...</span>
+              </div>
             )}
-          </button>
-        </form>
 
-        {/* Quick test buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Try example link:</span>
-          {sampleLinks.map((s, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => {
-                setInputUrl(s.url);
-                handlePlayVideo(s.url);
-              }}
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', border: '1px solid var(--color-border)' }}
-            >
-              <Zap size={12} style={{ marginRight: '4px', color: 'var(--color-accent)' }} />
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Backend Server Configuration Toggle */}
-        <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-            Railway Backend: <span style={{ color: 'var(--color-primary)', fontFamily: 'monospace' }}>{backendUrl}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowSettings(!showSettings)}
-            className="btn btn-ghost btn-sm"
-            style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-          >
-            <Settings size={12} style={{ marginRight: '4px' }} />
-            {showSettings ? 'Hide Settings' : 'Change Backend URL'}
-          </button>
-        </div>
-
-        {showSettings && (
-          <div style={{
-            marginTop: '10px',
-            padding: '12px 14px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)'
-          }}>
-            <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>
-              Railway Backend Endpoint:
-            </label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={backendUrl}
-                onChange={e => setBackendUrl(e.target.value)}
-                placeholder="https://tool-sathi-tool-sathi.up.railway.app"
-                className="vp-url-input"
-                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className="btn btn-primary btn-sm"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Error Message Alert */}
-      {errorMessage && (
-        <div style={{
-          padding: '16px 20px',
-          margin: '20px 0',
-          borderRadius: 'var(--radius-lg)',
-          backgroundColor: 'rgba(239, 68, 68, 0.08)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
-          color: '#f87171',
-          fontSize: '0.9rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
-            <AlertCircle size={22} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
-            <div style={{ flex: 1 }}>
-              <strong style={{ display: 'block', color: '#fff', fontSize: '0.95rem', marginBottom: '4px' }}>
-                Playback Notice: Diskwala Link Protected
-              </strong>
-              <div>{errorMessage}</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setErrorMessage(null); setHintMessages([]); }}
-              className="btn btn-ghost btn-sm"
-              style={{ padding: '2px 8px' }}
-            >
-              Dismiss
-            </button>
-          </div>
-
-          <div style={{
-            marginTop: '12px',
-            paddingTop: '10px',
-            borderTop: '1px solid rgba(239, 68, 68, 0.2)',
-            fontSize: '0.82rem',
-            color: 'var(--color-text-muted)'
-          }}>
-            <p style={{ margin: '0 0 6px 0' }}>
-              💡 <strong>Why this happens:</strong> Diskwala blocks web streaming via a proprietary
-              <code> Appicrypt</code> WASM signature system — only their mobile app can pass this check.
-            </p>
-            {hintMessages.length > 0 ? (
-              <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
-                {hintMessages.map((h, i) => <li key={i} style={{ marginBottom: '4px' }}>🚀 {h}</li>)}
-              </ul>
-            ) : (
-              <p style={{ margin: 0 }}>
-                🚀 <strong>Quick fix:</strong> Paste a direct <code>.mp4</code> or <code>.m3u8</code> link,
-                or set <code>DISKWALA_API_KEY</code> / <code>DISKWALA_RESOLVER_URL</code> in Railway <code>.env</code>.
-              </p>
+            {/* Loading Overlay */}
+            {isLoading && (
+              <div style={{
+                position: 'absolute', inset: 0, background: 'rgba(7, 7, 10, 0.85)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                zIndex: 10, backdropFilter: 'blur(6px)'
+              }}>
+                <p style={{ color: '#f8fafc', fontSize: '0.98rem', fontWeight: 600, marginTop: '8px' }}>
+                  Loading video...
+                </p>
+              </div>
             )}
+
+            {/* Error Message Overlay */}
+            {errorMessage && (
+              <div style={{
+                position: 'absolute', inset: 0, background: 'rgba(10, 11, 18, 0.94)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                padding: '2rem', textAlign: 'center', zIndex: 12
+              }}>
+                <AlertTriangle size={40} style={{ color: '#ef4444', marginBottom: '0.75rem' }} />
+                <h4 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', marginBottom: '0.4rem' }}>
+                  Playback Notice
+                </h4>
+                <p style={{ color: '#94a3b8', maxWidth: '480px', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+                  {errorMessage}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setErrorMessage(null);
+                    if (inputUrl.trim()) {
+                      handlePlaySubmit({ preventDefault: () => {} } as React.FormEvent);
+                    }
+                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.55rem 1.25rem' }}
+                >
+                  <RotateCcw size={15} /> Try Again
+                </button>
+              </div>
+            )}
+
+            {/* Custom Controls */}
+            <div className="player-controls">
+              <div className="timeline-container">
+                <input
+                  type="range"
+                  min="0"
+                  max={duration || 100}
+                  value={currentTime}
+                  onChange={handleSeek}
+                  className="timeline-range"
+                  aria-label="Seekbar"
+                />
+              </div>
+
+              <div className="controls-row">
+                <div className="controls-left">
+                  <button type="button" onClick={togglePlay} className="ctrl-btn" title={isPlaying ? 'Pause' : 'Play'}>
+                    {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                  </button>
+
+                  <button type="button" onClick={() => {
+                    const nextMute = !isMuted;
+                    setIsMuted(nextMute);
+                    if (videoRef.current) videoRef.current.muted = nextMute;
+                  }} className="ctrl-btn" title={isMuted ? 'Unmute' : 'Mute'}>
+                    {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                  </button>
+
+                  <span className="time-display">
+                    {formatSeconds(currentTime)} / {formatSeconds(duration)}
+                  </span>
+                </div>
+
+                <div className="controls-right">
+                  {/* Desktop Speed Buttons */}
+                  <div className="speed-selector-desktop">
+                    {[0.5, 1, 1.25, 1.5, 2].map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => handleSpeedChange(s)}
+                        className={`speed-btn ${playbackSpeed === s ? 'active' : ''}`}
+                      >
+                        {s}x
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Mobile Speed Dropdown */}
+                  <div className="speed-selector-mobile">
+                    <select
+                      className="speed-select-native"
+                      value={playbackSpeed}
+                      onChange={e => handleSpeedChange(parseFloat(e.target.value))}
+                      aria-label="Playback Speed"
+                    >
+                      {[0.5, 1, 1.25, 1.5, 2].map(s => (
+                        <option key={s} value={s}>{s}x</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    className="ctrl-btn"
+                    title={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen"}
+                    aria-label={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen"}
+                  >
+                    {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Main HTML5 Video Player */}
-      <div className="vp-player-card glass" style={{ position: 'relative', overflow: 'hidden', marginTop: '20px' }}>
-        <div style={{ position: 'relative', backgroundColor: '#000', borderRadius: 'var(--radius-lg)', minHeight: '380px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {isLoading && (
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.75)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10,
-              color: '#fff'
-            }}>
-              <div className="loading-ring" style={{ marginBottom: '14px' }}></div>
-              <p style={{ fontWeight: 600 }}>Fetching direct video stream...</p>
-              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Resolving CDN links without iframes</span>
-            </div>
-          )}
+      {/* Input & Action Controls Panel */}
+      <div className="vp-input-panel">
+        <form onSubmit={handlePlaySubmit} className="vp-form">
+          <div className="vp-input-wrap">
+            <input
+              type="text"
+              className="tool-input"
+              placeholder="Paste your Diskwala link here..."
+              value={inputUrl}
+              onChange={e => setInputUrl(e.target.value)}
+              style={{ width: '100%' }}
+              required
+            />
+          </div>
 
-          <video
-            ref={videoRef}
-            id="diskwala-video-player"
-            controls
-            autoPlay
-            playsInline
-            preload="auto"
-            style={{ width: '100%', maxHeight: '560px', outline: 'none' }}
-          >
-            Your browser does not support the HTML5 video element.
-          </video>
-        </div>
+          <div className="vp-action-row">
+            <button
+              type="button"
+              onClick={handlePasteFromClipboard}
+              className="btn btn-ghost"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--color-border)' }}
+              title="Paste link from clipboard"
+            >
+              {pastedFeedback ? <Check size={16} color="#10b981" /> : <Clipboard size={16} />}
+              <span>{pastedFeedback ? 'Pasted!' : 'Paste'}</span>
+            </button>
 
-        {/* Stream Details & Options Bar */}
-        {currentStreamUrl && (
-          <div style={{
-            padding: '16px 20px',
-            borderTop: '1px solid var(--color-border)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '14px',
-            background: 'rgba(255, 255, 255, 0.02)'
-          }}>
-            <div>
-              <strong style={{ fontSize: '1rem', display: 'block', color: 'var(--color-text)' }}>
-                {videoTitle}
-              </strong>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
-                <span className="format-tag">{streamFormat.toUpperCase()}</span>
-                <span style={{ fontSize: '0.8rem', color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <ShieldCheck size={14} /> Direct Stream Active
+            <button
+              type="button"
+              onClick={() => {
+                if (inputUrl.trim()) {
+                  handlePlaySubmit({ preventDefault: () => {} } as React.FormEvent);
+                }
+              }}
+              disabled={isLoading || !inputUrl.trim()}
+              className="btn btn-ghost"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--color-border)' }}
+              title="Reload video stream"
+            >
+              <RotateCcw size={16} />
+              <span>Reload</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={isLoading || !inputUrl.trim()}
+              className="btn btn-primary vp-play-btn"
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            >
+              {isLoading ? (
+                <>
+                  <span className="spin-animation" style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%' }} />
+                  <span>Loading...</span>
+                </>
+              ) : (
+                <>
+                  <Play size={16} fill="currentColor" />
+                  <span>Play Video</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Metadata Card (if available) */}
+        {metadata && (
+          <div className="vp-meta-card">
+            <div style={{ flex: 1, minWidth: '180px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <Film size={15} style={{ color: 'var(--color-primary)' }} />
+                <span style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                  {metadata.name}
                 </span>
               </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              {/* Proxy toggle */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={useProxy}
-                  onChange={e => handleToggleProxy(e.target.checked)}
-                  style={{ accentColor: 'var(--color-primary)' }}
-                />
-                <span>CORS Proxy Fallback</span>
-              </label>
-
-              {/* Direct link button */}
-              <a
-                href={currentStreamUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-ghost btn-sm"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <ExternalLink size={14} /> Open Stream URL
-              </a>
-
-              {/* Download link button */}
-              <a
-                href={currentStreamUrl}
-                download={videoTitle ? `${videoTitle}.mp4` : 'video.mp4'}
-                className="btn btn-primary btn-sm"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Download size={14} /> Download
-              </a>
             </div>
           </div>
         )}
       </div>
 
-      {/* Feature Highlights Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: '16px',
-        marginTop: '30px'
-      }}>
-        <div className="tool-stat-card glass" style={{ textAlign: 'left', padding: '16px 20px' }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-primary)', marginBottom: '6px' }}>
-            No Iframes or Ads
-          </h4>
-          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>
-            Extracts the pure direct video stream and loads it straight into a native HTML5 video player.
-          </p>
+      {/* Clean User Guide Section (Same design as TeraBox player) */}
+      <div className="vp-guide">
+        <div className="vp-guide-header">
+          <div className="vp-guide-icon">
+            <Sparkles size={20} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
+              How to Play Diskwala Videos
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>
+              Instant high-speed playback in 3 easy steps
+            </p>
+          </div>
         </div>
 
-        <div className="tool-stat-card glass" style={{ textAlign: 'left', padding: '16px 20px' }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#10b981', marginBottom: '6px' }}>
-            HLS & MP4 Compatible
-          </h4>
-          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>
-            Powered by Hls.js to seamlessly play adaptive streaming manifests (.m3u8) as well as MP4 files.
-          </p>
+        <div className="vp-guide-steps">
+          <div className="vp-step-card">
+            <div className="vp-step-badge">1</div>
+            <strong style={{ fontSize: '0.88rem', color: '#f1f5f9' }}>Copy Link</strong>
+            <p style={{ fontSize: '0.78rem', color: '#8b92a9', margin: 0, lineHeight: 1.4 }}>
+              Copy any shared Diskwala link or video URL to your clipboard.
+            </p>
+          </div>
+
+          <div className="vp-step-card">
+            <div className="vp-step-badge">2</div>
+            <strong style={{ fontSize: '0.88rem', color: '#f1f5f9' }}>Paste Link</strong>
+            <p style={{ fontSize: '0.78rem', color: '#8b92a9', margin: 0, lineHeight: 1.4 }}>
+              Click the "Paste" button above to insert your link instantly.
+            </p>
+          </div>
+
+          <div className="vp-step-card">
+            <div className="vp-step-badge">3</div>
+            <strong style={{ fontSize: '0.88rem', color: '#f1f5f9' }}>Stream Online</strong>
+            <p style={{ fontSize: '0.78rem', color: '#8b92a9', margin: 0, lineHeight: 1.4 }}>
+              Click "Play Video" and enjoy smooth, buffer-free playback.
+            </p>
+          </div>
         </div>
 
-        <div className="tool-stat-card glass" style={{ textAlign: 'left', padding: '16px 20px' }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-accent)', marginBottom: '6px' }}>
-            Bypass App Requirement
-          </h4>
-          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>
-            Watch shared Diskwala clips on Desktop or Mobile browser without installing any third-party apps.
-          </p>
+        <div className="vp-feature-row">
+          <div className="vp-feature-item">
+            <CheckCircle2 size={15} color="#10b981" />
+            <span>Ad-free experience</span>
+          </div>
+          <div className="vp-feature-item">
+            <Zap size={15} color="#ff2a44" />
+            <span>Direct stream player</span>
+          </div>
+          <div className="vp-feature-item">
+            <ShieldCheck size={15} color="#3b82f6" />
+            <span>Secure & private</span>
+          </div>
         </div>
       </div>
     </div>

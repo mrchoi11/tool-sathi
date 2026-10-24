@@ -521,7 +521,8 @@ export default function TeraboxVideoPlayer() {
               </div>
 
               <div className="controls-right">
-                <div className="speed-selector">
+                {/* Desktop speed buttons */}
+                <div className="speed-selector-desktop">
                   {[0.5, 1, 1.25, 1.5, 2].map(s => (
                     <button
                       key={s}
@@ -532,6 +533,20 @@ export default function TeraboxVideoPlayer() {
                       {s}x
                     </button>
                   ))}
+                </div>
+
+                {/* Mobile speed dropdown to preserve space and never hide fullscreen button */}
+                <div className="speed-selector-mobile">
+                  <select
+                    className="speed-select-native"
+                    value={playbackSpeed}
+                    onChange={e => handleSpeedChange(parseFloat(e.target.value))}
+                    aria-label="Playback Speed"
+                  >
+                    {[0.5, 1, 1.25, 1.5, 2].map(s => (
+                      <option key={s} value={s}>{s}x</option>
+                    ))}
+                  </select>
                 </div>
 
                 <button
