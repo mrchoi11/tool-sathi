@@ -39,8 +39,20 @@ export async function extractWithPuppeteer(shareUrl) {
       ]
     };
 
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-      launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    const fs = await import('fs');
+    const possiblePaths = [
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable'
+    ].filter(Boolean);
+
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        launchOptions.executablePath = p;
+        break;
+      }
     }
 
     browser = await puppeteer.launch(launchOptions);

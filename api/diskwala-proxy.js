@@ -186,7 +186,7 @@ async function fetchViaInternalApi(fileId, shareUrl) {
 
   let browser = null;
   try {
-    browser = await puppeteer.launch({
+    const launchOptions = {
       headless: 'new',
       args: [
         '--no-sandbox', '--disable-setuid-sandbox',
@@ -195,9 +195,25 @@ async function fetchViaInternalApi(fileId, shareUrl) {
         '--disable-extensions', '--disable-background-networking',
         '--mute-audio',
       ],
-      ...(process.env.PUPPETEER_EXECUTABLE_PATH
-          ? { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH } : {}),
-    });
+    };
+
+    const fs = await import('fs');
+    const possiblePaths = [
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable'
+    ].filter(Boolean);
+
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        launchOptions.executablePath = p;
+        break;
+      }
+    }
+
+    browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
     await page.setUserAgent(MOBILE_HEADERS['User-Agent']);
