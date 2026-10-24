@@ -88,7 +88,11 @@ export default function DiskwalaVideoPlayer() {
     }
   };
 
-  // Main fetch function requested: fetch backend route -> assign directly to player.src
+  // Stream source attribution label
+  const [streamSource, setStreamSource] = useState<string | null>(null);
+  const [hintMessages, setHintMessages] = useState<string[]>([]);
+
+  // Main fetch function — tries /api/diskwala-proxy first (smarter), falls back to /api/get-video-stream
   const handlePlayVideo = async (urlToFetch?: string) => {
     const targetUrl = (urlToFetch || inputUrl).trim();
     if (!targetUrl) {
@@ -98,58 +102,66 @@ export default function DiskwalaVideoPlayer() {
 
     setIsLoading(true);
     setErrorMessage(null);
+    setStreamSource(null);
+    setHintMessages([]);
 
-    // If already a direct MP4 or M3U8, play directly
+    // If already a direct MP4 or M3U8, play directly without hitting backend
     if (targetUrl.match(/\.(mp4|m3u8|webm)(\?.*)?$/i)) {
       setCurrentStreamUrl(targetUrl);
       setVideoTitle('Direct Video Stream');
       setStreamFormat(targetUrl.includes('.m3u8') ? 'hls' : 'mp4');
+      setStreamSource('direct');
       setIsLoading(false);
       setTimeout(() => attachStreamToPlayer(targetUrl), 100);
       return;
     }
 
-    try {
-      // Call Railway backend route: https://your-backend.up.railway.app/api/get-video-stream?url=...
-      const base = backendUrl.trim().replace(/\/$/, '');
-      const apiUrl = `${base}/api/get-video-stream?url=${encodeURIComponent(targetUrl)}`;
-      
-      const res = await fetch(apiUrl, {
-        headers: { 'Accept': 'application/json' }
-      });
+    const base = backendUrl.trim().replace(/\/$/, '');
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Backend server responded with status ${res.status}`);
+    // Try the new smarter proxy endpoint first
+    const endpoints = [
+      `${base}/api/diskwala-proxy?url=${encodeURIComponent(targetUrl)}`,
+      `${base}/api/get-video-stream?url=${encodeURIComponent(targetUrl)}`,
+    ];
+
+    let lastError = '';
+    let lastHints: string[] = [];
+
+    for (const apiUrl of endpoints) {
+      try {
+        const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
+        const data: any = await res.json().catch(() => ({}));
+
+        if (data?.success && (data.streamUrl || data.videoUrl)) {
+          const streamLink = data.streamUrl || data.videoUrl;
+          const proxyFull = data.proxyStreamUrl
+            ? (data.proxyStreamUrl.startsWith('http') ? data.proxyStreamUrl : `${base}${data.proxyStreamUrl}`)
+            : null;
+
+          const activeUrl = useProxy && proxyFull ? proxyFull : streamLink;
+          setCurrentStreamUrl(streamLink);
+          setProxyUrl(proxyFull);
+          setVideoTitle(data.title || data.fileInfo?.name || 'Diskwala Video');
+          setStreamFormat(data.format || (streamLink.includes('.m3u8') ? 'hls' : 'mp4'));
+          setStreamSource(data.source || 'backend');
+          setIsLoading(false);
+          setTimeout(() => attachStreamToPlayer(activeUrl), 100);
+          return; // ✅ success
+        }
+
+        // Collect error/hints for display if all endpoints fail
+        lastError = data?.error || `Server responded with status ${res.status}`;
+        lastHints = data?.hint || [];
+      } catch (err: any) {
+        lastError = err.message;
+        lastHints = [];
       }
-
-      const data: any = await res.json();
-      const streamLink = data.streamUrl || data.videoUrl;
-
-      if (!data.success || !streamLink) {
-        throw new Error(data.error || 'Could not extract direct stream link from Diskwala.');
-      }
-
-      const proxyFull = data.proxyStreamUrl
-        ? (data.proxyStreamUrl.startsWith('http') ? data.proxyStreamUrl : `${base}${data.proxyStreamUrl}`)
-        : null;
-
-      const activeUrl = useProxy && proxyFull ? proxyFull : streamLink;
-      setCurrentStreamUrl(streamLink);
-      setProxyUrl(proxyFull);
-      setVideoTitle(data.title || data.fileInfo?.name || 'Diskwala Video');
-      setStreamFormat(data.format || (streamLink.includes('.m3u8') ? 'hls' : 'mp4'));
-      setIsLoading(false);
-
-      // Assign returned direct link directly to HTML5 video player
-      setTimeout(() => attachStreamToPlayer(activeUrl), 100);
-    } catch (err: any) {
-      console.error('Error fetching Diskwala video stream:', err);
-      setIsLoading(false);
-      setErrorMessage(
-        `Backend Connection Error: ${err.message}. Make sure your Railway server (${backendUrl}) is running and accessible.`
-      );
     }
+
+    // All endpoints failed
+    setIsLoading(false);
+    setErrorMessage(lastError || 'Could not extract stream link.');
+    setHintMessages(lastHints);
   };
 
   const handleToggleProxy = (enabled: boolean) => {
@@ -318,7 +330,7 @@ export default function DiskwalaVideoPlayer() {
             </div>
             <button
               type="button"
-              onClick={() => setErrorMessage(null)}
+              onClick={() => { setErrorMessage(null); setHintMessages([]); }}
               className="btn btn-ghost btn-sm"
               style={{ padding: '2px 8px' }}
             >
@@ -334,11 +346,19 @@ export default function DiskwalaVideoPlayer() {
             color: 'var(--color-text-muted)'
           }}>
             <p style={{ margin: '0 0 6px 0' }}>
-              💡 <strong>Why this happens:</strong> Diskwala does not stream videos on web browsers and locks links behind their Android/iOS apps with Appicrypt signature checks.
+              💡 <strong>Why this happens:</strong> Diskwala blocks web streaming via a proprietary
+              <code> Appicrypt</code> WASM signature system — only their mobile app can pass this check.
             </p>
-            <p style={{ margin: 0 }}>
-              🚀 <strong>Quick Solution:</strong> If you have an extraction key (e.g., from <code>teraboxapi.com</code>), set <code>DISKWALA_API_KEY</code> in your <code>.env</code> file, or paste direct <code>.m3u8</code> / <code>.mp4</code> streaming links directly.
-            </p>
+            {hintMessages.length > 0 ? (
+              <ul style={{ margin: '6px 0 0 0', paddingLeft: '18px' }}>
+                {hintMessages.map((h, i) => <li key={i} style={{ marginBottom: '4px' }}>🚀 {h}</li>)}
+              </ul>
+            ) : (
+              <p style={{ margin: 0 }}>
+                🚀 <strong>Quick fix:</strong> Paste a direct <code>.mp4</code> or <code>.m3u8</code> link,
+                or set <code>DISKWALA_API_KEY</code> / <code>DISKWALA_RESOLVER_URL</code> in Railway <code>.env</code>.
+              </p>
+            )}
           </div>
         </div>
       )}

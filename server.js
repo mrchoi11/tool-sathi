@@ -400,6 +400,14 @@ app.get('/api', async (req, res) => {
 import diskwalaStreamHandler from './api/get-video-stream.js';
 app.all('/api/get-video-stream', (req, res) => diskwalaStreamHandler(req, res));
 
+/**
+ * 5. Diskwala Proxy — Mobile UA + HTML scan + Puppeteer intercept + External resolver
+ * GET  /api/diskwala-proxy?url=<diskwala_share_link>
+ * POST /api/diskwala-proxy   { "url": "<diskwala_share_link>" }
+ */
+import diskwalaProxyHandler from './api/diskwala-proxy.js';
+app.all('/api/diskwala-proxy', (req, res) => diskwalaProxyHandler(req, res));
+
 app.listen(PORT, () => {
   console.log(`===============================================`);
   console.log(` TeraBox Streaming Proxy v2 Running on :${PORT}`);
