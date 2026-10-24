@@ -20,7 +20,6 @@
 import axios from 'axios';
 import https from 'https';
 import { createHash } from 'crypto';
-import { WebAssembly as WA } from 'node:module'; // polyfill guard
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DISKWALA_API  = 'https://ddudapidd.diskwala.com/api/v1';
