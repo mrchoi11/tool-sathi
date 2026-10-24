@@ -112,20 +112,24 @@
       }
 
       try {
-        // Send Diskwala URL to backend route
-        const apiUrl = '/api/get-video-stream?url=' + encodeURIComponent(url);
+        // Send Diskwala URL to Railway backend route
+        const railwayBackend = 'https://tool-sathi-tool-sathi.up.railway.app';
+        const apiUrl = railwayBackend + '/api/get-video-stream?url=' + encodeURIComponent(url);
+        
         const res = await fetch(apiUrl);
         const data = await res.json();
 
         loadingStatus.classList.add('hidden');
         playBtn.disabled = false;
 
-        if (data.success && data.streamUrl) {
-          loadStream(data.streamUrl, data.title || 'Diskwala Video', data.format || 'mp4');
+        const streamUrl = data.streamUrl || data.videoUrl;
+
+        if (data.success && streamUrl) {
+          loadStream(streamUrl, data.title || 'Diskwala Video', data.format || 'mp4');
           metaBox.classList.remove('hidden');
           document.getElementById('videoTitle').textContent = data.title || 'Diskwala Video';
           document.getElementById('videoFormat').textContent = 'Stream: ' + (data.format ? data.format.toUpperCase() : 'MP4');
-          document.getElementById('streamLinkBtn').href = data.streamUrl;
+          document.getElementById('streamLinkBtn').href = streamUrl;
         } else {
           errorAlert.textContent = data.error || 'Failed to extract video stream link.';
           errorAlert.classList.remove('hidden');

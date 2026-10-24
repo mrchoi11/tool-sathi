@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, AlertCircle, RefreshCw, Film, ExternalLink, Download, Check, ShieldCheck, Zap } from 'lucide-react';
+import { Play, AlertCircle, RefreshCw, Film, ExternalLink, Download, Check, ShieldCheck, Zap, Settings } from 'lucide-react';
 import Hls from 'hls.js';
 import './VideoPlayer.css';
 
 interface StreamResponse {
   success: boolean;
+  videoUrl?: string;
   streamUrl?: string;
   proxyStreamUrl?: string;
   title?: string;
@@ -15,6 +16,12 @@ interface StreamResponse {
 
 export default function DiskwalaVideoPlayer() {
   const [inputUrl, setInputUrl] = useState<string>('');
+  const [backendUrl, setBackendUrl] = useState<string>(
+    import.meta.env.VITE_BACKEND_URL ||
+    import.meta.env.VITE_GATEWAY_URL ||
+    'https://tool-sathi-tool-sathi.up.railway.app'
+  );
+  const [showSettings, setShowSettings] = useState<boolean>(false);
   const [currentStreamUrl, setCurrentStreamUrl] = useState<string | null>(null);
   const [videoTitle, setVideoTitle] = useState<string>('Diskwala Stream');
   const [streamFormat, setStreamFormat] = useState<string>('mp4');
@@ -103,15 +110,17 @@ export default function DiskwalaVideoPlayer() {
     }
 
     try {
-      // Call backend route: /api/get-video-stream?url=...
-      const apiUrl = `/api/get-video-stream?url=${encodeURIComponent(targetUrl)}`;
+      // Call Railway backend route: https://your-backend.up.railway.app/api/get-video-stream?url=...
+      const base = backendUrl.trim().replace(/\/$/, '');
+      const apiUrl = `${base}/api/get-video-stream?url=${encodeURIComponent(targetUrl)}`;
+      
       const res = await fetch(apiUrl, {
         headers: { 'Accept': 'application/json' }
       });
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server responded with status ${res.status}`);
+        throw new Error(errorData.error || `Backend server responded with status ${res.status}`);
       }
 
       const data: any = await res.json();
@@ -121,9 +130,13 @@ export default function DiskwalaVideoPlayer() {
         throw new Error(data.error || 'Could not extract direct stream link from Diskwala.');
       }
 
-      const activeUrl = useProxy && data.proxyStreamUrl ? data.proxyStreamUrl : streamLink;
+      const proxyFull = data.proxyStreamUrl
+        ? (data.proxyStreamUrl.startsWith('http') ? data.proxyStreamUrl : `${base}${data.proxyStreamUrl}`)
+        : null;
+
+      const activeUrl = useProxy && proxyFull ? proxyFull : streamLink;
       setCurrentStreamUrl(streamLink);
-      setProxyUrl(data.proxyStreamUrl || null);
+      setProxyUrl(proxyFull);
       setVideoTitle(data.title || data.fileInfo?.name || 'Diskwala Video');
       setStreamFormat(data.format || (streamLink.includes('.m3u8') ? 'hls' : 'mp4'));
       setIsLoading(false);
@@ -134,7 +147,7 @@ export default function DiskwalaVideoPlayer() {
       console.error('Error fetching Diskwala video stream:', err);
       setIsLoading(false);
       setErrorMessage(
-        err.message || 'Failed to fetch video stream. Please check the URL or try with Proxy enabled.'
+        `Backend Connection Error: ${err.message}. Make sure your Railway server (${backendUrl}) is running and accessible.`
       );
     }
   };
@@ -235,6 +248,53 @@ export default function DiskwalaVideoPlayer() {
             </button>
           ))}
         </div>
+
+        {/* Backend Server Configuration Toggle */}
+        <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+            Railway Backend: <span style={{ color: 'var(--color-primary)', fontFamily: 'monospace' }}>{backendUrl}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSettings(!showSettings)}
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+          >
+            <Settings size={12} style={{ marginRight: '4px' }} />
+            {showSettings ? 'Hide Settings' : 'Change Backend URL'}
+          </button>
+        </div>
+
+        {showSettings && (
+          <div style={{
+            marginTop: '10px',
+            padding: '12px 14px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)'
+          }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '4px' }}>
+              Railway Backend Endpoint:
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={backendUrl}
+                onChange={e => setBackendUrl(e.target.value)}
+                placeholder="https://tool-sathi-tool-sathi.up.railway.app"
+                className="vp-url-input"
+                style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowSettings(false)}
+                className="btn btn-primary btn-sm"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Error Message Alert */}
