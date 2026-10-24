@@ -141,7 +141,41 @@ export async function resolveDiskwalaStream(targetUrl) {
     }
   }
 
-  // 4. Fallback: Check if yt-dlp is available in the environment
+  // 4. Check for external Diskwala resolver gateway / API key if configured
+  const resolverUrl = process.env.DISKWALA_RESOLVER_URL;
+  const apiKey = process.env.DISKWALA_API_KEY;
+
+  if (resolverUrl || apiKey) {
+    try {
+      const endpoint = resolverUrl || 'https://api.teraboxapi.com/v1/diskwala';
+      const gatewayRes = await axios.post(
+        endpoint,
+        { url: cleanUrl },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(apiKey ? { 'X-API-Key': apiKey, 'Authorization': `Bearer ${apiKey}` } : {})
+          },
+          timeout: 10000
+        }
+      );
+
+      const gData = gatewayRes.data;
+      const extractedUrl = gData?.hls_stream_url || gData?.download_url || gData?.stream_url || gData?.url;
+      if (extractedUrl && typeof extractedUrl === 'string' && extractedUrl.startsWith('http')) {
+        return {
+          streamUrl: extractedUrl,
+          proxyStreamUrl: `/api/stream?url=${encodeURIComponent(extractedUrl)}`,
+          title: gData?.file?.name || gData?.title || 'Diskwala Video',
+          format: extractedUrl.includes('.m3u8') ? 'hls' : 'mp4'
+        };
+      }
+    } catch (gErr) {
+      console.warn('[Diskwala Resolver Notice]:', gErr.message);
+    }
+  }
+
+  // 5. Fallback: Check if yt-dlp is available in the environment
   try {
     const { stdout } = await execAsync(`yt-dlp --get-url --no-check-certificates "${cleanUrl}"`, { timeout: 8000 });
     const directUrl = stdout.trim().split('\n')[0];
@@ -159,7 +193,7 @@ export async function resolveDiskwalaStream(targetUrl) {
 
   // If no direct link could be extracted
   throw new Error(
-    `Unable to extract video stream from Diskwala URL (${cleanUrl}). The link may be private, expired, or requires the Diskwala mobile app.`
+    `DiskWala Web Protection Detected: Diskwala does not serve video streams to web browsers and requires the mobile app (or an Appicrypt API key). If you have a direct CDN stream (.mp4 / .m3u8) or a Diskwala API key, paste it here or configure DISKWALA_API_KEY in your .env.`
   );
 }
 

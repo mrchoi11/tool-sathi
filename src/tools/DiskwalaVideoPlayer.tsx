@@ -239,27 +239,46 @@ export default function DiskwalaVideoPlayer() {
       {/* Error Message Alert */}
       {errorMessage && (
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '14px 18px',
+          padding: '16px 20px',
           margin: '20px 0',
-          borderRadius: 'var(--radius-md)',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          borderRadius: 'var(--radius-lg)',
+          backgroundColor: 'rgba(239, 68, 68, 0.08)',
           border: '1px solid rgba(239, 68, 68, 0.3)',
-          color: '#ef4444',
+          color: '#f87171',
           fontSize: '0.9rem'
         }}>
-          <AlertCircle size={20} style={{ flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>{errorMessage}</div>
-          <button
-            type="button"
-            onClick={() => setErrorMessage(null)}
-            className="btn btn-ghost btn-sm"
-            style={{ padding: '2px 8px' }}
-          >
-            Dismiss
-          </button>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '8px' }}>
+            <AlertCircle size={22} style={{ flexShrink: 0, marginTop: '2px', color: '#ef4444' }} />
+            <div style={{ flex: 1 }}>
+              <strong style={{ display: 'block', color: '#fff', fontSize: '0.95rem', marginBottom: '4px' }}>
+                Playback Notice: Diskwala Link Protected
+              </strong>
+              <div>{errorMessage}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="btn btn-ghost btn-sm"
+              style={{ padding: '2px 8px' }}
+            >
+              Dismiss
+            </button>
+          </div>
+
+          <div style={{
+            marginTop: '12px',
+            paddingTop: '10px',
+            borderTop: '1px solid rgba(239, 68, 68, 0.2)',
+            fontSize: '0.82rem',
+            color: 'var(--color-text-muted)'
+          }}>
+            <p style={{ margin: '0 0 6px 0' }}>
+              💡 <strong>Why this happens:</strong> Diskwala does not stream videos on web browsers and locks links behind their Android/iOS apps with Appicrypt signature checks.
+            </p>
+            <p style={{ margin: 0 }}>
+              🚀 <strong>Quick Solution:</strong> If you have an extraction key (e.g., from <code>teraboxapi.com</code>), set <code>DISKWALA_API_KEY</code> in your <code>.env</code> file, or paste direct <code>.m3u8</code> / <code>.mp4</code> streaming links directly.
+            </p>
+          </div>
         </div>
       )}
 
