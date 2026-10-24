@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
-  AlertTriangle, Check, RotateCcw, Clipboard, Film, Sparkles,
-  CheckCircle2, ArrowRight, ShieldCheck, Zap
+  AlertTriangle, Check, Copy, RotateCcw, Clipboard, Film,
+  CheckCircle2, ShieldCheck, Zap, HelpCircle
 } from 'lucide-react';
 import Hls from 'hls.js';
 import './tools.css';
@@ -11,7 +11,7 @@ import './VideoPlayer.css';
 interface FileMetadata {
   name?: string;
   size?: number | string;
-  format?: string;
+  thumb?: string;
 }
 
 export default function DiskwalaVideoPlayer() {
@@ -25,14 +25,14 @@ export default function DiskwalaVideoPlayer() {
   const [hasStream, setHasStream] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<FileMetadata | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
   const [pastedFeedback, setPastedFeedback] = useState<boolean>(false);
   const [isBuffering, setIsBuffering] = useState<boolean>(false);
 
-  // Playback states
+  // Playback States
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  const [volume, setVolume] = useState<number>(0.9);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -54,6 +54,16 @@ export default function DiskwalaVideoPlayer() {
       }
     };
   }, []);
+
+  const formatBytes = (bytes?: number | string): string => {
+    if (!bytes) return '';
+    const num = typeof bytes === 'string' ? parseInt(bytes, 10) : bytes;
+    if (isNaN(num) || num <= 0) return '';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(num) / Math.log(k));
+    return parseFloat((num / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   const formatSeconds = (sec: number): string => {
     if (isNaN(sec) || sec <= 0) return '00:00';
@@ -127,7 +137,7 @@ export default function DiskwalaVideoPlayer() {
       video.onerror = () => {
         setIsLoading(false);
         setIsBuffering(false);
-        setErrorMessage('Failed to load video stream. Please check your link.');
+        setErrorMessage('Failed to load video stream. The link may have expired or is unavailable.');
       };
     };
 
@@ -175,7 +185,7 @@ export default function DiskwalaVideoPlayer() {
     setErrorMessage(null);
     setIsLoading(true);
 
-    // Direct video stream passthrough
+    // Direct files (.mp4 or direct .m3u8)
     if (raw.match(/\.(mp4|m3u8|webm)(\?.*)?$/i)) {
       setMetadata({ name: raw.split('/').pop()?.split('?')[0] || 'Direct Video' });
       attachAndPlayStream(raw);
@@ -188,7 +198,7 @@ export default function DiskwalaVideoPlayer() {
       `${cleanBackend}/api/get-video-stream?url=${encodeURIComponent(raw)}`
     ];
 
-    let lastError = 'Unable to extract stream link. Please verify the URL.';
+    let lastError = 'Unable to play video stream. Please verify the Diskwala link.';
 
     for (const endpoint of endpoints) {
       try {
@@ -285,9 +295,9 @@ export default function DiskwalaVideoPlayer() {
 
   return (
     <div className="tool-container" style={{ maxWidth: '860px', margin: '0 auto' }}>
-      {/* Video Player Display — Only shown after a video link is submitted/fetched */}
+      {/* Video Player Display — Only visible after a video link is submitted */}
       {hasStream && (
-        <div className="player-wrapper" style={{ marginBottom: '1.25rem' }}>
+        <div className="player-wrapper">
           <div
             ref={playerContainerRef}
             className={`video-player-frame aspect-16-9 ${isFullscreen ? 'is-fullscreen' : ''} ${!controlsVisible && isPlaying ? 'controls-hidden' : ''}`}
@@ -313,7 +323,7 @@ export default function DiskwalaVideoPlayer() {
               style={{ width: '100%', height: '100%', display: 'block' }}
             />
 
-            {/* Buffering Pill Badge */}
+            {/* Live Buffering Badge */}
             {isBuffering && isPlaying && !isLoading && (
               <div style={{
                 position: 'absolute', top: '16px', right: '16px',
@@ -322,21 +332,75 @@ export default function DiskwalaVideoPlayer() {
                 display: 'flex', alignItems: 'center', gap: '8px', zIndex: 9,
                 color: '#38bdf8', fontSize: '0.8rem', fontWeight: 600, pointerEvents: 'none'
               }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8' }} />
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8', animation: 'cuteBounceDots 0.8s infinite' }} />
                 <span>Buffering stream...</span>
               </div>
             )}
 
-            {/* Loading Overlay */}
+            {/* Cute Mascot Loading Animation Overlay (Same as TeraBox) */}
             {isLoading && (
               <div style={{
-                position: 'absolute', inset: 0, background: 'rgba(7, 7, 10, 0.85)',
+                position: 'absolute', inset: 0, background: 'rgba(7, 7, 10, 0.88)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 zIndex: 10, backdropFilter: 'blur(6px)'
               }}>
-                <p style={{ color: '#f8fafc', fontSize: '0.98rem', fontWeight: 600, marginTop: '8px' }}>
-                  Loading video...
-                </p>
+                <style>{`
+                  @keyframes cuteFloat {
+                    0%, 100% { transform: translateY(0px) rotate(0deg); }
+                    50% { transform: translateY(-10px) rotate(2deg); }
+                  }
+                  @keyframes cuteBlink {
+                    0%, 90%, 100% { transform: scaleY(1); }
+                    95% { transform: scaleY(0.1); }
+                  }
+                  @keyframes cuteBounceDots {
+                    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+                    40% { transform: scale(1.1); opacity: 1; }
+                  }
+                `}</style>
+                
+                <div style={{ animation: 'cuteFloat 2.4s ease-in-out infinite', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <svg width="90" height="90" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="42" fill="url(#cuteGlowDisk)" opacity="0.3" />
+                    <rect x="22" y="24" width="56" height="52" rx="18" fill="url(#mascotGradDisk)" stroke="#818cf8" strokeWidth="2.5" />
+                    <path d="M50 24V14" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" />
+                    <circle cx="50" cy="11" r="4.5" fill="#38bdf8" />
+                    <g style={{ transformOrigin: '50% 46%', animation: 'cuteBlink 3.6s infinite' }}>
+                      <circle cx="38" cy="46" r="6.5" fill="#0f172a" />
+                      <circle cx="36" cy="44" r="2.2" fill="#ffffff" />
+                      <circle cx="40" cy="48" r="1.1" fill="#ffffff" />
+                      <circle cx="62" cy="46" r="6.5" fill="#0f172a" />
+                      <circle cx="60" cy="44" r="2.2" fill="#ffffff" />
+                      <circle cx="64" cy="48" r="1.1" fill="#ffffff" />
+                    </g>
+                    <circle cx="31" cy="54" r="3.5" fill="#f472b6" opacity="0.6" />
+                    <circle cx="69" cy="54" r="3.5" fill="#f472b6" opacity="0.6" />
+                    <path d="M44 55C46 58 54 58 56 55" stroke="#0f172a" strokeWidth="2.4" strokeLinecap="round" />
+                    <rect x="15" y="40" width="7" height="18" rx="3.5" fill="#6366f1" />
+                    <rect x="78" y="40" width="7" height="18" rx="3.5" fill="#6366f1" />
+                    <path d="M18 40C18 25 82 25 82 40" stroke="#6366f1" strokeWidth="3" fill="none" strokeLinecap="round" />
+                    <defs>
+                      <linearGradient id="mascotGradDisk" x1="22" y1="24" x2="78" y2="76" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#ffffff" />
+                        <stop offset="1" stopColor="#e0e7ff" />
+                      </linearGradient>
+                      <radialGradient id="cuteGlowDisk" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(50 50) rotate(90) scale(42)">
+                        <stop stopColor="#818cf8" />
+                        <stop offset="1" stopColor="#818cf8" stopOpacity="0" />
+                      </radialGradient>
+                    </defs>
+                  </svg>
+
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '12px', alignItems: 'center' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#38bdf8', animation: 'cuteBounceDots 1.2s infinite ease-in-out', animationDelay: '0s' }} />
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#818cf8', animation: 'cuteBounceDots 1.2s infinite ease-in-out', animationDelay: '0.2s' }} />
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#c084fc', animation: 'cuteBounceDots 1.2s infinite ease-in-out', animationDelay: '0.4s' }} />
+                  </div>
+
+                  <p style={{ color: '#f8fafc', fontSize: '0.98rem', fontWeight: 600, marginTop: '8px', letterSpacing: '0.3px' }}>
+                    Loading video...
+                  </p>
+                </div>
               </div>
             )}
 
@@ -404,7 +468,7 @@ export default function DiskwalaVideoPlayer() {
                 </div>
 
                 <div className="controls-right">
-                  {/* Desktop Speed Buttons */}
+                  {/* Desktop Speed Selector */}
                   <div className="speed-selector-desktop">
                     {[0.5, 1, 1.25, 1.5, 2].map(s => (
                       <button
@@ -418,7 +482,7 @@ export default function DiskwalaVideoPlayer() {
                     ))}
                   </div>
 
-                  {/* Mobile Speed Dropdown */}
+                  {/* Mobile Speed Dropdown — keeps Fullscreen button accessible */}
                   <div className="speed-selector-mobile">
                     <select
                       className="speed-select-native"
@@ -448,7 +512,7 @@ export default function DiskwalaVideoPlayer() {
         </div>
       )}
 
-      {/* Input & Action Controls Panel */}
+      {/* Input & Action Controls Panel (Exact TeraBox Player Design) */}
       <div className="vp-input-panel">
         <form onSubmit={handlePlaySubmit} className="vp-form">
           <div className="vp-input-wrap">
@@ -495,92 +559,110 @@ export default function DiskwalaVideoPlayer() {
               type="submit"
               disabled={isLoading || !inputUrl.trim()}
               className="btn btn-primary vp-play-btn"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}
             >
-              {isLoading ? (
-                <>
-                  <span className="spin-animation" style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%' }} />
-                  <span>Loading...</span>
-                </>
-              ) : (
-                <>
-                  <Play size={16} fill="currentColor" />
-                  <span>Play Video</span>
-                </>
-              )}
+              <Play size={16} />
+              <span>{isLoading ? 'Loading...' : 'Play'}</span>
             </button>
           </div>
         </form>
 
-        {/* Metadata Card (if available) */}
-        {metadata && (
+        {/* Metadata Card */}
+        {metadata && metadata.name && (
           <div className="vp-meta-card">
-            <div style={{ flex: 1, minWidth: '180px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <Film size={15} style={{ color: 'var(--color-primary)' }} />
-                <span style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                  {metadata.name}
-                </span>
+            {metadata.thumb ? (
+              <img
+                src={metadata.thumb}
+                alt={metadata.name}
+                style={{ width: '96px', height: '58px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}
+              />
+            ) : (
+              <div className="vp-meta-thumb">
+                <Film size={22} color="#6366f1" />
               </div>
+            )}
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-text)', margin: '0 0 0.2rem', wordBreak: 'break-all', lineHeight: 1.4 }}>
+                {metadata.name}
+              </h4>
+              {metadata.size && (
+                <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                  Size: <strong>{formatBytes(metadata.size)}</strong>
+                </span>
+              )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(inputUrl);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: '0.78rem', border: '1px solid var(--color-border)', flexShrink: 0 }}
+            >
+              {copied ? <Check size={14} color="#10b981" /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy Link'}
+            </button>
           </div>
         )}
       </div>
 
-      {/* Clean User Guide Section (Same design as TeraBox player) */}
+      {/* Step-by-Step User Guide (Matching TeraBox Player Exactly) */}
       <div className="vp-guide">
         <div className="vp-guide-header">
           <div className="vp-guide-icon">
-            <Sparkles size={20} />
+            <HelpCircle size={20} />
           </div>
           <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc', margin: 0 }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text)', lineHeight: 1.3 }}>
               How to Play Diskwala Videos
             </h3>
-            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '2px 0 0' }}>
-              Instant high-speed playback in 3 easy steps
+            <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.4 }}>
+              Watch any Diskwala video directly — no app, no ads.
             </p>
           </div>
         </div>
 
         <div className="vp-guide-steps">
           <div className="vp-step-card">
-            <div className="vp-step-badge">1</div>
-            <strong style={{ fontSize: '0.88rem', color: '#f1f5f9' }}>Copy Link</strong>
-            <p style={{ fontSize: '0.78rem', color: '#8b92a9', margin: 0, lineHeight: 1.4 }}>
-              Copy any shared Diskwala link or video URL to your clipboard.
+            <div className="vp-step-badge" style={{ background: '#38bdf8' }}>1</div>
+            <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>Copy Diskwala Link</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.5 }}>
+              Open Diskwala and tap <strong>Share → Copy Link</strong>.
             </p>
           </div>
 
           <div className="vp-step-card">
-            <div className="vp-step-badge">2</div>
-            <strong style={{ fontSize: '0.88rem', color: '#f1f5f9' }}>Paste Link</strong>
-            <p style={{ fontSize: '0.78rem', color: '#8b92a9', margin: 0, lineHeight: 1.4 }}>
-              Click the "Paste" button above to insert your link instantly.
+            <div className="vp-step-badge" style={{ background: '#818cf8' }}>2</div>
+            <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>Paste Your Link</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.5 }}>
+              Tap the <strong>Paste</strong> button to insert the link instantly.
             </p>
           </div>
 
           <div className="vp-step-card">
-            <div className="vp-step-badge">3</div>
-            <strong style={{ fontSize: '0.88rem', color: '#f1f5f9' }}>Stream Online</strong>
-            <p style={{ fontSize: '0.78rem', color: '#8b92a9', margin: 0, lineHeight: 1.4 }}>
-              Click "Play Video" and enjoy smooth, buffer-free playback.
+            <div className="vp-step-badge" style={{ background: '#34d399' }}>3</div>
+            <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>Watch in Full HD</h4>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.5 }}>
+              Hit <strong>Play</strong> — stream with seek, audio &amp; speed controls.
             </p>
           </div>
         </div>
 
         <div className="vp-feature-row">
           <div className="vp-feature-item">
-            <CheckCircle2 size={15} color="#10b981" />
-            <span>Ad-free experience</span>
+            <Zap size={15} color="#38bdf8" />
+            <span><strong>Instant Streaming</strong> — No waiting</span>
           </div>
           <div className="vp-feature-item">
-            <Zap size={15} color="#ff2a44" />
-            <span>Direct stream player</span>
+            <ShieldCheck size={15} color="#34d399" />
+            <span><strong>Ad-Free</strong> — Clean playback</span>
           </div>
           <div className="vp-feature-item">
-            <ShieldCheck size={15} color="#3b82f6" />
-            <span>Secure & private</span>
+            <CheckCircle2 size={15} color="#818cf8" />
+            <span><strong>Direct Stream</strong> — Native HTML5 video player</span>
           </div>
         </div>
       </div>
