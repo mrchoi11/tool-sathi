@@ -114,17 +114,18 @@ export default function DiskwalaVideoPlayer() {
         throw new Error(errorData.error || `Server responded with status ${res.status}`);
       }
 
-      const data: StreamResponse = await res.json();
+      const data: any = await res.json();
+      const streamLink = data.streamUrl || data.videoUrl;
 
-      if (!data.success || !data.streamUrl) {
+      if (!data.success || !streamLink) {
         throw new Error(data.error || 'Could not extract direct stream link from Diskwala.');
       }
 
-      const activeUrl = useProxy && data.proxyStreamUrl ? data.proxyStreamUrl : data.streamUrl;
-      setCurrentStreamUrl(data.streamUrl);
+      const activeUrl = useProxy && data.proxyStreamUrl ? data.proxyStreamUrl : streamLink;
+      setCurrentStreamUrl(streamLink);
       setProxyUrl(data.proxyStreamUrl || null);
-      setVideoTitle(data.title || 'Diskwala Video');
-      setStreamFormat(data.format || 'mp4');
+      setVideoTitle(data.title || data.fileInfo?.name || 'Diskwala Video');
+      setStreamFormat(data.format || (streamLink.includes('.m3u8') ? 'hls' : 'mp4'));
       setIsLoading(false);
 
       // Assign returned direct link directly to HTML5 video player
