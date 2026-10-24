@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diskwala Video Player — Direct Stream</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- HLS.js for HLS .m3u8 streaming in all modern browsers -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+  <div class="w-full max-w-3xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8">
+    <!-- Header -->
+    <div class="text-center mb-6">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 mb-3 border border-indigo-500/20">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Diskwala Video Player</h1>
+      <p class="text-sm text-slate-400 mt-1">Play videos from Diskwala links directly without iframes, popups, or app installs.</p>
+    </div>
+
+    <!-- URL Input Bar -->
+    <div class="flex flex-col sm:flex-row gap-3 mb-4">
+      <input
+        type="text"
+        id="diskwalaUrl"
+        placeholder="Paste Diskwala link (e.g. https://www.diskwala.com/app/6acf185b2a52418b2433aeb6)..."
+        value="https://www.diskwala.com/app/6acf185b2a52418b2433aeb6"
+        class="flex-1 bg-slate-800 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 outline-none transition-all"
+      />
+      <button
+        id="playBtn"
+        type="button"
+        onclick="playDiskwalaVideo()"
+        class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all whitespace-nowrap"
+      >
+        <svg id="playIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path></svg>
+        <span id="btnText">Play Video</span>
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingStatus" class="hidden text-center py-4 bg-indigo-950/20 border border-indigo-500/20 rounded-xl mb-4">
+      <div class="inline-block w-6 h-6 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mb-1"></div>
+      <p class="text-xs text-indigo-300 font-medium">Extracting direct stream link via /api/get-video-stream...</p>
+    </div>
+
+    <!-- Error Alert -->
+    <div id="errorAlert" class="hidden p-4 mb-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm rounded-xl"></div>
+
+    <!-- HTML5 Video Player -->
+    <div class="relative bg-black rounded-xl overflow-hidden border border-slate-800 shadow-xl aspect-video flex items-center justify-center">
+      <video
+        id="videoPlayer"
+        controls
+        autoplay
+        playsinline
+        class="w-full h-full object-contain"
+      >
+        Your browser does not support HTML5 video.
+      </video>
+    </div>
+
+    <!-- Stream Metadata & Actions -->
+    <div id="streamMetaBox" class="hidden mt-4 p-4 bg-slate-800/60 border border-slate-700/50 rounded-xl flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <span id="videoTitle" class="text-sm font-semibold text-slate-100 block">Diskwala Video</span>
+        <span id="videoFormat" class="text-xs text-emerald-400 font-mono">Format: MP4 Direct Stream</span>
+      </div>
+      <div class="flex gap-2">
+        <a id="streamLinkBtn" href="#" target="_blank" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-lg">
+          Open Direct Link
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let hlsInstance = null;
+
+    async function playDiskwalaVideo() {
+      const urlInput = document.getElementById('diskwalaUrl');
+      const url = urlInput.value.trim();
+      const player = document.getElementById('videoPlayer');
+      const errorAlert = document.getElementById('errorAlert');
+      const loadingStatus = document.getElementById('loadingStatus');
+      const metaBox = document.getElementById('streamMetaBox');
+      const playBtn = document.getElementById('playBtn');
+
+      if (!url) return alert('Please enter a Diskwala URL!');
+
+      errorAlert.classList.add('hidden');
+      loadingStatus.classList.remove('hidden');
+      playBtn.disabled = true;
+
+      // Clean up previous HLS if exists
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+
+      // If already direct mp4/m3u8, play directly
+      if (/\.(mp4|m3u8|webm)(\?.*)?$/i.test(url)) {
+        loadStream(url, 'Direct Video');
+        loadingStatus.classList.add('hidden');
+        playBtn.disabled = false;
+        return;
+      }
+
+      try {
+        // Send Diskwala URL to backend route
+        const apiUrl = '/api/get-video-stream?url=' + encodeURIComponent(url);
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+
+        loadingStatus.classList.add('hidden');
+        playBtn.disabled = false;
+
+        if (data.success && data.streamUrl) {
+          loadStream(data.streamUrl, data.title || 'Diskwala Video', data.format || 'mp4');
+          metaBox.classList.remove('hidden');
+          document.getElementById('videoTitle').textContent = data.title || 'Diskwala Video';
+          document.getElementById('videoFormat').textContent = 'Stream: ' + (data.format ? data.format.toUpperCase() : 'MP4');
+          document.getElementById('streamLinkBtn').href = data.streamUrl;
+        } else {
+          errorAlert.textContent = data.error || 'Failed to extract video stream link.';
+          errorAlert.classList.remove('hidden');
+        }
+      } catch (err) {
+        loadingStatus.classList.add('hidden');
+        playBtn.disabled = false;
+        errorAlert.textContent = 'Network or server error: ' + err.message;
+        errorAlert.classList.remove('hidden');
+      }
+    }
+
+    function loadStream(streamUrl, title, format) {
+      const player = document.getElementById('videoPlayer');
+
+      // Check if HLS stream (.m3u8)
+      if (streamUrl.includes('.m3u8') && Hls.isSupported()) {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(streamUrl);
+        hlsInstance.attachMedia(player);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          player.play().catch(() => {});
+        });
+      } else {
+        // Assign returned direct video link directly to player.src
+        player.src = streamUrl;
+        player.load();
+        player.play().catch(() => {});
+      }
+    }
+  </script>
+</body>
+</html>

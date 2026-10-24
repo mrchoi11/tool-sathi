@@ -10,6 +10,7 @@ import './ToolPage.css';
 /* Lazy-load tool implementations */
 const toolComponents: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
   'video-player': lazy(() => import('../tools/VideoPlayer')),
+  'diskwala-video-player': lazy(() => import('../tools/DiskwalaVideoPlayer')),
   'terabox-video-player': lazy(() => import('../tools/TeraboxVideoPlayer')),
   'direct-video-player': lazy(() => import('../tools/VideoPlayer')),
   'video-metadata-viewer': lazy(() => import('../tools/VideoMetadataViewer')),
@@ -25,11 +26,13 @@ const toolComponents: Record<string, React.LazyExoticComponent<React.ComponentTy
   'pdf-metadata-viewer': lazy(() => import('../tools/PdfMetadataViewer')),
   'pdf-rotation-tool': lazy(() => import('../tools/PdfRotation')),
   'image-compressor': lazy(() => import('../tools/ImageCompressor')),
+  'image-size-reducer': lazy(() => import('../tools/ImageCompressor')),
   'image-resizer': lazy(() => import('../tools/ImageResizer')),
+  'webp-converter': lazy(() => import('../tools/WebpConverter')),
   'jpg-to-png': lazy(() => import('../tools/ImageConverter')),
   'png-to-jpg': lazy(() => import('../tools/ImageConverter')),
-  'jpg-to-webp': lazy(() => import('../tools/ImageConverter')),
-  'png-to-webp': lazy(() => import('../tools/ImageConverter')),
+  'jpg-to-webp': lazy(() => import('../tools/WebpConverter')),
+  'png-to-webp': lazy(() => import('../tools/WebpConverter')),
   'webp-to-jpg': lazy(() => import('../tools/ImageConverter')),
   'image-cropper': lazy(() => import('../tools/ImageCropper')),
   'image-rotator': lazy(() => import('../tools/ImageRotator')),

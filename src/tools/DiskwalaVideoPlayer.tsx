@@ -1,0 +1,397 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Play, AlertCircle, RefreshCw, Film, ExternalLink, Download, Check, ShieldCheck, Zap } from 'lucide-react';
+import Hls from 'hls.js';
+import './VideoPlayer.css';
+
+interface StreamResponse {
+  success: boolean;
+  streamUrl?: string;
+  proxyStreamUrl?: string;
+  title?: string;
+  format?: 'mp4' | 'hls' | 'webm' | string;
+  size?: number;
+  error?: string;
+}
+
+export default function DiskwalaVideoPlayer() {
+  const [inputUrl, setInputUrl] = useState<string>('');
+  const [currentStreamUrl, setCurrentStreamUrl] = useState<string | null>(null);
+  const [videoTitle, setVideoTitle] = useState<string>('Diskwala Stream');
+  const [streamFormat, setStreamFormat] = useState<string>('mp4');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [useProxy, setUseProxy] = useState<boolean>(false);
+  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+
+  // Sample Diskwala links to test immediately
+  const sampleLinks = [
+    { label: 'Sample 1', url: 'https://www.diskwala.com/app/6acf185b2a52418b2433aeb6' },
+    { label: 'Direct HLS Stream', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
+    { label: 'Direct MP4 Stream', url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' }
+  ];
+
+  // Clean up HLS instance on unmount
+  useEffect(() => {
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, []);
+
+  // Play a given direct video or HLS stream in the HTML5 video player
+  const attachStreamToPlayer = (streamLink: string) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    const isHls = streamLink.includes('.m3u8') || streamFormat === 'hls';
+
+    if (isHls && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      });
+      hlsRef.current = hls;
+      hls.loadSource(streamLink);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(e => console.warn('Autoplay prevented:', e));
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          console.error('HLS fatal error:', data);
+          setErrorMessage('Stream playback error. Trying standard fallback...');
+          video.src = streamLink;
+        }
+      });
+    } else {
+      // Direct MP4 / WebM / native HLS (Safari)
+      video.src = streamLink;
+      video.load();
+      video.play().catch(e => console.warn('Autoplay prevented by browser:', e));
+    }
+  };
+
+  // Main fetch function requested: fetch backend route -> assign directly to player.src
+  const handlePlayVideo = async (urlToFetch?: string) => {
+    const targetUrl = (urlToFetch || inputUrl).trim();
+    if (!targetUrl) {
+      setErrorMessage('Please enter a valid Diskwala video URL!');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    // If already a direct MP4 or M3U8, play directly
+    if (targetUrl.match(/\.(mp4|m3u8|webm)(\?.*)?$/i)) {
+      setCurrentStreamUrl(targetUrl);
+      setVideoTitle('Direct Video Stream');
+      setStreamFormat(targetUrl.includes('.m3u8') ? 'hls' : 'mp4');
+      setIsLoading(false);
+      setTimeout(() => attachStreamToPlayer(targetUrl), 100);
+      return;
+    }
+
+    try {
+      // Call backend route: /api/get-video-stream?url=...
+      const apiUrl = `/api/get-video-stream?url=${encodeURIComponent(targetUrl)}`;
+      const res = await fetch(apiUrl, {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server responded with status ${res.status}`);
+      }
+
+      const data: StreamResponse = await res.json();
+
+      if (!data.success || !data.streamUrl) {
+        throw new Error(data.error || 'Could not extract direct stream link from Diskwala.');
+      }
+
+      const activeUrl = useProxy && data.proxyStreamUrl ? data.proxyStreamUrl : data.streamUrl;
+      setCurrentStreamUrl(data.streamUrl);
+      setProxyUrl(data.proxyStreamUrl || null);
+      setVideoTitle(data.title || 'Diskwala Video');
+      setStreamFormat(data.format || 'mp4');
+      setIsLoading(false);
+
+      // Assign returned direct link directly to HTML5 video player
+      setTimeout(() => attachStreamToPlayer(activeUrl), 100);
+    } catch (err: any) {
+      console.error('Error fetching Diskwala video stream:', err);
+      setIsLoading(false);
+      setErrorMessage(
+        err.message || 'Failed to fetch video stream. Please check the URL or try with Proxy enabled.'
+      );
+    }
+  };
+
+  const handleToggleProxy = (enabled: boolean) => {
+    setUseProxy(enabled);
+    if (currentStreamUrl) {
+      const activeLink = enabled && proxyUrl ? proxyUrl : currentStreamUrl;
+      attachStreamToPlayer(activeLink);
+    }
+  };
+
+  const handleClear = () => {
+    setInputUrl('');
+    setCurrentStreamUrl(null);
+    setErrorMessage(null);
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.src = '';
+    }
+  };
+
+  return (
+    <div className="vp-container">
+      {/* Top Banner / Hero */}
+      <div className="vp-banner glass">
+        <div className="vp-badge">
+          <Film size={14} />
+          <span>Diskwala Direct Stream Engine</span>
+        </div>
+        <h2 className="vp-banner-title">Diskwala Video Player</h2>
+        <p className="vp-banner-subtitle">
+          Watch Diskwala videos directly in your browser without iframes, popups, or installing apps.
+        </p>
+
+        {/* Input Bar Form */}
+        <form
+          className="vp-url-bar"
+          onSubmit={e => {
+            e.preventDefault();
+            handlePlayVideo();
+          }}
+        >
+          <input
+            type="text"
+            className="vp-url-input"
+            value={inputUrl}
+            onChange={e => setInputUrl(e.target.value)}
+            placeholder="Paste Diskwala link (e.g., https://www.diskwala.com/app/6acf185b2a52418b2433aeb6)..."
+            disabled={isLoading}
+          />
+          {inputUrl && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={handleClear}
+              style={{ marginRight: '8px' }}
+            >
+              Clear
+            </button>
+          )}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={isLoading || !inputUrl.trim()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', minWidth: '130px', justifyContent: 'center' }}
+          >
+            {isLoading ? (
+              <>
+                <RefreshCw size={16} className="spin-animation" />
+                <span>Loading...</span>
+              </>
+            ) : (
+              <>
+                <Play size={16} />
+                <span>Play Video</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Quick test buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '14px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Try example link:</span>
+          {sampleLinks.map((s, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                setInputUrl(s.url);
+                handlePlayVideo(s.url);
+              }}
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: '0.75rem', padding: '3px 10px', borderRadius: '12px', border: '1px solid var(--color-border)' }}
+            >
+              <Zap size={12} style={{ marginRight: '4px', color: 'var(--color-accent)' }} />
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Error Message Alert */}
+      {errorMessage && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '14px 18px',
+          margin: '20px 0',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          color: '#ef4444',
+          fontSize: '0.9rem'
+        }}>
+          <AlertCircle size={20} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>{errorMessage}</div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="btn btn-ghost btn-sm"
+            style={{ padding: '2px 8px' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Main HTML5 Video Player */}
+      <div className="vp-player-card glass" style={{ position: 'relative', overflow: 'hidden', marginTop: '20px' }}>
+        <div style={{ position: 'relative', backgroundColor: '#000', borderRadius: 'var(--radius-lg)', minHeight: '380px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {isLoading && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.75)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10,
+              color: '#fff'
+            }}>
+              <div className="loading-ring" style={{ marginBottom: '14px' }}></div>
+              <p style={{ fontWeight: 600 }}>Fetching direct video stream...</p>
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Resolving CDN links without iframes</span>
+            </div>
+          )}
+
+          <video
+            ref={videoRef}
+            id="diskwala-video-player"
+            controls
+            autoPlay
+            playsInline
+            preload="auto"
+            style={{ width: '100%', maxHeight: '560px', outline: 'none' }}
+          >
+            Your browser does not support the HTML5 video element.
+          </video>
+        </div>
+
+        {/* Stream Details & Options Bar */}
+        {currentStreamUrl && (
+          <div style={{
+            padding: '16px 20px',
+            borderTop: '1px solid var(--color-border)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px',
+            background: 'rgba(255, 255, 255, 0.02)'
+          }}>
+            <div>
+              <strong style={{ fontSize: '1rem', display: 'block', color: 'var(--color-text)' }}>
+                {videoTitle}
+              </strong>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                <span className="format-tag">{streamFormat.toUpperCase()}</span>
+                <span style={{ fontSize: '0.8rem', color: '#10b981', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <ShieldCheck size={14} /> Direct Stream Active
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {/* Proxy toggle */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={useProxy}
+                  onChange={e => handleToggleProxy(e.target.checked)}
+                  style={{ accentColor: 'var(--color-primary)' }}
+                />
+                <span>CORS Proxy Fallback</span>
+              </label>
+
+              {/* Direct link button */}
+              <a
+                href={currentStreamUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-ghost btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <ExternalLink size={14} /> Open Stream URL
+              </a>
+
+              {/* Download link button */}
+              <a
+                href={currentStreamUrl}
+                download={videoTitle ? `${videoTitle}.mp4` : 'video.mp4'}
+                className="btn btn-primary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Download size={14} /> Download
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Feature Highlights Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+        gap: '16px',
+        marginTop: '30px'
+      }}>
+        <div className="tool-stat-card glass" style={{ textAlign: 'left', padding: '16px 20px' }}>
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-primary)', marginBottom: '6px' }}>
+            No Iframes or Ads
+          </h4>
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>
+            Extracts the pure direct video stream and loads it straight into a native HTML5 video player.
+          </p>
+        </div>
+
+        <div className="tool-stat-card glass" style={{ textAlign: 'left', padding: '16px 20px' }}>
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#10b981', marginBottom: '6px' }}>
+            HLS & MP4 Compatible
+          </h4>
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>
+            Powered by Hls.js to seamlessly play adaptive streaming manifests (.m3u8) as well as MP4 files.
+          </p>
+        </div>
+
+        <div className="tool-stat-card glass" style={{ textAlign: 'left', padding: '16px 20px' }}>
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-accent)', marginBottom: '6px' }}>
+            Bypass App Requirement
+          </h4>
+          <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>
+            Watch shared Diskwala clips on Desktop or Mobile browser without installing any third-party apps.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

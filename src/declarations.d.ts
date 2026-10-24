@@ -15,3 +15,10 @@ declare module 'qrcode' {
 
   export function toDataURL(text: string | Array<any>, options?: QRCodeToDataURLOptions): Promise<string>;
 }
+
+declare global {
+  interface Window {
+    imageCompression?: any;
+  }
+}
+

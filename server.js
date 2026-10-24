@@ -392,6 +392,14 @@ app.get('/api', async (req, res) => {
   }
 });
 
+/**
+ * 4. Diskwala Direct Stream Extraction Endpoint
+ * GET /api/get-video-stream?url=...
+ * POST /api/get-video-stream
+ */
+import diskwalaStreamHandler from './api/get-video-stream.js';
+app.all('/api/get-video-stream', (req, res) => diskwalaStreamHandler(req, res));
+
 app.listen(PORT, () => {
   console.log(`===============================================`);
   console.log(` TeraBox Streaming Proxy v2 Running on :${PORT}`);

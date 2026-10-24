@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebP Converter — Client-Side Canvas Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+  <div class="w-full max-w-2xl bg-slate-800/80 backdrop-blur-xl border border-slate-700/60 rounded-2xl shadow-2xl p-6 sm:p-8">
+    <!-- Header -->
+    <div class="text-center mb-6">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-teal-500/10 text-teal-400 mb-3 border border-teal-500/20">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+        </svg>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">WebP Converter</h1>
+      <p class="text-sm text-slate-400 mt-1">Convert PNG, JPG, or BMP images to WebP format client-side using HTML5 Canvas.</p>
+    </div>
+
+    <!-- Dropzone -->
+    <div
+      id="dropzone"
+      onclick="document.getElementById('webpInput').click()"
+      class="border-2 border-dashed border-slate-600 hover:border-teal-500 bg-slate-900/50 hover:bg-slate-900/80 rounded-xl p-8 text-center cursor-pointer transition-all duration-200"
+    >
+      <input
+        type="file"
+        id="webpInput"
+        accept="image/*"
+        class="hidden"
+        onchange="onFileSelected(this.files)"
+      />
+      <div class="flex flex-col items-center justify-center">
+        <svg class="w-10 h-10 text-teal-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        <span class="text-sm font-semibold text-slate-200">Click to upload or drag & drop</span>
+        <span class="text-xs text-slate-500 mt-1">Fast client-side conversion (Quality: 80%)</span>
+      </div>
+    </div>
+
+    <!-- Selected File Information -->
+    <div id="fileInfoBox" class="hidden mt-4 p-4 bg-slate-900/60 rounded-xl border border-slate-700/50 flex items-center justify-between">
+      <div class="truncate mr-4">
+        <span id="fileName" class="text-sm font-medium text-slate-200 block truncate"></span>
+        <span id="fileSize" class="text-xs text-slate-400"></span>
+      </div>
+      <button
+        type="button"
+        onclick="convertToWebP()"
+        class="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold rounded-lg shadow-lg shadow-teal-600/30 transition-all flex items-center gap-2"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        Convert to WebP
+      </button>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loadingIndicator" class="hidden mt-6 text-center py-4 bg-teal-950/30 border border-teal-500/20 rounded-xl">
+      <div class="inline-block w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+      <p class="text-sm font-medium text-teal-300">Rendering to Canvas & Encoding WebP...</p>
+    </div>
+
+    <!-- Results Box -->
+    <div id="resultBox" class="hidden mt-6 p-5 bg-teal-950/20 border border-teal-500/30 rounded-xl">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm font-semibold text-teal-400 flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          WebP Ready!
+        </span>
+      </div>
+
+      <div class="mb-4 text-center">
+        <img id="previewImg" class="max-h-56 mx-auto rounded-lg border border-slate-700/50 object-contain shadow-md" alt="WebP Preview" />
+      </div>
+
+      <a
+        id="downloadBtn"
+        href="#"
+        class="w-full py-3 bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold rounded-lg shadow-lg shadow-teal-600/30 flex items-center justify-center gap-2 transition-all"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        Download converted-image.webp
+      </a>
+    </div>
+  </div>
+
+  <script>
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function showLoading(show) {
+      document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
+    }
+
+    function setDownloadLink(url, filename) {
+      const btn = document.getElementById('downloadBtn');
+      btn.href = url;
+      btn.download = filename;
+      document.getElementById('previewImg').src = url;
+      document.getElementById('resultBox').classList.remove('hidden');
+    }
+
+    function onFileSelected(files) {
+      if (!files.length) return;
+      const file = files[0];
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileSize').textContent = 'Size: ' + formatBytes(file.size);
+      document.getElementById('fileInfoBox').classList.remove('hidden');
+      document.getElementById('resultBox').classList.add('hidden');
+    }
+
+    // Drag and drop handlers
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-teal-500', 'bg-slate-900/80'); });
+    dropzone.addEventListener('dragleave', (e) => { e.preventDefault(); dropzone.classList.remove('border-teal-500', 'bg-slate-900/80'); });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('border-teal-500', 'bg-slate-900/80');
+      if (e.dataTransfer.files.length) {
+        document.getElementById('webpInput').files = e.dataTransfer.files;
+        onFileSelected(e.dataTransfer.files);
+      }
+    });
+
+    // Exact WebP Canvas logic from user prompt
+    function convertToWebP() {
+      const fileInput = document.getElementById('webpInput');
+      if (!fileInput.files.length) return alert('Please select an image!');
+      const file = fileInput.files[0];
+      showLoading(true);
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob(function(blob) {
+            showLoading(false);
+            if (blob) {
+              const webpUrl = URL.createObjectURL(blob);
+              setDownloadLink(webpUrl, 'converted-image.webp');
+            } else {
+              alert('Canvas WebP encoding failed.');
+            }
+          }, 'image/webp', 0.8);
+        };
+        img.onerror = function() {
+          showLoading(false);
+          alert('Could not decode image file.');
+        };
+        img.src = event.target.result;
+      };
+      reader.onerror = function() {
+        showLoading(false);
+        alert('Failed to read file.');
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
