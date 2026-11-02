@@ -97,19 +97,23 @@
   padding: 4rem 2.5rem 2rem !important;
 }
 
-/* ── Controls Auto-Hide Behavior (Snappy 0.1s hide as requested) ── */
+/* ── Minimalist White Controls Bar (Strictly Pinned to Bottom) ── */
 .minimal-white-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   width: 100%;
   background: #ffffff;
-  padding: 0.65rem 1rem;
+  padding: 0.5rem 0.85rem;
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.35rem;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
   box-sizing: border-box;
   transition: opacity 0.1s ease, transform 0.1s ease;
-  z-index: 10;
+  z-index: 20;
 }
 
 /* Fullscreen mode handling */
@@ -122,19 +126,32 @@
   right: 0;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
-  padding: 0.9rem 1.75rem;
+  padding: 0.75rem 1.5rem;
 }
 
 /* Auto-hide controls in 0.1s when playing and idle */
-.video-player-frame.controls-hidden {
-  cursor: none !important;
-}
-
 .video-player-frame.controls-hidden .minimal-white-controls {
   opacity: 0 !important;
   pointer-events: none !important;
-  transform: translateY(8px) !important;
+  transform: translateY(100%) !important;
   transition: opacity 0.1s ease, transform 0.1s ease !important;
+}
+
+/* Row holding buttons and time */
+.white-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.5rem;
+}
+
+.white-ctrl-group-left,
+.white-ctrl-group-right {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
 }
 
 /* Center Big Play Button Overlay (Exact Match with Reference Image) */
@@ -146,22 +163,22 @@
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: rgba(45, 47, 54, 0.8);
+  background: rgba(45, 47, 54, 0.82);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
   transition: transform 0.15s ease, background 0.15s ease, opacity 0.1s ease;
-  z-index: 6;
+  z-index: 10;
 }
 
 .center-play-btn:hover {
   transform: translate(-50%, -50%) scale(1.08);
   background: rgba(60, 62, 72, 0.95);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
 }
 
 .center-play-btn:active {
@@ -174,14 +191,14 @@
   border: none;
   color: #1e293b;
   cursor: pointer;
-  padding: 6px;
+  padding: 5px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: color 0.15s ease, background 0.15s ease, transform 0.1s ease;
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 30px;
+  min-height: 30px;
 }
 
 .white-ctrl-btn:hover {
@@ -194,31 +211,31 @@
   transform: scale(0.95);
 }
 
-/* ── Centered Horizontal Seekbar (Reference Image Match) ── */
+/* ── Timeline Seekbar Track ── */
 .white-timeline-wrap {
-  flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
-  padding: 0 6px;
+  padding: 2px 0;
   position: relative;
   cursor: pointer;
-  min-width: 80px;
+  box-sizing: border-box;
 }
 
 /* Invisible expander hit-zone for easy scrubbing */
 .white-timeline-wrap::before {
   content: '';
   position: absolute;
-  inset: -10px 0;
+  inset: -8px 0;
   cursor: pointer;
 }
 
 .white-timeline-range {
   width: 100%;
-  height: 2.5px; /* Ultra-thin light track */
+  height: 3px;
   -webkit-appearance: none;
   appearance: none;
-  /* Light grey track with red progress */
+  /* Light grey track with red progress (Reference Image) */
   background: linear-gradient(
     to right,
     #e50914 0%,
@@ -236,10 +253,10 @@
 
 .white-timeline-range:hover,
 .white-timeline-range:focus-visible {
-  height: 4px;
+  height: 5px;
 }
 
-/* ── Small Red Dot Thumb (Minimalist Ref Image Match) ── */
+/* Small Red Dot Thumb (Exact Match with Reference Image) */
 .white-timeline-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 9px;
@@ -254,8 +271,8 @@
 
 .white-timeline-range:hover::-webkit-slider-thumb,
 .white-timeline-range:focus-visible::-webkit-slider-thumb {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   transform: scale(1.2);
 }
 
@@ -275,13 +292,13 @@
 
 .white-timeline-range::-moz-range-track {
   background: transparent;
-  height: 2.5px;
+  height: 3px;
 }
 
 .white-timeline-range::-moz-range-progress {
   background: #e50914;
   border-radius: 999px;
-  height: 2.5px;
+  height: 3px;
 }
 
 /* Time Display */
@@ -293,6 +310,38 @@
   font-weight: 500;
   letter-spacing: 0.3px;
   padding: 0 4px;
+}
+
+/* Responsive: On Desktop (>= 640px) render in a single horizontal row */
+.mobile-only-timeline {
+  display: block;
+}
+
+.desktop-only-timeline {
+  display: none !important;
+}
+
+@media (min-width: 640px) {
+  .minimal-white-controls {
+    flex-direction: row;
+    gap: 0.75rem;
+    padding: 0.65rem 1.15rem;
+  }
+
+  .mobile-only-timeline {
+    display: none !important;
+  }
+
+  .desktop-only-timeline {
+    display: flex !important;
+    flex: 1;
+    min-width: 100px;
+    padding: 0 8px;
+  }
+
+  .white-controls-row {
+    display: contents; /* Flattens children into parent row */
+  }
 }
 
 /* Speed / Settings Popup Menu */
