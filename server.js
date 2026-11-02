@@ -109,7 +109,10 @@ function extractSurl(rawUrl) {
 }
 
 // High-Speed Token and Metadata Caches
-let cachedJsToken = { token: '', timestamp: 0 };
+let cachedJsToken = {
+  token: 'FFB262C8F8FA9955551383B0DE2CC655B90BD9012147C781CE72372196B03F47D70385DEC34328BF4346C7091AC196B2562882DF49D176E8EE8332B5B8FD6E5777BE95F3FDE07FF055AD899DD36D5E8066F79573CA64692F3DA0B1AFBF25F8D0',
+  timestamp: Date.now()
+};
 const surlMetadataCache = new Map(); // surl -> { data, timestamp }
 
 async function getOrFetchJsToken(surlKey, cookieHeader) {
@@ -127,7 +130,7 @@ async function getOrFetchJsToken(surlKey, cookieHeader) {
   };
 
   try {
-    const pageRes = await axios.get(pageUrl, { headers: pageHeaders, httpsAgent, timeout: 6000 });
+    const pageRes = await axios.get(pageUrl, { headers: pageHeaders, httpsAgent, timeout: 2500 });
     const match = pageRes.data.match(/fn%28%22(.*?)%22%29/);
     if (match && match[1]) {
       cachedJsToken = { token: match[1], timestamp: now };
@@ -149,33 +152,58 @@ async function resolveTeraBoxShortUrl(surlKey, activeNdus, pwd = '') {
   const cookieHeader = activeNdus ? `ndus=${activeNdus}` : '';
   const jsToken = await getOrFetchJsToken(surlKey, cookieHeader);
 
-  const pageUrl = `https://dm.terabox.app/sharing/link?surl=${surlKey}`;
-  const shareApiUrl = new URL('https://dm.terabox.app/share/list');
-  shareApiUrl.searchParams.append('app_id', '250528');
-  if (jsToken) shareApiUrl.searchParams.append('jsToken', jsToken);
-  shareApiUrl.searchParams.append('shorturl', surlKey);
-  shareApiUrl.searchParams.append('root', '1');
-  if (pwd) shareApiUrl.searchParams.append('pwd', pwd);
+  // Helper to query TeraBox share/list
+  const queryShareList = async (key) => {
+    const pageUrl = `https://dm.terabox.app/sharing/link?surl=${key}`;
+    const shareApiUrl = new URL('https://dm.terabox.app/share/list');
+    shareApiUrl.searchParams.append('app_id', '250528');
+    if (jsToken) shareApiUrl.searchParams.append('jsToken', jsToken);
+    shareApiUrl.searchParams.append('shorturl', key);
+    shareApiUrl.searchParams.append('root', '1');
+    if (pwd) shareApiUrl.searchParams.append('pwd', pwd);
 
-  const apiHeaders = {
-    'Host': 'dm.terabox.app',
-    'User-Agent': USER_AGENT,
-    'Referer': pageUrl,
-    'Origin': 'https://dm.terabox.app',
-    'Accept': 'application/json, text/plain, */*',
-    'X-Requested-With': 'XMLHttpRequest',
-    ...(cookieHeader ? { 'Cookie': cookieHeader } : {})
+    const apiHeaders = {
+      'Host': 'dm.terabox.app',
+      'User-Agent': USER_AGENT,
+      'Referer': pageUrl,
+      'Origin': 'https://dm.terabox.app',
+      'Accept': 'application/json, text/plain, */*',
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(cookieHeader ? { 'Cookie': cookieHeader } : {})
+    };
+
+    const response = await axios.get(shareApiUrl.toString(), {
+      headers: apiHeaders,
+      httpsAgent,
+      timeout: 3500
+    });
+    return response.data;
   };
 
-  const response = await axios.get(shareApiUrl.toString(), {
-    headers: apiHeaders,
-    httpsAgent,
-    timeout: 8000
-  });
+  let data = null;
+  try {
+    data = await queryShareList(surlKey);
+  } catch (err) {
+    // If it had a leading '1', try without it, or vice-versa
+    const altKey = surlKey.startsWith('1') ? surlKey.slice(1) : ('1' + surlKey);
+    try {
+      data = await queryShareList(altKey);
+    } catch {}
+  }
 
-  const data = response.data;
   if (!data || data.errno !== 0 || !Array.isArray(data.list) || data.list.length === 0) {
-    throw new Error(data?.errno === -9 ? 'Password required or incorrect password.' : (data?.errmsg || 'File not found on TeraBox.'));
+    // Try altKey if first attempt returned errno error
+    const altKey = surlKey.startsWith('1') ? surlKey.slice(1) : ('1' + surlKey);
+    try {
+      const altData = await queryShareList(altKey);
+      if (altData && altData.errno === 0 && Array.isArray(altData.list) && altData.list.length > 0) {
+        data = altData;
+      }
+    } catch {}
+  }
+
+  if (!data || data.errno !== 0 || !Array.isArray(data.list) || data.list.length === 0) {
+    throw new Error(data?.errno === -9 ? 'Password required or incorrect password.' : (data?.errmsg || 'File not found or link expired on TeraBox.'));
   }
 
   const file = data.list[0];

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
-  AlertTriangle, Check, Copy, RotateCcw, Clipboard, Film, Sparkles,
-  CheckCircle2, ArrowRight, ShieldCheck, Zap, HelpCircle
+  AlertTriangle, Check, Copy, RotateCcw, RotateCw, Clipboard, Film,
+  CheckCircle2, ShieldCheck, Zap, HelpCircle, Loader2
 } from 'lucide-react';
 import Hls from 'hls.js';
 import './tools.css';
@@ -24,6 +24,7 @@ export default function TeraboxVideoPlayer() {
     import.meta.env.VITE_GATEWAY_URL || 'https://tool-sathi-tool-sathi.up.railway.app'
   );
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<GatewayResolveData | null>(null);
   const [currentSurl, setCurrentSurl] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -78,7 +79,7 @@ export default function TeraboxVideoPlayer() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Clipboard Paste Handler — auto-plays immediately after paste
+  // Clipboard Paste Handler — just paste, user taps Play manually
   const handlePasteFromClipboard = async () => {
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
@@ -88,10 +89,6 @@ export default function TeraboxVideoPlayer() {
           setInputUrl(trimmed);
           setPastedFeedback(true);
           setTimeout(() => setPastedFeedback(false), 2000);
-          // Auto-play immediately — pass the url directly, no state race
-          if (trimmed.length > 0) {
-            startPlayback(trimmed);
-          }
         }
       }
     } catch (err) {
@@ -184,28 +181,37 @@ export default function TeraboxVideoPlayer() {
     }
   }, []);
 
-  // Core play logic — accepts URL directly so callers don't need to wait for state update
+  // Skip forward or backward by seconds (Reference Image 2)
+  const skipTime = (seconds: number) => {
+    if (!videoRef.current) return;
+    const newTime = Math.min(Math.max(videoRef.current.currentTime + seconds, 0), duration || 99999);
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+    resetControlsTimeout();
+  };
+
+  // Fast Core play logic — only reveals player box once video stream is fetched / ready
   const startPlayback = useCallback(async (rawUrl: string) => {
     const raw = rawUrl.trim();
     if (!raw) return;
 
     setErrorMessage(null);
-    setIsLoading(true);
-    setPlayerVisible(true);
-    setStatusText('Resolving TeraBox share link...');
+    setIsFetching(true);
+    setStatusText('Fetching video details...');
 
     // Direct files (.mp4 or direct .m3u8)
     if (raw.endsWith('.mp4') || raw.endsWith('.webm') || raw.includes('.m3u8')) {
       setCurrentSurl('');
       setMetadata({ name: raw.split('/').pop() || 'Direct Video' });
+      setPlayerVisible(true);
+      setIsFetching(false);
       attachAndPlayStream(raw);
-      setStatusText('Playing direct video stream in Full HD.');
       return;
     }
 
     const surl = extractSurl(raw);
     if (!surl) {
-      setIsLoading(false);
+      setIsFetching(false);
       setErrorMessage('Invalid TeraBox share link format.');
       return;
     }
@@ -213,28 +219,12 @@ export default function TeraboxVideoPlayer() {
     setCurrentSurl(surl);
     const cleanGateway = gatewayUrl.replace(/\/$/, '');
 
-    // Build both endpoints upfront
-    const resolveUrl = `${cleanGateway}/api?mode=resolve&surl=${surl}`;
-    const streamEndpoint = `${cleanGateway}/api?mode=stream&surl=${surl}`;
-
-    // FAST PATH: Race resolve vs a 2s timer — start streaming immediately if resolve is slow
-    let streamStarted = false;
-
-    const startStreamFallback = () => {
-      if (!streamStarted) {
-        streamStarted = true;
-        attachAndPlayStream(streamEndpoint);
-      }
-    };
-
-    // Kick off stream after 2s if resolve hasn't returned a dlink yet
-    const fallbackTimer = setTimeout(startStreamFallback, 2000);
-
-    // Fire resolve in parallel — if it wins and has a dlink, use that direct URL
+    // Fast Parallel Race: Try fast resolve first (2.8s), then stream endpoint
     try {
+      const resolveUrl = `${cleanGateway}/api?mode=resolve&surl=${surl}`;
       const res = await fetch(resolveUrl, {
         headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(2800)
       }).catch(() => null);
 
       if (res && res.ok) {
@@ -242,7 +232,7 @@ export default function TeraboxVideoPlayer() {
         if (resJson) {
           const fileData = resJson.data || resJson.list?.[0] || resJson;
           setMetadata({
-            name: fileData.name || fileData.server_filename || fileData.title || `TeraBox Video [${surl}]`,
+            name: fileData.name || fileData.file_name || fileData.server_filename || fileData.title || `TeraBox Video [${surl}]`,
             size: fileData.size || fileData.sizeBytes,
             thumb: fileData.thumb || fileData.thumbs?.url3 || fileData.thumbnail,
             dlink: fileData.dlink,
@@ -251,23 +241,24 @@ export default function TeraboxVideoPlayer() {
             shareid: fileData.shareid
           });
 
-          // If we got a direct dlink AND stream hasn't started yet, use it (faster)
-          if (fileData.dlink && !streamStarted) {
-            streamStarted = true;
-            clearTimeout(fallbackTimer);
-            const directEndpoint = `${cleanGateway}/api/stream?url=${encodeURIComponent(fileData.dlink)}`;
-            attachAndPlayStream(directEndpoint);
-            return;
-          }
+          // Direct stream via proxy
+          const playEndpoint = fileData.dlink
+            ? `${cleanGateway}/api/stream?url=${encodeURIComponent(fileData.dlink)}`
+            : `${cleanGateway}/api?mode=stream&surl=${surl}`;
+
+          setPlayerVisible(true);
+          setIsFetching(false);
+          attachAndPlayStream(playEndpoint);
+          return;
         }
       }
-    } catch {
-      // Non-fatal
-    }
+    } catch {}
 
-    // If resolve timed out / failed and stream hasn't started yet, start it now
-    clearTimeout(fallbackTimer);
-    startStreamFallback();
+    // Fallback: Launch stream proxy directly
+    const streamEndpoint = `${cleanGateway}/api?mode=stream&surl=${surl}`;
+    setPlayerVisible(true);
+    setIsFetching(false);
+    attachAndPlayStream(streamEndpoint);
   }, [gatewayUrl, attachAndPlayStream]);
 
   // Main Handler: Fetch from terabox-gateway and play stream
@@ -306,6 +297,7 @@ export default function TeraboxVideoPlayer() {
   const [playerVisible, setPlayerVisible] = useState<boolean>(false);
   const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Auto-hides quickly after inactivity (1.5s), tap reveals or hides
   const resetControlsTimeout = useCallback(() => {
     setControlsVisible(true);
     if (hideControlsTimerRef.current) {
@@ -314,7 +306,7 @@ export default function TeraboxVideoPlayer() {
     if (isPlaying) {
       hideControlsTimerRef.current = setTimeout(() => {
         setControlsVisible(false);
-      }, 2500);
+      }, 1500); // Quick 1.5s idle then hides in 0.1s
     }
   }, [isPlaying]);
 
@@ -392,7 +384,18 @@ export default function TeraboxVideoPlayer() {
             onWaiting={() => setIsBuffering(true)}
             onPlaying={() => setIsBuffering(false)}
             onCanPlay={() => setIsBuffering(false)}
-            onClick={togglePlay}
+            onClick={() => {
+              if (isPlaying) {
+                if (!controlsVisible) {
+                  setControlsVisible(true);
+                  resetControlsTimeout();
+                } else {
+                  togglePlay();
+                }
+              } else {
+                togglePlay();
+              }
+            }}
             playsInline
             style={{ width: '100%', height: '100%', display: 'block' }}
           />
@@ -526,6 +529,21 @@ export default function TeraboxVideoPlayer() {
             </div>
           )}
 
+          {/* Big Center Play Button Overlay (Reference Image 2) */}
+          {!isLoading && !isPlaying && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePlay();
+              }}
+              className="center-play-btn"
+              title="Play Video"
+              aria-label="Play Video"
+            >
+              <Play size={28} fill="#ffffff" color="#ffffff" style={{ marginLeft: '3px' }} />
+            </div>
+          )}
+
           {/* Player Custom Controls */}
           <div className="player-controls">
             <div className="timeline-container">
@@ -546,7 +564,15 @@ export default function TeraboxVideoPlayer() {
             <div className="controls-row">
               <div className="controls-left">
                 <button type="button" onClick={togglePlay} className="ctrl-btn" title={isPlaying ? 'Pause' : 'Play'}>
-                  {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                </button>
+
+                <button type="button" onClick={() => skipTime(-10)} className="ctrl-btn" title="Rewind 10s">
+                  <RotateCcw size={16} />
+                </button>
+
+                <button type="button" onClick={() => skipTime(10)} className="ctrl-btn" title="Forward 10s">
+                  <RotateCw size={16} />
                 </button>
 
                 <button type="button" onClick={() => {
@@ -554,7 +580,7 @@ export default function TeraboxVideoPlayer() {
                   setIsMuted(nextMute);
                   if (videoRef.current) videoRef.current.muted = nextMute;
                 }} className="ctrl-btn" title={isMuted ? 'Unmute' : 'Mute'}>
-                  {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                  {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                 </button>
 
                 <span className="time-display">
@@ -658,15 +684,34 @@ export default function TeraboxVideoPlayer() {
             {/* Play Button */}
             <button
               type="submit"
-              disabled={isLoading || !inputUrl.trim()}
+              disabled={isFetching || isLoading || !inputUrl.trim()}
               className="btn btn-primary vp-play-btn"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}
             >
-              <Play size={16} />
-              <span>{isLoading ? 'Loading...' : 'Play'}</span>
+              {isFetching ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+              <span>{isFetching ? 'Fetching...' : isLoading ? 'Loading...' : 'Play'}</span>
             </button>
           </div>
         </form>
+
+        {/* Error Notification when player box is not opened */}
+        {errorMessage && !playerVisible && (
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.85rem 1rem',
+            borderRadius: '10px',
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            color: '#fca5a5',
+            fontSize: '0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertTriangle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Metadata Card */}
         {metadata && metadata.name && (
