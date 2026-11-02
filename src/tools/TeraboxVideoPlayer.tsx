@@ -24,7 +24,6 @@ export default function TeraboxVideoPlayer() {
     import.meta.env.VITE_GATEWAY_URL || 'https://tool-sathi-tool-sathi.up.railway.app'
   );
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isFetching, setIsFetching] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<GatewayResolveData | null>(null);
   const [currentSurl, setCurrentSurl] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -190,28 +189,27 @@ export default function TeraboxVideoPlayer() {
     resetControlsTimeout();
   };
 
-  // Fast Core play logic — only reveals player box once video stream is fetched / ready
+  // Fast Core play logic — reveals player and starts streaming
   const startPlayback = useCallback(async (rawUrl: string) => {
     const raw = rawUrl.trim();
     if (!raw) return;
 
     setErrorMessage(null);
-    setIsFetching(true);
-    setStatusText('Fetching video details...');
+    setIsLoading(true);
+    setStatusText('Resolving TeraBox link...');
 
     // Direct files (.mp4 or direct .m3u8)
     if (raw.endsWith('.mp4') || raw.endsWith('.webm') || raw.includes('.m3u8')) {
       setCurrentSurl('');
       setMetadata({ name: raw.split('/').pop() || 'Direct Video' });
       setPlayerVisible(true);
-      setIsFetching(false);
       attachAndPlayStream(raw);
       return;
     }
 
     const surl = extractSurl(raw);
     if (!surl) {
-      setIsFetching(false);
+      setIsLoading(false);
       setErrorMessage('Invalid TeraBox share link format.');
       return;
     }
@@ -219,12 +217,28 @@ export default function TeraboxVideoPlayer() {
     setCurrentSurl(surl);
     const cleanGateway = gatewayUrl.replace(/\/$/, '');
 
-    // Fast Parallel Race: Try fast resolve first (2.8s), then stream endpoint
+    // Endpoints
+    const resolveUrl = `${cleanGateway}/api?mode=resolve&surl=${surl}`;
+    const streamEndpoint = `${cleanGateway}/api?mode=stream&surl=${surl}`;
+
+    let streamStarted = false;
+    const launchStream = (streamUrl: string) => {
+      if (!streamStarted) {
+        streamStarted = true;
+        setPlayerVisible(true);
+        attachAndPlayStream(streamUrl);
+      }
+    };
+
+    // If resolve takes longer than 2.5s, launch streaming proxy directly so video starts without delay
+    const fallbackTimer = setTimeout(() => {
+      launchStream(streamEndpoint);
+    }, 2500);
+
     try {
-      const resolveUrl = `${cleanGateway}/api?mode=resolve&surl=${surl}`;
       const res = await fetch(resolveUrl, {
         headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(2800)
+        signal: AbortSignal.timeout(6000)
       }).catch(() => null);
 
       if (res && res.ok) {
@@ -241,24 +255,18 @@ export default function TeraboxVideoPlayer() {
             shareid: fileData.shareid
           });
 
-          // Direct stream via proxy
-          const playEndpoint = fileData.dlink
-            ? `${cleanGateway}/api/stream?url=${encodeURIComponent(fileData.dlink)}`
-            : `${cleanGateway}/api?mode=stream&surl=${surl}`;
-
-          setPlayerVisible(true);
-          setIsFetching(false);
-          attachAndPlayStream(playEndpoint);
-          return;
+          if (fileData.dlink && !streamStarted) {
+            clearTimeout(fallbackTimer);
+            const directEndpoint = `${cleanGateway}/api/stream?url=${encodeURIComponent(fileData.dlink)}`;
+            launchStream(directEndpoint);
+            return;
+          }
         }
       }
     } catch {}
 
-    // Fallback: Launch stream proxy directly
-    const streamEndpoint = `${cleanGateway}/api?mode=stream&surl=${surl}`;
-    setPlayerVisible(true);
-    setIsFetching(false);
-    attachAndPlayStream(streamEndpoint);
+    clearTimeout(fallbackTimer);
+    launchStream(streamEndpoint);
   }, [gatewayUrl, attachAndPlayStream]);
 
   // Main Handler: Fetch from terabox-gateway and play stream
@@ -684,12 +692,12 @@ export default function TeraboxVideoPlayer() {
             {/* Play Button */}
             <button
               type="submit"
-              disabled={isFetching || isLoading || !inputUrl.trim()}
+              disabled={isLoading || !inputUrl.trim()}
               className="btn btn-primary vp-play-btn"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}
             >
-              {isFetching ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-              <span>{isFetching ? 'Fetching...' : isLoading ? 'Loading...' : 'Play'}</span>
+              {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+              <span>{isLoading ? 'Loading...' : 'Play'}</span>
             </button>
           </div>
         </form>
