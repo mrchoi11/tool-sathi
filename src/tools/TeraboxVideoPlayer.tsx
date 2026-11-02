@@ -78,15 +78,20 @@ export default function TeraboxVideoPlayer() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Clipboard Paste Handler
+  // Clipboard Paste Handler — auto-plays immediately after paste
   const handlePasteFromClipboard = async () => {
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
         const text = await navigator.clipboard.readText();
         if (text) {
-          setInputUrl(text.trim());
+          const trimmed = text.trim();
+          setInputUrl(trimmed);
           setPastedFeedback(true);
           setTimeout(() => setPastedFeedback(false), 2000);
+          // Auto-play immediately — pass the url directly, no state race
+          if (trimmed.length > 0) {
+            startPlayback(trimmed);
+          }
         }
       }
     } catch (err) {
@@ -136,7 +141,13 @@ export default function TeraboxVideoPlayer() {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
-        backBufferLength: 60
+        backBufferLength: 30,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        maxBufferSize: 20 * 1000 * 1000, // 20 MB
+        startLevel: -1,           // auto-select quality for fastest start
+        abrEwmaDefaultEstimate: 500000, // assume 500 kbps initially (conservative → starts fast)
+        testBandwidth: true,
       });
 
       hls.loadSource(streamUrl);
@@ -173,15 +184,15 @@ export default function TeraboxVideoPlayer() {
     }
   }, []);
 
-  // Main Handler: Fetch from terabox-gateway and play stream
-  const handlePlaySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const raw = inputUrl.trim();
+  // Core play logic — accepts URL directly so callers don't need to wait for state update
+  const startPlayback = useCallback(async (rawUrl: string) => {
+    const raw = rawUrl.trim();
     if (!raw) return;
 
     setErrorMessage(null);
     setIsLoading(true);
-    setStatusText('Resolving TeraBox share link with gateway...');
+    setPlayerVisible(true);
+    setStatusText('Resolving TeraBox share link...');
 
     // Direct files (.mp4 or direct .m3u8)
     if (raw.endsWith('.mp4') || raw.endsWith('.webm') || raw.includes('.m3u8')) {
@@ -202,12 +213,28 @@ export default function TeraboxVideoPlayer() {
     setCurrentSurl(surl);
     const cleanGateway = gatewayUrl.replace(/\/$/, '');
 
-    // Step 1: Optional metadata resolve (mode=resolve)
+    // Build both endpoints upfront
+    const resolveUrl = `${cleanGateway}/api?mode=resolve&surl=${surl}`;
+    const streamEndpoint = `${cleanGateway}/api?mode=stream&surl=${surl}`;
+
+    // FAST PATH: Race resolve vs a 2s timer — start streaming immediately if resolve is slow
+    let streamStarted = false;
+
+    const startStreamFallback = () => {
+      if (!streamStarted) {
+        streamStarted = true;
+        attachAndPlayStream(streamEndpoint);
+      }
+    };
+
+    // Kick off stream after 2s if resolve hasn't returned a dlink yet
+    const fallbackTimer = setTimeout(startStreamFallback, 2000);
+
+    // Fire resolve in parallel — if it wins and has a dlink, use that direct URL
     try {
-      const resolveUrl = `${cleanGateway}/api?mode=resolve&surl=${surl}`;
       const res = await fetch(resolveUrl, {
         headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(3000)
       }).catch(() => null);
 
       if (res && res.ok) {
@@ -224,8 +251,10 @@ export default function TeraboxVideoPlayer() {
             shareid: fileData.shareid
           });
 
-          // Immediate Fast Stream: If direct link is ready, stream instantly!
-          if (fileData.dlink) {
+          // If we got a direct dlink AND stream hasn't started yet, use it (faster)
+          if (fileData.dlink && !streamStarted) {
+            streamStarted = true;
+            clearTimeout(fallbackTimer);
             const directEndpoint = `${cleanGateway}/api/stream?url=${encodeURIComponent(fileData.dlink)}`;
             attachAndPlayStream(directEndpoint);
             return;
@@ -233,12 +262,18 @@ export default function TeraboxVideoPlayer() {
         }
       }
     } catch {
-      // Non-fatal: if metadata resolve endpoint is unavailable, we still proceed to stream
+      // Non-fatal
     }
 
-    // Step 2 Fallback: Stream using terabox-gateway HLS mode: /api?mode=stream&surl=SHARE_ID
-    const streamEndpoint = `${cleanGateway}/api?mode=stream&surl=${surl}`;
-    attachAndPlayStream(streamEndpoint);
+    // If resolve timed out / failed and stream hasn't started yet, start it now
+    clearTimeout(fallbackTimer);
+    startStreamFallback();
+  }, [gatewayUrl, attachAndPlayStream]);
+
+  // Main Handler: Fetch from terabox-gateway and play stream
+  const handlePlaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    startPlayback(inputUrl);
   };
 
   const togglePlay = () => {
@@ -268,6 +303,7 @@ export default function TeraboxVideoPlayer() {
 
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
+  const [playerVisible, setPlayerVisible] = useState<boolean>(false);
   const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const resetControlsTimeout = useCallback(() => {
@@ -331,8 +367,11 @@ export default function TeraboxVideoPlayer() {
 
   return (
     <div className="tool-container" style={{ maxWidth: '860px', margin: '0 auto' }}>
-      {/* Video Player Display */}
-      <div className="player-wrapper">
+      {/* Video Player Display — only shown after link is submitted */}
+      <div
+        className={`player-wrapper player-reveal ${playerVisible ? 'player-reveal--visible' : ''}`}
+        style={{ display: playerVisible ? undefined : 'none' }}
+      >
         <div
           ref={playerContainerRef}
           className={`video-player-frame aspect-16-9 ${isFullscreen ? 'is-fullscreen' : ''} ${!controlsVisible && isPlaying ? 'controls-hidden' : ''}`}
@@ -476,7 +515,7 @@ export default function TeraboxVideoPlayer() {
                 onClick={() => {
                   setErrorMessage(null);
                   if (inputUrl.trim()) {
-                    handlePlaySubmit({ preventDefault: () => {} } as React.FormEvent);
+                    startPlayback(inputUrl);
                   }
                 }}
                 className="btn btn-primary btn-sm"
@@ -498,6 +537,9 @@ export default function TeraboxVideoPlayer() {
                 onChange={handleSeek}
                 className="timeline-range"
                 aria-label="Seekbar"
+                style={{
+                  '--progress': `${duration > 0 ? (currentTime / duration) * 100 : 0}%`
+                } as React.CSSProperties}
               />
             </div>
 
@@ -599,7 +641,7 @@ export default function TeraboxVideoPlayer() {
               type="button"
               onClick={() => {
                 if (inputUrl.trim()) {
-                  handlePlaySubmit({ preventDefault: () => {} } as React.FormEvent);
+                  startPlayback(inputUrl);
                 } else if (currentSurl) {
                   attachAndPlayStream(`${gatewayUrl.replace(/\/$/, '')}/api?mode=stream&surl=${currentSurl}`);
                 }
