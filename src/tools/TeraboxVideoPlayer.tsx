@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize,
-  AlertTriangle, Check, Copy, RotateCcw, RotateCw, Clipboard, Film,
-  CheckCircle2, ShieldCheck, Zap, HelpCircle, Loader2
+  Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings,
+  SkipBack, SkipForward, AlertTriangle, Check, Copy, RotateCcw,
+  Clipboard, Film, CheckCircle2, ShieldCheck, Zap, HelpCircle, Loader2
 } from 'lucide-react';
 import Hls from 'hls.js';
 import './tools.css';
@@ -303,6 +303,7 @@ export default function TeraboxVideoPlayer() {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
   const [playerVisible, setPlayerVisible] = useState<boolean>(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState<boolean>(false);
   const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-hides quickly after inactivity (1.5s), tap reveals or hides
@@ -537,7 +538,7 @@ export default function TeraboxVideoPlayer() {
             </div>
           )}
 
-          {/* Big Center Play Button Overlay (Reference Image 2) */}
+          {/* Big Center Play Button Overlay (Reference Image Match) */}
           {!isLoading && !isPlaying && (
             <div
               onClick={(e) => {
@@ -548,20 +549,54 @@ export default function TeraboxVideoPlayer() {
               title="Play Video"
               aria-label="Play Video"
             >
-              <Play size={28} fill="#ffffff" color="#ffffff" style={{ marginLeft: '3px' }} />
+              <Play size={32} fill="#ffffff" color="#ffffff" style={{ marginLeft: '4px' }} />
             </div>
           )}
 
-          {/* Player Custom Controls */}
-          <div className="player-controls">
-            <div className="timeline-container">
+          {/* Minimalist White Bottom Controls Bar (Reference Image Match) */}
+          <div className="minimal-white-controls">
+            {/* Play / Pause Button */}
+            <button
+              type="button"
+              onClick={togglePlay}
+              className="white-ctrl-btn"
+              title={isPlaying ? 'Pause' : 'Play'}
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? <Pause size={17} /> : <Play size={17} />}
+            </button>
+
+            {/* Skip Back 10s (|◀) */}
+            <button
+              type="button"
+              onClick={() => skipTime(-10)}
+              className="white-ctrl-btn"
+              title="Rewind 10s"
+              aria-label="Rewind 10s"
+            >
+              <SkipBack size={16} />
+            </button>
+
+            {/* Skip Forward 10s (▶|) */}
+            <button
+              type="button"
+              onClick={() => skipTime(10)}
+              className="white-ctrl-btn"
+              title="Forward 10s"
+              aria-label="Forward 10s"
+            >
+              <SkipForward size={16} />
+            </button>
+
+            {/* Centered Horizontal Timeline Seekbar */}
+            <div className="white-timeline-wrap">
               <input
                 type="range"
                 min="0"
                 max={duration || 100}
                 value={currentTime}
                 onChange={handleSeek}
-                className="timeline-range"
+                className="white-timeline-range"
                 aria-label="Seekbar"
                 style={{
                   '--progress': `${duration > 0 ? (currentTime / duration) * 100 : 0}%`
@@ -569,73 +604,68 @@ export default function TeraboxVideoPlayer() {
               />
             </div>
 
-            <div className="controls-row">
-              <div className="controls-left">
-                <button type="button" onClick={togglePlay} className="ctrl-btn" title={isPlaying ? 'Pause' : 'Play'}>
-                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-                </button>
+            {/* Time Display */}
+            <span className="white-time-display">
+              {formatSeconds(currentTime)} / {formatSeconds(duration)}
+            </span>
 
-                <button type="button" onClick={() => skipTime(-10)} className="ctrl-btn" title="Rewind 10s">
-                  <RotateCcw size={16} />
-                </button>
+            {/* Volume Mute/Unmute */}
+            <button
+              type="button"
+              onClick={() => {
+                const nextMute = !isMuted;
+                setIsMuted(nextMute);
+                if (videoRef.current) videoRef.current.muted = nextMute;
+              }}
+              className="white-ctrl-btn"
+              title={isMuted ? 'Unmute' : 'Mute'}
+              aria-label={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
+            </button>
 
-                <button type="button" onClick={() => skipTime(10)} className="ctrl-btn" title="Forward 10s">
-                  <RotateCw size={16} />
-                </button>
+            {/* Settings (Speed Menu) */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setShowSettingsMenu(prev => !prev)}
+                className="white-ctrl-btn"
+                title="Playback Speed"
+                aria-label="Playback Speed"
+              >
+                <Settings size={16} />
+              </button>
 
-                <button type="button" onClick={() => {
-                  const nextMute = !isMuted;
-                  setIsMuted(nextMute);
-                  if (videoRef.current) videoRef.current.muted = nextMute;
-                }} className="ctrl-btn" title={isMuted ? 'Unmute' : 'Mute'}>
-                  {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                </button>
-
-                <span className="time-display">
-                  {formatSeconds(currentTime)} / {formatSeconds(duration)}
-                </span>
-              </div>
-
-              <div className="controls-right">
-                {/* Desktop speed buttons */}
-                <div className="speed-selector-desktop">
+              {showSettingsMenu && (
+                <div className="speed-popup-menu">
+                  <div className="speed-popup-title">Speed</div>
                   {[0.5, 1, 1.25, 1.5, 2].map(s => (
                     <button
                       key={s}
                       type="button"
-                      onClick={() => handleSpeedChange(s)}
-                      className={`speed-btn ${playbackSpeed === s ? 'active' : ''}`}
+                      onClick={() => {
+                        handleSpeedChange(s);
+                        setShowSettingsMenu(false);
+                      }}
+                      className={`speed-popup-item ${playbackSpeed === s ? 'active' : ''}`}
                     >
-                      {s}x
+                      {s}x {playbackSpeed === s && '✓'}
                     </button>
                   ))}
                 </div>
-
-                {/* Mobile speed dropdown to preserve space and never hide fullscreen button */}
-                <div className="speed-selector-mobile">
-                  <select
-                    className="speed-select-native"
-                    value={playbackSpeed}
-                    onChange={e => handleSpeedChange(parseFloat(e.target.value))}
-                    aria-label="Playback Speed"
-                  >
-                    {[0.5, 1, 1.25, 1.5, 2].map(s => (
-                      <option key={s} value={s}>{s}x</option>
-                    ))}
-                  </select>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={toggleFullscreen}
-                  className="ctrl-btn"
-                  title={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen"}
-                  aria-label={isFullscreen ? "Exit Fullscreen" : "Toggle Fullscreen"}
-                >
-                  {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
-                </button>
-              </div>
+              )}
             </div>
+
+            {/* Fullscreen Button */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="white-ctrl-btn"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+              aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            >
+              {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+            </button>
           </div>
         </div>
       </div>
