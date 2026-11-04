@@ -35,7 +35,7 @@ jobs:
           test -f dist/index.html || (echo "Error: index.html missing!" && exit 1)
           test -f dist/.htaccess || (echo "Error: .htaccess missing!" && exit 1)
 
-            - name: 6. Deploy to Hostinger via FTP
+      - name: 6. Deploy to Hostinger via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -43,5 +43,6 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
+          timeout: 120000
           local-dir: ./dist/
           server-dir: ./tool-sathi/
