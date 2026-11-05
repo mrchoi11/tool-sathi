@@ -20,11 +20,9 @@ interface GatewayResolveData {
 
 export default function TeraboxVideoPlayer() {
   const [inputUrl, setInputUrl] = useState<string>('');
-  const [gatewayUrl, setGatewayUrl] = useState<string>(() => {
-    const envUrl = import.meta.env.VITE_GATEWAY_URL;
-    if (envUrl && !envUrl.includes('workers.dev')) return envUrl;
-    return 'https://tool-sathi-tool-sathi.up.railway.app';
-  });
+  const [gatewayUrl, setGatewayUrl] = useState<string>(
+    import.meta.env.VITE_GATEWAY_URL || 'https://toolsathi-gateway.policyian.workers.dev'
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<GatewayResolveData | null>(null);
   const [currentSurl, setCurrentSurl] = useState<string>('');
@@ -48,12 +46,8 @@ export default function TeraboxVideoPlayer() {
   // Load saved gateway URL on mount
   useEffect(() => {
     const saved = localStorage.getItem('toolsathi_gateway_url');
-    if (saved && !saved.includes('workers.dev')) {
+    if (saved) {
       setGatewayUrl(saved);
-    } else if (saved && saved.includes('workers.dev')) {
-      // Purge broken Cloudflare Worker from legacy localStorage cache
-      localStorage.removeItem('toolsathi_gateway_url');
-      setGatewayUrl('https://tool-sathi-tool-sathi.up.railway.app');
     }
   }, []);
 
