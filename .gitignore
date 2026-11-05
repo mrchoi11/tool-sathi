@@ -31,3 +31,8 @@ toolsathi-dist.zip
 .env
 .env.*
 !.env.example
+
+# Temporary / scratch scripts
+scratch/
+scratch_*.js
+
