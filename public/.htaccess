@@ -1,6 +1,12 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # 1. Route all /api requests to native PHP gateway
+  RewriteRule ^api/(.*)$ /api/terabox.php [QSA,L]
+  RewriteRule ^api$ /api/terabox.php [QSA,L]
+
+  # 2. SPA routing - all non-file requests go to index.html
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

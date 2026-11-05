@@ -20,9 +20,13 @@ interface GatewayResolveData {
 
 export default function TeraboxVideoPlayer() {
   const [inputUrl, setInputUrl] = useState<string>('');
-  const [gatewayUrl, setGatewayUrl] = useState<string>(
-    import.meta.env.VITE_GATEWAY_URL || 'https://toolsathi-gateway.policyian.workers.dev'
-  );
+  const [gatewayUrl, setGatewayUrl] = useState<string>(() => {
+    const envUrl = import.meta.env.VITE_GATEWAY_URL;
+    if (!envUrl || envUrl.includes('workers.dev') || envUrl.includes('railway.app')) {
+      return '';
+    }
+    return envUrl;
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<GatewayResolveData | null>(null);
   const [currentSurl, setCurrentSurl] = useState<string>('');
@@ -46,7 +50,10 @@ export default function TeraboxVideoPlayer() {
   // Load saved gateway URL on mount
   useEffect(() => {
     const saved = localStorage.getItem('toolsathi_gateway_url');
-    if (saved) {
+    if (saved && (saved.includes('workers.dev') || saved.includes('railway.app'))) {
+      localStorage.removeItem('toolsathi_gateway_url');
+      setGatewayUrl('');
+    } else if (saved) {
       setGatewayUrl(saved);
     }
   }, []);
