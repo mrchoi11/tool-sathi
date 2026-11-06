@@ -36,3 +36,6 @@ toolsathi-dist.zip
 scratch/
 scratch_*.js
 
+# PHP config with secrets — NEVER commit
+public/api/config.php
+

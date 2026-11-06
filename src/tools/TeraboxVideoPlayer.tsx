@@ -134,6 +134,30 @@ export default function TeraboxVideoPlayer() {
       video.addEventListener('canplay', onCanPlay);
 
       video.onerror = () => {
+        // If redirect mode (302) returned 403 from TeraBox CDN, auto-retry via proxy
+        if (!streamUrl.includes('proxy=1') && streamUrl.includes('mode=stream')) {
+          const proxyUrl = streamUrl + '&proxy=1';
+          setStatusText('Switching to proxy mode...');
+          video.removeEventListener('canplay', onCanPlay);
+          video.src = proxyUrl;
+          video.preload = 'auto';
+          video.load();
+
+          const onCanPlayProxy = () => {
+            setIsLoading(false);
+            setIsBuffering(false);
+            video.removeEventListener('canplay', onCanPlayProxy);
+            video.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+          };
+          video.addEventListener('canplay', onCanPlayProxy);
+
+          video.onerror = () => {
+            setIsLoading(false);
+            setIsBuffering(false);
+            setErrorMessage('Failed to load video stream. The link may have expired or gateway is offline.');
+          };
+          return;
+        }
         setIsLoading(false);
         setIsBuffering(false);
         setErrorMessage('Failed to load video stream. The link may have expired or gateway is offline.');
@@ -264,8 +288,10 @@ export default function TeraboxVideoPlayer() {
 
           if (fileData.dlink && !streamStarted) {
             clearTimeout(fallbackTimer);
-            const directEndpoint = `${cleanGateway}/api/stream?url=${encodeURIComponent(fileData.dlink)}`;
-            launchStream(directEndpoint);
+            // Use redirect stream mode — PHP will 302 to TeraBox CDN directly (fastest)
+            // If redirect fails (403 from CDN), attachAndPlayStream's onerror auto-retries with ?proxy=1
+            const redirectStreamUrl = `${cleanGateway}/api?mode=stream&surl=${surl}`;
+            launchStream(redirectStreamUrl);
             return;
           }
         }
