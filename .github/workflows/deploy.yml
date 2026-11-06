@@ -45,4 +45,4 @@ jobs:
           port: 21
           timeout: 120000
           local-dir: ./dist/
-server-dir: ./Tool-sathi/
+          server-dir: ./Tool-sathi/
