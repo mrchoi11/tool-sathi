@@ -3,7 +3,7 @@ import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { getToolBySlug, getCategoryInfo, getToolsByCategory } from '../data/toolRegistry';
 import type { Tool } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import AdPlaceholder from '../components/AdPlaceholder';
 import './ToolPage.css';
 
@@ -92,6 +92,12 @@ const toolComponents: Record<string, React.LazyExoticComponent<React.ComponentTy
 export default function ToolPage() {
   const { slug } = useParams<{ slug: string }>();
   const tool = slug ? getToolBySlug(slug) : undefined;
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [slug]);
 
   if (!tool) return <Navigate to="/404" replace />;
 

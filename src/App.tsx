@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import LoadingPage from './components/LoadingPage';
+import ScrollToTop from './components/ScrollToTop';
 
 const ToolPage = lazy(() => import('./pages/ToolPage'));
 const CategoryPage = lazy(() => import('./pages/CategoryPage'));
@@ -20,6 +21,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Layout>
         <Suspense fallback={<LoadingPage />}>
           <Routes>
