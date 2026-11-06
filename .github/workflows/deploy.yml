@@ -35,14 +35,13 @@ jobs:
           test -f dist/index.html || (echo "Error: index.html missing!" && exit 1)
           test -f dist/.htaccess || (echo "Error: .htaccess missing!" && exit 1)
 
-      - name: 6. Deploy to Hostinger via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: 6. Deploy to Hostinger via SFTP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          port: 21
-          timeout: 120000
-          local-dir: ./dist/
-          server-dir: ./Tool-sathi/
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 65002
+          source: "dist"
+          target: "/home/u257093299/domains/propdigital360.in/public_html/Tool-sathi"
+          strip_components: 1
