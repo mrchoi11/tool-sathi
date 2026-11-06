@@ -159,6 +159,12 @@ function resolveTeraBox($keys, $ndus, $pwd = '') {
 function streamVideo($targetUrl, $ndus) {
     global $USER_AGENT;
     
+    // Clear any output buffers so headers and stream flush immediately
+    if (session_id()) session_write_close();
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+
     // Parse Range header from client
     $rangeHeader = $_SERVER['HTTP_RANGE'] ?? null;
     $cookieHeader = $ndus ? "ndus=$ndus" : '';
@@ -175,16 +181,25 @@ function streamVideo($targetUrl, $ndus) {
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_TIMEOUT, 0);
+    curl_setopt($ch, CURLOPT_BUFFERSIZE, 128 * 1024);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
     // Forward headers from upstream to client
     curl_setopt($ch, CURLOPT_HEADERFUNCTION, function($curl, $header) {
         $len = strlen($header);
-        $headerParts = explode(':', $header, 2);
+        $trimmed = trim($header);
+
+        // 1. Send status code immediately (e.g. 206 Partial Content)
+        if (preg_match('#^HTTP/[\d\.]+\s+(\d+)#i', $trimmed, $matches)) {
+            http_response_code((int)$matches[1]);
+            return $len;
+        }
+
+        $headerParts = explode(':', $trimmed, 2);
         if (count($headerParts) === 2) {
             $name = strtolower(trim($headerParts[0]));
-            if (in_array($name, ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag'])) {
-                header($header, true);
+            if (in_array($name, ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag', 'cache-control'])) {
+                header($trimmed, true);
             }
         }
         return $len;
@@ -193,19 +208,11 @@ function streamVideo($targetUrl, $ndus) {
     // Stream body directly to output
     curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) {
         echo $data;
-        if (ob_get_level() > 0) {
-            ob_flush();
-        }
         flush();
         return strlen($data);
     });
 
-    // Capture HTTP response code
     curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    if ($httpCode) {
-        http_response_code($httpCode);
-    }
     curl_close($ch);
     exit;
 }
@@ -284,3 +291,4 @@ echo json_encode([
     'php_version' => PHP_VERSION,
     'cookieActive' => !empty($ndus)
 ], JSON_PRETTY_PRINT);
+

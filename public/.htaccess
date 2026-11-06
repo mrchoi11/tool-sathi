@@ -1,3 +1,7 @@
+<IfModule mod_env.c>
+  SetEnvIf Request_URI "^/api/stream" no-gzip dont-vary
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
