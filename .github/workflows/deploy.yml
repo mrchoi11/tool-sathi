@@ -27,7 +27,7 @@ jobs:
       - name: 4. Build application
         run: npm run build
         env:
-          VITE_GATEWAY_URL: https://toolsathi-gateway.policyian.workers.dev
+          VITE_GATEWAY_URL: https://tool-sathi.propdigital360.in
 
       - name: 5. Verify dist output
         run: |
