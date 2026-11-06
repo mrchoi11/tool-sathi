@@ -27,7 +27,7 @@ jobs:
       - name: 4. Build application
         run: npm run build
         env:
-          VITE_GATEWAY_URL: https://tool-sathi.propdigital360.in 
+          VITE_GATEWAY_URL: https://tool-sathi.propdigital360.in
 
       - name: 5. Verify dist output
         run: |
@@ -45,4 +45,4 @@ jobs:
           port: 21
           timeout: 120000
           local-dir: ./dist/
-          server-dir: ./tool-sathi/
+server-dir: ./Tool-sathi/
