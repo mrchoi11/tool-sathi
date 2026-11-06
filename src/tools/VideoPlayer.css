@@ -25,13 +25,13 @@
   animation: playerReveal 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ── Player Wrapper (Clean Aesthetic with Bottom White Bar) ── */
+/* ── Player Wrapper (Clean Dark Aesthetic) ── */
 .player-wrapper {
   width: 100%;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7), 0 0 1px 1px rgba(255, 255, 255, 0.12);
-  background: #ffffff;
+  background: #090a0f;
   position: relative;
   transition: box-shadow 0.3s ease;
 }
@@ -97,22 +97,23 @@
   padding: 4rem 2.5rem 2rem !important;
 }
 
-/* ── Minimalist White Controls Bar (Strictly Pinned to Bottom) ── */
+/* ── Sleek Non-Blocking Controls Overlay (Cinematic Gradient) ── */
 .minimal-white-controls {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   width: 100%;
-  background: #ffffff;
-  padding: 0.5rem 0.85rem;
+  background: linear-gradient(to top, rgba(7, 8, 14, 0.95) 0%, rgba(7, 8, 14, 0.6) 65%, transparent 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 1.5rem 0.75rem 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  border-top: none;
   box-sizing: border-box;
-  transition: opacity 0.1s ease, transform 0.1s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 20;
 }
 
@@ -124,17 +125,18 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(255, 255, 255, 0.96);
+  background: linear-gradient(to top, rgba(7, 8, 14, 0.95) 0%, rgba(7, 8, 14, 0.65) 60%, transparent 100%);
   backdrop-filter: blur(12px);
-  padding: 0.75rem 1.5rem;
+  -webkit-backdrop-filter: blur(12px);
+  padding: 2.2rem 1.5rem 1.2rem;
 }
 
-/* Auto-hide controls in 0.1s when playing and idle */
+/* Auto-hide controls when playing and idle */
 .video-player-frame.controls-hidden .minimal-white-controls {
   opacity: 0 !important;
   pointer-events: none !important;
   transform: translateY(100%) !important;
-  transition: opacity 0.1s ease, transform 0.1s ease !important;
+  transition: opacity 0.25s ease, transform 0.25s ease !important;
 }
 
 /* Row holding buttons and time */
@@ -163,7 +165,7 @@
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: rgba(45, 47, 54, 0.82);
+  background: rgba(22, 24, 35, 0.82);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.22);
   display: flex;
@@ -177,7 +179,7 @@
 
 .center-play-btn:hover {
   transform: translate(-50%, -50%) scale(1.08);
-  background: rgba(60, 62, 72, 0.95);
+  background: rgba(35, 38, 52, 0.95);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
 }
 
@@ -185,11 +187,11 @@
   transform: translate(-50%, -50%) scale(0.95);
 }
 
-/* Minimalist White Control Buttons */
+/* Minimalist Sleek Control Buttons */
 .white-ctrl-btn {
   background: transparent;
   border: none;
-  color: #1e293b;
+  color: #f1f5f9;
   cursor: pointer;
   padding: 5px;
   border-radius: 6px;
@@ -202,8 +204,8 @@
 }
 
 .white-ctrl-btn:hover {
-  color: #e50914;
-  background: rgba(229, 9, 20, 0.08);
+  color: #ef4444;
+  background: rgba(255, 255, 255, 0.12);
   transform: scale(1.08);
 }
 
@@ -235,13 +237,12 @@
   height: 3px;
   -webkit-appearance: none;
   appearance: none;
-  /* Light grey track with red progress (Reference Image) */
   background: linear-gradient(
     to right,
-    #e50914 0%,
-    #e50914 var(--progress, 0%),
-    #e2e8f0 var(--progress, 0%),
-    #e2e8f0 100%
+    #ef4444 0%,
+    #ef4444 var(--progress, 0%),
+    rgba(255, 255, 255, 0.25) var(--progress, 0%),
+    rgba(255, 255, 255, 0.25) 100%
   );
   border-radius: 999px;
   outline: none;
@@ -256,15 +257,15 @@
   height: 5px;
 }
 
-/* Small Red Dot Thumb (Exact Match with Reference Image) */
+/* Small Red Dot Thumb */
 .white-timeline-range::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #e50914;
+  background: #ef4444;
   border: 1.5px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(229, 9, 20, 0.6);
+  box-shadow: 0 1px 6px rgba(239, 68, 68, 0.8);
   cursor: pointer;
   transition: transform 0.1s ease, width 0.1s ease, height 0.1s ease;
 }
@@ -281,12 +282,12 @@
 }
 
 .white-timeline-range::-moz-range-thumb {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #e50914;
+  background: #ef4444;
   border: 1.5px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(229, 9, 20, 0.6);
+  box-shadow: 0 1px 6px rgba(239, 68, 68, 0.8);
   cursor: pointer;
 }
 
@@ -296,7 +297,7 @@
 }
 
 .white-timeline-range::-moz-range-progress {
-  background: #e50914;
+  background: #ef4444;
   border-radius: 999px;
   height: 3px;
 }
@@ -305,7 +306,7 @@
 .white-time-display {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.74rem;
-  color: #64748b;
+  color: #cbd5e1;
   white-space: nowrap;
   font-weight: 500;
   letter-spacing: 0.3px;
@@ -325,7 +326,7 @@
   .minimal-white-controls {
     flex-direction: row;
     gap: 0.75rem;
-    padding: 0.65rem 1.15rem;
+    padding: 1.2rem 1.15rem 0.65rem;
   }
 
   .mobile-only-timeline {
@@ -349,10 +350,12 @@
   position: absolute;
   bottom: calc(100% + 8px);
   right: 0;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(15, 18, 28, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -373,24 +376,24 @@
 .speed-popup-item {
   background: transparent;
   border: none;
-  color: #1e293b;
+  color: #f1f5f9;
   font-size: 0.8rem;
   font-weight: 600;
   padding: 5px 8px;
   border-radius: 6px;
   text-align: left;
   cursor: pointer;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .speed-popup-item:hover {
-  background: #f1f5f9;
-  color: #e50914;
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
 }
 
 .speed-popup-item.active {
-  background: rgba(229, 9, 20, 0.1);
-  color: #e50914;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }
 
 /* ── Controls Row ── */
