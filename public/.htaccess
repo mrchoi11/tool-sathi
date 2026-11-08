@@ -6,14 +6,25 @@
   RewriteEngine On
   RewriteBase /
 
-  # 1. Route all /api requests to native PHP gateway
+  # 1. Dynamic XML Sitemaps (Yoast / RankMath Style Index & Sub-Sitemaps)
+  RewriteRule ^sitemap\.xml$ /api/sitemap.php?type=index [QSA,L]
+  RewriteRule ^sitemap_index\.xml$ /api/sitemap.php?type=index [QSA,L]
+  RewriteRule ^post-sitemap\.xml$ /api/sitemap.php?type=post [QSA,L]
+  RewriteRule ^page-sitemap\.xml$ /api/sitemap.php?type=page [QSA,L]
+  RewriteRule ^tool-sitemap\.xml$ /api/sitemap.php?type=tool [QSA,L]
+  RewriteRule ^category-sitemap\.xml$ /api/sitemap.php?type=category [QSA,L]
+
+  # 2. Allow direct access to existing files in /api/ (e.g. sitemap.php, sitemap-data.json)
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^api/ - [L]
+
+  # 3. Route all other /api requests to native TeraBox PHP gateway
   RewriteRule ^api/(.*)$ /api/terabox.php [QSA,L]
   RewriteRule ^api$ /api/terabox.php [QSA,L]
 
-  # 2. SPA routing - all non-file requests go to index.html
+  # 4. SPA routing - all non-file requests go to index.html
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
 </IfModule>
-
