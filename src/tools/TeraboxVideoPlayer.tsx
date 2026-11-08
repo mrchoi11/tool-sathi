@@ -62,11 +62,15 @@ export default function TeraboxVideoPlayer() {
   // Helper: Extract surl from any TeraBox URL variant
   const extractSurl = (rawUrl: string): string => {
     const clean = rawUrl.trim();
-    const sMatch = clean.match(/\/s\/(?:1)?([a-zA-Z0-9_-]+)/);
-    const surlMatch = clean.match(/surl=([a-zA-Z0-9_-]+)/);
+    // 1. Matches /s/1ABC or /s/ABC
+    const sMatch = clean.match(/\/s\/([a-zA-Z0-9_-]+)/);
     if (sMatch && sMatch[1]) return sMatch[1];
+    // 2. Matches ?surl=1ABC or &surl=ABC
+    const surlMatch = clean.match(/[?&]surl=([a-zA-Z0-9_-]+)/);
     if (surlMatch && surlMatch[1]) return surlMatch[1];
-    return clean.replace(/[^a-zA-Z0-9_-]/g, '');
+    // 3. Fallback: if user pasted only the ID code (e.g. 1KRZZkjHRVvQ1wk)
+    const bare = clean.replace(/https?:\/\/[^\/]+/i, '').replace(/[^a-zA-Z0-9_-]/g, '');
+    return bare || clean;
   };
 
   const formatBytes = (bytes?: number | string): string => {
@@ -102,6 +106,7 @@ export default function TeraboxVideoPlayer() {
       console.warn('Clipboard read permission denied or unavailable:', err);
     }
   };
+
   const attachAndPlayStream = useCallback((streamUrl: string, forceHls = false) => {
     const video = videoRef.current;
     if (!video) return;
@@ -121,6 +126,12 @@ export default function TeraboxVideoPlayer() {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+
+      // Detach any previous media to prevent abort race conditions
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+
       video.src = streamUrl;
       video.preload = 'auto';
       video.load();
@@ -129,39 +140,22 @@ export default function TeraboxVideoPlayer() {
         setIsLoading(false);
         setIsBuffering(false);
         video.removeEventListener('canplay', onCanPlay);
-        video.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        video.play().then(() => setIsPlaying(true)).catch(() => {
+          // Autoplay policy: muted or requires user gesture, not a broken link
+          setIsPlaying(false);
+        });
       };
 
       video.addEventListener('canplay', onCanPlay);
 
       video.onerror = () => {
-        // If redirect mode (302) returned 403 from TeraBox CDN, auto-retry via proxy
-        if (!streamUrl.includes('proxy=1') && streamUrl.includes('mode=stream')) {
-          const proxyUrl = streamUrl + '&proxy=1';
-          setStatusText('Switching to proxy mode...');
-          video.removeEventListener('canplay', onCanPlay);
-          video.src = proxyUrl;
-          video.preload = 'auto';
-          video.load();
+        const err = video.error;
+        // Ignore user-aborted or rapid-reload abort errors (code 1)
+        if (err && err.code === 1) return;
 
-          const onCanPlayProxy = () => {
-            setIsLoading(false);
-            setIsBuffering(false);
-            video.removeEventListener('canplay', onCanPlayProxy);
-            video.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-          };
-          video.addEventListener('canplay', onCanPlayProxy);
-
-          video.onerror = () => {
-            setIsLoading(false);
-            setIsBuffering(false);
-            setErrorMessage('Failed to load video stream. The link may have expired or gateway is offline.');
-          };
-          return;
-        }
         setIsLoading(false);
         setIsBuffering(false);
-        setErrorMessage('Failed to load video stream. The link may have expired or gateway is offline.');
+        setErrorMessage('Failed to load video stream. The link may have expired or gateway is temporarily busy. Tap Try Again below.');
       };
     };
 
@@ -191,7 +185,6 @@ export default function TeraboxVideoPlayer() {
           console.warn('HLS encountered fatal error, gracefully falling back to native player:', data);
           hls.destroy();
           hlsRef.current = null;
-          // Graceful fallback: TeraBox stream mode frequently returns an MP4 stream
           playNative();
         }
       });
@@ -228,7 +221,7 @@ export default function TeraboxVideoPlayer() {
 
     setErrorMessage(null);
     setIsLoading(true);
-    setStatusText('Resolving TeraBox link...');
+    setStatusText('Connecting to stream...');
 
     // Direct files (.mp4 or direct .m3u8)
     if (raw.endsWith('.mp4') || raw.endsWith('.webm') || raw.includes('.m3u8')) {
@@ -248,67 +241,40 @@ export default function TeraboxVideoPlayer() {
 
     setCurrentSurl(surl);
     const cleanGateway = gatewayUrl.replace(/\/$/, '');
+    const apiBase = cleanGateway ? `${cleanGateway}/api/terabox.php` : '/api/terabox.php';
 
-    // Endpoints
-    const resolveUrl = `${cleanGateway}/api?mode=resolve&surl=${surl}`;
-    const streamEndpoint = `${cleanGateway}/api?mode=stream&surl=${surl}`;
+    // Zero-delay streaming: start playing immediately through the PHP range proxy
+    const streamEndpoint = `${apiBase}?mode=stream&surl=${encodeURIComponent(surl)}`;
+    const resolveUrl = `${apiBase}?mode=resolve&surl=${encodeURIComponent(surl)}`;
 
-    let streamStarted = false;
-    const launchStream = (streamUrl: string) => {
-      if (!streamStarted) {
-        streamStarted = true;
-        setPlayerVisible(true);
-        attachAndPlayStream(streamUrl);
-      }
-    };
+    setPlayerVisible(true);
+    attachAndPlayStream(streamEndpoint);
 
-    // If resolve takes longer than 2.5s, launch streaming proxy directly so video starts without delay
-    const fallbackTimer = setTimeout(() => {
-      launchStream(streamEndpoint);
-    }, 2500);
-
+    // Concurrently fetch metadata for title, size & thumbnail
     try {
-      const res = await fetch(resolveUrl, {
+      fetch(resolveUrl, {
         headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(6000)
-      }).catch(() => null);
-
-      if (res && res.ok) {
-        const resJson = await res.json().catch(() => null);
-        if (resJson) {
-          const fileData = resJson.data || resJson.list?.[0] || resJson;
-          setMetadata({
-            name: fileData.name || fileData.file_name || fileData.server_filename || fileData.title || `TeraBox Video [${surl}]`,
-            size: fileData.size || fileData.sizeBytes,
-            thumb: fileData.thumb || fileData.thumbs?.url3 || fileData.thumbnail,
-            dlink: fileData.dlink,
-            fid: fileData.fid,
-            uk: fileData.uk,
-            shareid: fileData.shareid
-          });
-
-          if (fileData.dlink && !streamStarted) {
-            clearTimeout(fallbackTimer);
-            // Use redirect stream mode — PHP will 302 to TeraBox CDN directly (fastest)
-            // If redirect fails (403 from CDN), attachAndPlayStream's onerror auto-retries with ?proxy=1
-            const redirectStreamUrl = `${cleanGateway}/api?mode=stream&surl=${surl}`;
-            launchStream(redirectStreamUrl);
-            return;
+        signal: AbortSignal.timeout(8000)
+      })
+        .then(res => (res.ok ? res.json() : null))
+        .then(resJson => {
+          if (resJson && !resJson.error) {
+            const fileData = resJson.data || resJson.list?.[0] || resJson;
+            setMetadata({
+              name: fileData.name || fileData.file_name || fileData.server_filename || fileData.title || `TeraBox Video [${surl}]`,
+              size: fileData.size || fileData.sizeBytes,
+              thumb: fileData.thumb || fileData.thumbs?.url3 || fileData.thumbnail,
+              dlink: fileData.dlink,
+              fid: fileData.fid,
+              uk: fileData.uk,
+              shareid: fileData.shareid
+            });
           }
-        }
-      } else if (res && !res.ok) {
-        const errJson = await res.json().catch(() => null);
-        if (errJson?.error) {
-          clearTimeout(fallbackTimer);
-          setIsLoading(false);
-          setErrorMessage(errJson.error);
-          return;
-        }
-      }
+        })
+        .catch(err => {
+          console.warn('Metadata fetch notice:', err);
+        });
     } catch {}
-
-    clearTimeout(fallbackTimer);
-    launchStream(streamEndpoint);
   }, [gatewayUrl, attachAndPlayStream]);
 
   // Main Handler: Fetch from terabox-gateway and play stream
@@ -772,7 +738,9 @@ export default function TeraboxVideoPlayer() {
                 if (inputUrl.trim()) {
                   startPlayback(inputUrl);
                 } else if (currentSurl) {
-                  attachAndPlayStream(`${gatewayUrl.replace(/\/$/, '')}/api?mode=stream&surl=${currentSurl}`);
+                  const cleanGateway = gatewayUrl.replace(/\/$/, '');
+                  const apiBase = cleanGateway ? `${cleanGateway}/api/terabox.php` : '/api/terabox.php';
+                  attachAndPlayStream(`${apiBase}?mode=stream&surl=${encodeURIComponent(currentSurl)}&t=${Date.now()}`);
                 }
               }}
               disabled={isLoading || (!inputUrl.trim() && !currentSurl)}
