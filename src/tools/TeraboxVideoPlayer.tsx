@@ -214,14 +214,14 @@ export default function TeraboxVideoPlayer() {
     resetControlsTimeout();
   };
 
-  // Fast Core play logic — reveals player and starts streaming
+  // Core play logic — resolve first, then stream for reliability
   const startPlayback = useCallback(async (rawUrl: string) => {
     const raw = rawUrl.trim();
     if (!raw) return;
 
     setErrorMessage(null);
     setIsLoading(true);
-    setStatusText('Connecting to stream...');
+    setStatusText('Resolving link...');
 
     // Direct files (.mp4 or direct .m3u8)
     if (raw.endsWith('.mp4') || raw.endsWith('.webm') || raw.includes('.m3u8')) {
@@ -235,46 +235,63 @@ export default function TeraboxVideoPlayer() {
     const surl = extractSurl(raw);
     if (!surl) {
       setIsLoading(false);
-      setErrorMessage('Invalid TeraBox share link format.');
+      setErrorMessage('Invalid TeraBox share link format. Please paste a full TeraBox share URL.');
       return;
     }
 
     setCurrentSurl(surl);
     const cleanGateway = gatewayUrl.replace(/\/$/, '');
     const apiBase = cleanGateway ? `${cleanGateway}/api/terabox.php` : '/api/terabox.php';
+    const resolveUrl = `${apiBase}?mode=resolve&surl=${encodeURIComponent(surl)}&t=${Date.now()}`;
 
-    // Zero-delay streaming: start playing immediately through the PHP range proxy
-    const streamEndpoint = `${apiBase}?mode=stream&surl=${encodeURIComponent(surl)}`;
-    const resolveUrl = `${apiBase}?mode=resolve&surl=${encodeURIComponent(surl)}`;
-
-    setPlayerVisible(true);
-    attachAndPlayStream(streamEndpoint);
-
-    // Concurrently fetch metadata for title, size & thumbnail
+    // Step 1: Resolve metadata first (gets dlink from TeraBox API)
     try {
-      fetch(resolveUrl, {
+      setStatusText('Fetching video info...');
+      const resolveRes = await fetch(resolveUrl, {
         headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(8000)
-      })
-        .then(res => (res.ok ? res.json() : null))
-        .then(resJson => {
-          if (resJson && !resJson.error) {
-            const fileData = resJson.data || resJson.list?.[0] || resJson;
-            setMetadata({
-              name: fileData.name || fileData.file_name || fileData.server_filename || fileData.title || `TeraBox Video [${surl}]`,
-              size: fileData.size || fileData.sizeBytes,
-              thumb: fileData.thumb || fileData.thumbs?.url3 || fileData.thumbnail,
-              dlink: fileData.dlink,
-              fid: fileData.fid,
-              uk: fileData.uk,
-              shareid: fileData.shareid
-            });
-          }
-        })
-        .catch(err => {
-          console.warn('Metadata fetch notice:', err);
+        signal: AbortSignal.timeout(20000)
+      });
+
+      let resolveJson: any = null;
+      try { resolveJson = await resolveRes.json(); } catch {}
+
+      if (!resolveRes.ok || (resolveJson && resolveJson.error)) {
+        const errMsg = resolveJson?.error || `Gateway error (HTTP ${resolveRes.status})`;
+        setIsLoading(false);
+        setStatusText('');
+        setErrorMessage(errMsg);
+        setPlayerVisible(true); // Show player shell for iframe fallback
+        return;
+      }
+
+      if (resolveJson) {
+        const fileData = resolveJson.data || resolveJson.list?.[0] || resolveJson;
+        setMetadata({
+          name: fileData.name || fileData.file_name || fileData.server_filename || fileData.title || `TeraBox Video`,
+          size: fileData.size || fileData.sizeBytes,
+          thumb: fileData.thumb || fileData.thumbs?.url3 || fileData.thumbnail,
+          dlink: fileData.dlink,
         });
-    } catch {}
+      }
+
+      // Step 2: Stream via proxy using the resolved dlink through our gateway
+      setStatusText('Starting stream...');
+      const streamEndpoint = `${apiBase}?mode=stream&surl=${encodeURIComponent(surl)}&t=${Date.now()}`;
+      setPlayerVisible(true);
+      attachAndPlayStream(streamEndpoint);
+
+    } catch (err: any) {
+      setIsLoading(false);
+      setStatusText('');
+      if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
+        setErrorMessage('Request timed out. The gateway may be busy — please try again.');
+      } else {
+        setErrorMessage('Network error connecting to gateway. Check your connection and try again.');
+      }
+      setPlayerVisible(true);
+    }
+
+    // end of startPlayback
   }, [gatewayUrl, attachAndPlayStream]);
 
   // Main Handler: Fetch from terabox-gateway and play stream
@@ -510,39 +527,55 @@ export default function TeraboxVideoPlayer() {
                 </div>
 
                 <p style={{ color: '#f8fafc', fontSize: '0.98rem', fontWeight: 600, marginTop: '8px', letterSpacing: '0.3px' }}>
-                  Loading video...
+                  {statusText || 'Loading video...'}
                 </p>
               </div>
             </div>
           )}
 
           {/* Error Message Overlay */}
-          {errorMessage && (
+          {errorMessage && !isLoading && (
             <div style={{
-              position: 'absolute', inset: 0, background: 'rgba(10, 11, 18, 0.94)',
+              position: 'absolute', inset: 0, background: 'rgba(10, 11, 18, 0.95)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              padding: '2rem', textAlign: 'center', zIndex: 12
+              padding: '2rem', textAlign: 'center', zIndex: 12, gap: '0.5rem'
             }}>
-              <AlertTriangle size={40} style={{ color: '#ef4444', marginBottom: '0.75rem' }} />
-              <h4 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#f8fafc', marginBottom: '0.4rem' }}>
+              <AlertTriangle size={36} style={{ color: '#ef4444', marginBottom: '0.5rem' }} />
+              <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc', margin: '0 0 0.3rem' }}>
                 Playback Error
               </h4>
-              <p style={{ color: '#94a3b8', maxWidth: '480px', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              <p style={{ color: '#94a3b8', maxWidth: '420px', fontSize: '0.85rem', marginBottom: '1.1rem', lineHeight: 1.6 }}>
                 {errorMessage}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setErrorMessage(null);
-                  if (inputUrl.trim()) {
-                    startPlayback(inputUrl);
-                  }
-                }}
-                className="btn btn-primary btn-sm"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.55rem 1.25rem' }}
-              >
-                <RotateCcw size={15} /> Try Again
-              </button>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setErrorMessage(null);
+                    if (inputUrl.trim()) startPlayback(inputUrl);
+                  }}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.55rem 1.25rem', fontSize: '0.85rem' }}
+                >
+                  <RotateCcw size={14} /> Try Again
+                </button>
+                {currentSurl && (
+                  <a
+                    href={`https://www.terabox.com/sharing/link?surl=${currentSurl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost btn-sm"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      padding: '0.55rem 1.1rem', fontSize: '0.85rem',
+                      border: '1px solid rgba(255,255,255,0.2)', color: '#94a3b8',
+                      textDecoration: 'none', borderRadius: '999px'
+                    }}
+                  >
+                    Open on TeraBox ↗
+                  </a>
+                )}
+              </div>
             </div>
           )}
 

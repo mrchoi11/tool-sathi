@@ -9,6 +9,7 @@
  *  - 1800s File Cache for instant playback and zero repeat latency
  *  - Seamless iOS Safari & Mobile Chrome playback with custom headers & CORS
  *  - Accurate status reporting for expired / deleted / captcha links
+ *  - Multi-host fallback with retry across dm.terabox.app, www.terabox.app, 1024tera
  */
 
 // Disable output buffering & execution limits for smooth video streaming
@@ -31,16 +32,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// ─── Load secret config ───────────────────────────────────────────────────────
+// ─── Load secret config ─────────────────────────────────────────────────────
 $configFile = __DIR__ . '/config.php';
 if (file_exists($configFile)) {
     require_once $configFile;
 }
-$FALLBACK_NDUS = 'YqsIMBVpeHuirL2Ygy3MXxvrJzN2zaZ2ZxVZR7Cg';
-$DEFAULT_NDUS = defined('TERABOX_NDUS') ? TERABOX_NDUS : $FALLBACK_NDUS;
-$ndus = $_GET['ndus'] ?? $_POST['ndus'] ?? $DEFAULT_NDUS;
+$FALLBACK_NDUS = defined('TERABOX_NDUS') ? TERABOX_NDUS : 'YqsIMBVpeHuirL2Ygy3MXxvrJzN2zaZ2ZxVZR7Cg';
+$ndus = $_GET['ndus'] ?? $_POST['ndus'] ?? $FALLBACK_NDUS;
 
-$USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+// Multiple known-working cookie aliases (terabox uses both)
+$COOKIE_STR = $ndus ? "ndus=$ndus; lang=en" : 'lang=en';
+
+$USER_AGENT = 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+$DESKTOP_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 // ─── CACHE HELPERS (file-based, TTL 1800s) ───────────────────────────────────
 
@@ -63,7 +67,7 @@ function cacheSet($key, $value, $ttl = 1800) {
     @file_put_contents($file, $payload, LOCK_EX);
 }
 
-// ─── DOMAIN ALLOWLIST (All legitimate TeraBox CDN clusters) ───────────────────
+// ─── DOMAIN ALLOWLIST (All legitimate TeraBox CDN clusters) ──────────────────
 
 function isAllowedTeraboxDomain($url) {
     $host = strtolower(parse_url($url, PHP_URL_HOST) ?? '');
@@ -72,7 +76,9 @@ function isAllowedTeraboxDomain($url) {
     $allowedKeywords = [
         'terabox', '1024tera', 'terafileshare', 'terasharelink', 
         '4funbox', 'mirrobox', 'nephobox', 'momerybox', 
-        'tibibox', 'freeterabox', 'baidupcs', 'baidu', 'dubox'
+        'tibibox', 'freeterabox', 'baidupcs', 'baidu', 'dubox',
+        'tera', 'bdsealink', 'bdlink', 'bj.bcebos', 'gz.bcebos',
+        'su.bcebos', 'd.terabox', 'd2.terabox', 'd3.terabox'
     ];
     foreach ($allowedKeywords as $kw) {
         if (strpos($host, $kw) !== false) {
@@ -109,72 +115,78 @@ function parseSurlKeys($input) {
     }
 }
 
-// ─── FETCH jsToken ───────────────────────────────────────────────────────────
+// ─── FETCH jsToken ──────────────────────────────────────────────────────────
 
-function fetchJsToken($surlWith1, $cookieHeader, $userAgent) {
-    $pageUrl = "https://dm.terabox.app/sharing/link?surl=" . urlencode($surlWith1);
+function fetchJsToken($surlWith1, $cookieStr, $userAgent) {
+    $hosts = ['dm.terabox.app', 'www.terabox.app', 'www.1024tera.com'];
+    
+    foreach ($hosts as $host) {
+        $pageUrl = "https://{$host}/sharing/link?surl=" . urlencode($surlWith1);
 
-    $ch = curl_init($pageUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-    curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    if ($cookieHeader) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ["Cookie: $cookieHeader"]);
-    }
+        $ch = curl_init($pageUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            "Cookie: $cookieStr",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language: en-US,en;q=0.5",
+        ]);
 
-    $html = curl_exec($ch);
-    curl_close($ch);
+        $html = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-    if ($html) {
-        if (preg_match('/fn%28%22(.*?)%22%29/', $html, $m)) {
-            return $m[1];
-        }
-        if (preg_match('/"jsToken":"([^"]+)"/', $html, $m)) {
-            return $m[1];
+        if ($html && $httpCode < 400) {
+            if (preg_match('/fn%28%22(.*?)%22%29/', $html, $m)) {
+                return $m[1];
+            }
+            if (preg_match('/"jsToken":"([^"]+)"/', $html, $m)) {
+                return $m[1];
+            }
         }
     }
     return '';
 }
 
-// ─── RESOLVE TeraBox (with cache & multiple endpoints) ─────────────────────────
+// ─── RESOLVE TeraBox (with cache & multiple endpoints) ───────────────────────
 
-function resolveTeraBox($keys, $ndus, $pwd = '') {
-    global $USER_AGENT;
+function resolveTeraBox($keys, $ndus, $cookieStr, $pwd = '') {
+    global $USER_AGENT, $DESKTOP_UA;
 
     // Cache lookup
-    $cacheKey = $keys['with1'] . '|' . $pwd . '|' . $ndus;
+    $cacheKey = $keys['with1'] . '|' . $pwd . '|v2';
     $cached = cacheGet($cacheKey);
     if ($cached && !empty($cached['dlink'])) {
         return $cached;
     }
 
-    $cookieHeader = $ndus ? "ndus=$ndus" : '';
-    $pageUrl = "https://dm.terabox.app/sharing/link?surl=" . urlencode($keys['with1']);
-    
     // Fetch jsToken from TeraBox share page
-    $jsToken = fetchJsToken($keys['with1'], $cookieHeader, $USER_AGENT);
+    $jsToken = fetchJsToken($keys['with1'], $cookieStr, $DESKTOP_UA);
 
     $apiHosts = ['dm.terabox.app', 'www.terabox.app', 'www.1024tera.com'];
     $shorturls = [$keys['without1'], $keys['with1']];
-    $lastError = 'Failed to resolve TeraBox link.';
+    $lastError = 'Failed to resolve TeraBox link. The link may be expired or deleted.';
+    $lastErrno = null;
 
     foreach ($apiHosts as $host) {
         foreach ($shorturls as $shorturl) {
+            $pageUrl = "https://{$host}/sharing/link?surl=" . urlencode($shorturl);
             $apiUrl = "https://{$host}/share/list?app_id=250528&shorturl=" . urlencode($shorturl) . "&root=1";
             if ($jsToken) $apiUrl .= "&jsToken=" . urlencode($jsToken);
             if ($pwd)     $apiUrl .= "&pwd=" . urlencode($pwd);
 
             $ch = curl_init($apiUrl);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_USERAGENT, $USER_AGENT);
+            curl_setopt($ch, CURLOPT_USERAGENT, $DESKTOP_UA);
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
             curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
@@ -183,42 +195,48 @@ function resolveTeraBox($keys, $ndus, $pwd = '') {
                 "Referer: $pageUrl",
                 "Origin: https://{$host}",
                 "Accept: application/json, text/plain, */*",
+                "Accept-Language: en-US,en;q=0.9",
                 "X-Requested-With: XMLHttpRequest",
-                "Cookie: $cookieHeader"
+                "Cookie: $cookieStr"
             ]);
 
             $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
-            if ($response) {
-                $data = json_decode($response, true);
-                if ($data && isset($data['errno']) && $data['errno'] === 0 && !empty($data['list'][0])) {
-                    $file = $data['list'][0];
-                    $result = [
-                        'file_name'       => $file['server_filename'] ?? 'video.mp4',
-                        'title'           => $file['server_filename'] ?? 'video.mp4',
-                        'name'            => $file['server_filename'] ?? 'video.mp4',
-                        'size'            => $file['size'] ?? 0,
-                        'thumb'           => $file['thumbs']['url3'] ?? $file['thumbs']['url2'] ?? $file['thumbs']['url1'] ?? '',
-                        'dlink'           => $file['dlink'] ?? '',
-                        'surl'            => $keys['with1'],
-                        'hasDirectStream' => !empty($file['dlink'])
-                    ];
-                    cacheSet($cacheKey, $result, 1800);
-                    return $result;
-                }
+            if (!$response) continue;
 
-                if ($data && isset($data['errno'])) {
-                    if ($data['errno'] === 140) {
-                        $lastError = 'This TeraBox link has expired or was deleted by the owner.';
-                    } elseif ($data['errno'] === 105) {
-                        $lastError = 'TeraBox share link not found or expired.';
-                    } elseif ($data['errno'] === 400141 || $data['errno'] === 4000020) {
-                        $lastError = 'TeraBox security captcha active for this link. Try another link.';
-                    } elseif (!empty($data['errmsg'])) {
-                        $lastError = $data['errmsg'];
-                    }
-                }
+            $data = json_decode($response, true);
+            if (!$data || !isset($data['errno'])) continue;
+
+            if ($data['errno'] === 0 && !empty($data['list'][0])) {
+                $file = $data['list'][0];
+                $result = [
+                    'file_name'       => $file['server_filename'] ?? 'video.mp4',
+                    'title'           => $file['server_filename'] ?? 'video.mp4',
+                    'name'            => $file['server_filename'] ?? 'video.mp4',
+                    'size'            => $file['size'] ?? 0,
+                    'thumb'           => $file['thumbs']['url3'] ?? $file['thumbs']['url2'] ?? $file['thumbs']['url1'] ?? '',
+                    'dlink'           => $file['dlink'] ?? '',
+                    'surl'            => $keys['with1'],
+                    'hasDirectStream' => !empty($file['dlink'])
+                ];
+                cacheSet($cacheKey, $result, 1800);
+                return $result;
+            }
+
+            $lastErrno = $data['errno'];
+            if ($data['errno'] === 140) {
+                $lastError = 'This TeraBox link has expired or was deleted by the owner. Please get a new share link.';
+                break 2; // No point trying other hosts for dead links
+            } elseif ($data['errno'] === 105) {
+                $lastError = 'TeraBox share link not found. It may have been removed.';
+                break 2;
+            } elseif ($data['errno'] === 400141 || $data['errno'] === 4000020) {
+                $lastError = 'TeraBox requires captcha verification for this link. The server IP may be temporarily rate-limited. Please try again in a few minutes.';
+                // Don't break — try other hosts, they might not be rate-limited
+            } elseif (!empty($data['errmsg'])) {
+                $lastError = $data['errmsg'];
             }
         }
     }
@@ -228,8 +246,8 @@ function resolveTeraBox($keys, $ndus, $pwd = '') {
 
 // ─── STREAM PROXY (Fast, Range-Supported, Anti-Hotlink Bypassing) ─────────────
 
-function streamVideo($targetUrl, $ndus) {
-    global $USER_AGENT;
+function streamVideo($targetUrl, $cookieStr) {
+    global $USER_AGENT, $DESKTOP_UA;
 
     if (!isAllowedTeraboxDomain($targetUrl)) {
         http_response_code(403);
@@ -244,32 +262,31 @@ function streamVideo($targetUrl, $ndus) {
         @ob_end_clean();
     }
 
-    $rangeHeader  = $_SERVER['HTTP_RANGE'] ?? null;
-    $cookieHeader = $ndus ? "ndus=$ndus" : '';
+    $rangeHeader = $_SERVER['HTTP_RANGE'] ?? null;
 
     $headers = [
-        "User-Agent: $USER_AGENT",
-        "Referer: https://dm.terabox.app/",
+        "User-Agent: $DESKTOP_UA",
+        "Referer: https://www.terabox.com/",
+        "Origin: https://www.terabox.com",
         "Accept: */*",
-        "Connection: keep-alive"
+        "Accept-Language: en-US,en;q=0.9",
+        "Connection: keep-alive",
+        "Cookie: $cookieStr"
     ];
-    if ($cookieHeader) $headers[] = "Cookie: $cookieHeader";
-    if ($rangeHeader)  $headers[] = "Range: $rangeHeader";
+    if ($rangeHeader) $headers[] = "Range: $rangeHeader";
 
     $ch = curl_init($targetUrl);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+    curl_setopt($ch, CURLOPT_MAXREDIRS, 8);
     curl_setopt($ch, CURLOPT_AUTOREFERER, true);
     curl_setopt($ch, CURLOPT_UNRESTRICTED_AUTH, true);
-    if ($cookieHeader) {
-        curl_setopt($ch, CURLOPT_COOKIE, $cookieHeader);
-    }
+    curl_setopt($ch, CURLOPT_COOKIE, $cookieStr);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
     curl_setopt($ch, CURLOPT_TIMEOUT, 0);
-    curl_setopt($ch, CURLOPT_BUFFERSIZE, 64 * 1024);
+    curl_setopt($ch, CURLOPT_BUFFERSIZE, 128 * 1024);
     curl_setopt($ch, CURLOPT_TCP_NODELAY, true);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
@@ -298,22 +315,27 @@ function streamVideo($targetUrl, $ndus) {
                     // Force proper video MIME type so browsers play directly
                     if (strpos($val, 'octet-stream') !== false || empty($val)) {
                         header('Content-Type: video/mp4', true);
-                        return $len;
+                    } else {
+                        header("Content-Type: $val", true);
                     }
+                } else {
+                    header("$name: " . trim($headerParts[1]), false);
                 }
-                header($trimmed, true);
             }
         }
+
         return $len;
     });
 
-    // Stream body directly to client with real-time flushing
-    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) use (&$contentTypeSent) {
-        if (!$contentTypeSent) {
-            header('Content-Type: video/mp4', true);
-            header('Accept-Ranges: bytes', true);
-            $contentTypeSent = true;
-        }
+    if (!$contentTypeSent) {
+        header('Content-Type: video/mp4');
+    }
+    header('Accept-Ranges: bytes');
+    header('Cache-Control: no-store');
+    header('X-Accel-Buffering: no');
+
+    // Stream body in real-time chunks
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) {
         echo $data;
         flush();
         return strlen($data);
@@ -324,52 +346,47 @@ function streamVideo($targetUrl, $ndus) {
     exit;
 }
 
-// ─── ROUTING ────────────────────────────────────────────────────────────────
+// ─── ROUTING ─────────────────────────────────────────────────────────────────
 
 $requestUri = $_SERVER['REQUEST_URI'] ?? '';
 $path       = parse_url($requestUri, PHP_URL_PATH);
 $mode       = $_GET['mode'] ?? '';
 
-// 1. Stream Mode (Direct Proxy or Surl Streaming)
+// 1. Direct URL stream proxy
 $streamUrl = $_GET['url'] ?? '';
-if ($mode === 'stream' || strpos($path, '/stream') !== false || !empty($streamUrl)) {
+if (!empty($streamUrl)) {
+    streamVideo($streamUrl, $COOKIE_STR);
+    exit;
+}
 
-    // Direct url proxying
-    if (!empty($streamUrl)) {
-        streamVideo($streamUrl, $ndus);
-        exit;
-    }
+// 2. mode=stream&surl=<key> — Resolve FIRST, then stream
+if ($mode === 'stream' || strpos($path, '/stream') !== false) {
+    $rawInput = $_GET['surl'] ?? '';
+    $keys = parseSurlKeys($rawInput);
+    if ($keys) {
+        try {
+            $file = resolveTeraBox($keys, $ndus, $COOKIE_STR);
+            $dlink = $file['dlink'] ?? '';
 
-    // mode=stream&surl=<key>
-    if ($mode === 'stream') {
-        $rawInput = $_GET['surl'] ?? '';
-        $keys = parseSurlKeys($rawInput);
-        if ($keys) {
-            try {
-                $file = resolveTeraBox($keys, $ndus);
-                $dlink = $file['dlink'] ?? '';
-
-                if (!empty($dlink)) {
-                    // Always stream through proxy to bypass TeraBox anti-hotlinking & CORS blocks
-                    streamVideo($dlink, $ndus);
-                    exit;
-                } else {
-                    http_response_code(502);
-                    header('Content-Type: application/json');
-                    echo json_encode(['error' => 'No direct video stream link returned from TeraBox.']);
-                    exit;
-                }
-            } catch (Exception $e) {
-                http_response_code(500);
+            if (!empty($dlink)) {
+                streamVideo($dlink, $COOKIE_STR);
+                exit;
+            } else {
+                http_response_code(502);
                 header('Content-Type: application/json');
-                echo json_encode(['error' => $e->getMessage()]);
+                echo json_encode(['error' => 'No direct video stream link returned from TeraBox.', 'errno' => 'no_dlink']);
                 exit;
             }
+        } catch (Exception $e) {
+            http_response_code(500);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => $e->getMessage(), 'errno' => 'resolve_failed']);
+            exit;
         }
     }
 }
 
-// 2. Resolve metadata (Fast JSON)
+// 3. Resolve metadata (Fast JSON)
 if ($mode === 'resolve' || $_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET['surl'])) {
     $rawInput = '';
     $pwd      = '';
@@ -392,7 +409,7 @@ if ($mode === 'resolve' || $_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET[
     }
 
     try {
-        $file = resolveTeraBox($keys, $ndus, $pwd);
+        $file = resolveTeraBox($keys, $ndus, $COOKIE_STR, $pwd);
         header('Content-Type: application/json');
         echo json_encode($file);
         exit;
@@ -404,7 +421,7 @@ if ($mode === 'resolve' || $_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET[
     }
 }
 
-// 3. Health check
+// 4. Health check
 header('Content-Type: application/json');
 echo json_encode([
     'status'      => 'online',
