@@ -54,13 +54,13 @@ export default function Navbar() {
         <div className="navbar-container">
           <div className="navbar-pill glass">
             {/* Logo */}
-            <Link to="/" className="navbar-brand" aria-label="ToolSathi Home">
+            <Link to="/" className="navbar-brand" aria-label="ProToolBox Home">
               <div className="navbar-logo">
                 <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <rect width="32" height="32" rx="9" fill="url(#toolsathi-logo-grad)" />
+                  <rect width="32" height="32" rx="9" fill="url(#protoolbox-logo-grad)" />
                   <path d="M10 11h12M10 16h8M10 21h12" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
                   <defs>
-                    <linearGradient id="toolsathi-logo-grad" x1="0" y1="0" x2="32" y2="32">
+                    <linearGradient id="protoolbox-logo-grad" x1="0" y1="0" x2="32" y2="32">
                       <stop stopColor="#3b82f6" />
                       <stop offset="0.5" stopColor="#6366f1" />
                       <stop offset="1" stopColor="#8b5cf6" />
@@ -68,7 +68,7 @@ export default function Navbar() {
                   </defs>
                 </svg>
               </div>
-              <span className="navbar-brand-text">ToolSathi</span>
+              <span className="navbar-brand-text">ProToolBox</span>
             </Link>
 
             {/* Desktop Navigation Links */}

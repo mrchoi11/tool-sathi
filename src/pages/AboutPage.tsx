@@ -5,8 +5,8 @@ import { usePageSeo } from '../hooks/usePageSeo';
 export default function AboutPage() {
   usePageSeo(
     'page-about',
-    'About Us — ToolSathi',
-    'Learn more about ToolSathi: the private, browser-based utility platform designed to deliver speed, privacy, and seamless creative workflows.'
+    'About Us — ProToolBox',
+    'Learn more about ProToolBox: the private, browser-based utility platform designed to deliver speed, privacy, and seamless creative workflows.'
   );
 
   return (
@@ -20,7 +20,7 @@ export default function AboutPage() {
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-3xl)' }}>
         <span className="section-label">Empowering Everyday Productivity</span>
         <h1 style={{ fontSize: '2.75rem', fontWeight: 850, margin: 'var(--space-sm) 0', color: '#0f172a', letterSpacing: '-0.03em' }}>
-          About <span className="gradient-text">ToolSathi</span>
+          About <span className="gradient-text">ProToolBox</span>
         </h1>
         <p style={{ color: '#475569', fontSize: '1.15rem', maxWidth: '640px', margin: '0 auto', lineHeight: 1.65 }}>
           The all-in-one browser utility platform engineered for speed, privacy, and seamless workflows.

@@ -11,7 +11,7 @@ export default function CategoryPage() {
 
   usePageSeo(
     category ? `cat-${category.id}` : '',
-    `${category?.name} — Free Online Utilities | ToolSathi`,
+    `${category?.name} — Free Online Utilities | ProToolBox`,
     `${category?.description}. Free, fast, in-browser processing with zero file uploads.`,
     `${category?.name}, free ${category?.id} tools, online utilities`
   );

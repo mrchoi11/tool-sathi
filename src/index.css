@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ==========================================================================
-   Apple-Inspired Liquid Glassmorphism Design System — ToolSathi
+   Apple-Inspired Liquid Glassmorphism Design System — ProToolBox
    ========================================================================== */
 
 :root {
@@ -201,7 +201,7 @@ input, textarea, select {
   flex: 1;
   position: relative;
   z-index: 1;
-  padding-top: calc(var(--nav-height) + 1rem);
+  padding-top: calc(var(--nav-height) + 2.25rem);
 }
 
 .container {

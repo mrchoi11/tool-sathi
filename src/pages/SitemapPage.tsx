@@ -6,8 +6,8 @@ import { usePageSeo } from '../hooks/usePageSeo';
 export default function SitemapPage() {
   usePageSeo(
     'page-sitemap',
-    'HTML Sitemap — ToolSathi',
-    'HTML sitemap: browse the full directory of tools, categories, blogs, and static pages available on ToolSathi.'
+    'HTML Sitemap — ProToolBox',
+    'HTML sitemap: browse the full directory of tools, categories, blogs, and static pages available on ProToolBox.'
   );
 
   const activeTools = tools.filter(t => t.status === 'active');
@@ -43,7 +43,7 @@ export default function SitemapPage() {
           </div>
           <h1 style={{ fontSize: '2.5rem', fontWeight: 850, color: '#0f172a', letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>Website Sitemap</h1>
           <p style={{ color: '#64748b', maxWidth: '480px', margin: '0 auto', fontSize: '1rem' }}>
-            Complete directory of all pages and tools on ToolSathi.
+            Complete directory of all pages and tools on ProToolBox.
           </p>
         </div>
 

@@ -5,8 +5,8 @@ import { usePageSeo } from '../hooks/usePageSeo';
 export default function NotFoundPage() {
   usePageSeo(
     'page-404',
-    '404 — Page Not Found | ToolSathi',
-    'The page or tool you were looking for could not be found on ToolSathi.'
+    '404 — Page Not Found | ProToolBox',
+    'The page or tool you were looking for could not be found on ProToolBox.'
   );
 
   return (

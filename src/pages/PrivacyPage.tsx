@@ -5,8 +5,8 @@ import { usePageSeo } from '../hooks/usePageSeo';
 export default function PrivacyPage() {
   usePageSeo(
     'page-privacy',
-    'Privacy Policy — ToolSathi',
-    'ToolSathi privacy policy: discover how client-side in-browser processing keeps your files and personal data 100% private.'
+    'Privacy Policy — ProToolBox',
+    'ProToolBox privacy policy: discover how client-side in-browser processing keeps your files and personal data 100% private.'
   );
 
   return (
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
         <section>
           <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>1. Client-Side Processing First</h2>
           <p>
-            At ToolSathi, your privacy is our architectural priority. The vast majority of our utilities—including image compression, video playback, PDF merging/splitting, QR code generation, and text formatting—run <strong>100% locally in your browser</strong> using WebAssembly, HTML5 APIs, and JavaScript. Your files never touch external servers.
+            At ProToolBox, your privacy is our architectural priority. The vast majority of our utilities—including image compression, video playback, PDF merging/splitting, QR code generation, and text formatting—run <strong>100% locally in your browser</strong> using WebAssembly, HTML5 APIs, and JavaScript. Your files never touch external servers.
           </p>
         </section>
 
@@ -55,7 +55,7 @@ export default function PrivacyPage() {
         <section>
           <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>3. External Video & Stream Links</h2>
           <p>
-            When utilizing player tools with third-party URLs (such as direct MP4 links, HLS streams, or shared links), your browser directly fetches stream segments from the respective host CDN. ToolSathi does not host or proxy copyrighted audiovisual media.
+            When utilizing player tools with third-party URLs (such as direct MP4 links, HLS streams, or shared links), your browser directly fetches stream segments from the respective host CDN. ProToolBox does not host or proxy copyrighted audiovisual media.
           </p>
         </section>
 
@@ -69,7 +69,7 @@ export default function PrivacyPage() {
         <section>
           <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>5. Contact Information</h2>
           <p>
-            If you have any questions or security concerns regarding ToolSathi's privacy standards, please reach out to our team at policyian@gmail.com.
+            If you have any questions or security concerns regarding ProToolBox's privacy standards, please reach out to our team at policyian@gmail.com.
           </p>
         </section>
       </div>

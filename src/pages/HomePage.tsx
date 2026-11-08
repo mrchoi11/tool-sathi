@@ -13,7 +13,7 @@ export default function HomePage() {
 
   usePageSeo(
     'page-home',
-    'ToolSathi — Free Online Tools for Video, PDF, Image & More',
+    'ProToolBox — Free Online Tools for Video, PDF, Image & More',
     '75+ free browser-based online tools: play videos, merge PDFs, compress images, generate QR codes, convert formats, and more. Fast, private, no file uploads needed.'
   );
   const featuredTools = getFeaturedTools();
@@ -28,11 +28,11 @@ export default function HomePage() {
   };
 
   const faqs = [
-    { q: 'Is ToolSathi completely free to use?', a: 'Yes, all core tools are 100% free to use. Most processing happens right inside your browser without subscription fees or forced registration.' },
+    { q: 'Is ProToolBox completely free to use?', a: 'Yes, all core tools are 100% free to use. Most processing happens right inside your browser without subscription fees or forced registration.' },
     { q: 'Are my files safe and private?', a: 'Yes! Most tools process your files directly inside your browser using client-side JavaScript and WebAssembly. Your files are not uploaded to external servers.' },
     { q: 'What file formats are supported?', a: 'We support a comprehensive range of formats including PDF, JPG, PNG, WebP, SVG, MP4, WebM, MP3, WAV, SRT, VTT, CSV, JSON, and many more.' },
     { q: 'Do I need to create an account?', a: 'No account is needed. You can start using any tool instantly without entering passwords or sign-up information.' },
-    { q: 'Can I use ToolSathi on mobile devices?', a: 'Yes, ToolSathi is fully responsive and designed to work smoothly on mobile phones, tablets, and desktop computers.' },
+    { q: 'Can I use ProToolBox on mobile devices?', a: 'Yes, ProToolBox is fully responsive and designed to work smoothly on mobile phones, tablets, and desktop computers.' },
   ];
 
   return (
@@ -244,7 +244,7 @@ export default function HomePage() {
           <div className="section-header section-header-center">
             <h2 className="section-title">Frequently asked questions</h2>
             <p className="section-description" style={{ margin: '0 auto' }}>
-              Everything you need to know about ToolSathi and browser-based tools.
+              Everything you need to know about ProToolBox and browser-based tools.
             </p>
           </div>
 

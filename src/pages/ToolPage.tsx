@@ -96,7 +96,7 @@ export default function ToolPage() {
 
   usePageSeo(
     tool ? `tool-${tool.slug}` : '',
-    tool?.seo?.title || `${tool?.name} — Free In-Browser Tool | ToolSathi`,
+    tool?.seo?.title || `${tool?.name} — Free In-Browser Tool | ProToolBox`,
     tool?.seo?.description || tool?.description || '',
     tool?.keywords ? tool.keywords.join(', ') : undefined
   );

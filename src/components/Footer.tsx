@@ -12,7 +12,7 @@ export default function Footer() {
         <div className="footer-grid">
           {/* Brand Column */}
           <div className="footer-brand-col">
-            <Link to="/" className="footer-brand" aria-label="ToolSathi Home">
+            <Link to="/" className="footer-brand" aria-label="ProToolBox Home">
               <div className="footer-logo">
                 <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
                   <rect width="32" height="32" rx="9" fill="url(#footer-logo-grad)" />
@@ -26,7 +26,7 @@ export default function Footer() {
                   </defs>
                 </svg>
               </div>
-              <span className="footer-brand-title">ToolSathi</span>
+              <span className="footer-brand-title">ProToolBox</span>
             </Link>
             <p className="footer-tagline">Smarter Tools. Greater Productivity.</p>
             <p className="footer-subtext">Free in-browser utilities for creators, developers, and everyday tasks.</p>
@@ -95,10 +95,10 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="footer-bottom">
           <p className="footer-copyright">
-            &copy; {currentYear} ToolSathi. All rights reserved.
+            &copy; {currentYear} ProToolBox. All rights reserved.
           </p>
           <p className="footer-powered">
-            Powered by ToolSathi <Heart size={14} className="footer-heart" />
+            Powered by ProToolBox <Heart size={14} className="footer-heart" />
           </p>
         </div>
       </div>

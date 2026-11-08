@@ -9,8 +9,8 @@ import './AllToolsPage.css';
 export default function AllToolsPage() {
   usePageSeo(
     'page-tools',
-    'All Tools — Complete Online Utility Directory | ToolSathi',
-    'Browse all 75+ free in-browser online tools on ToolSathi: Video players, PDF converters, image tools, QR code generators, and developer utilities.'
+    'All Tools — Complete Online Utility Directory | ProToolBox',
+    'Browse all 75+ free in-browser online tools on ProToolBox: Video players, PDF converters, image tools, QR code generators, and developer utilities.'
   );
 
   const [searchParams] = useSearchParams();

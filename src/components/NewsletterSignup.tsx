@@ -69,7 +69,7 @@ export default function NewsletterSignup() {
                 letterSpacing: '-0.02em',
                 marginBottom: '0.2rem'
               }}>
-                Stay Updated with ToolSathi
+                Stay Updated with ProToolBox
               </h3>
               <p style={{
                 fontSize: '0.875rem',

@@ -6,8 +6,8 @@ import { usePageSeo } from '../hooks/usePageSeo';
 export default function ContactPage() {
   usePageSeo(
     'page-contact',
-    'Contact Us — ToolSathi Support',
-    'Get in touch with the ToolSathi team. Have a suggestion, feedback, or need help? Send us a message.'
+    'Contact Us — ProToolBox Support',
+    'Get in touch with the ProToolBox team. Have a suggestion, feedback, or need help? Send us a message.'
   );
 
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
@@ -38,7 +38,7 @@ export default function ContactPage() {
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <span className="section-label">Get in Touch</span>
           <h1 style={{ fontSize: '2.5rem', fontWeight: 850, color: '#0f172a', letterSpacing: '-0.03em', margin: '0.5rem 0' }}>
-            Contact <span className="gradient-text">ToolSathi</span>
+            Contact <span className="gradient-text">ProToolBox</span>
           </h1>
           <p style={{ color: '#475569', maxWidth: '540px', margin: '0 auto', fontSize: '1.05rem', lineHeight: 1.6 }}>
             Have a question, suggestion, or tool request? We'd love to hear from you.
