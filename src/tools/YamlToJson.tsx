@@ -4,7 +4,7 @@ import './tools.css';
 
 const SAMPLE_YAML = `version: "2.1"
 app:
-  name: ToolSathi
+  name: ProToolBox
   author: DeepMind
   status: active
 features:

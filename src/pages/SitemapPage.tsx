@@ -29,7 +29,7 @@ export default function SitemapPage() {
           </div>
           <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem' }}>Sitemap</h1>
           <p style={{ color: 'var(--text-muted)', maxWidth: '480px', margin: '0 auto' }}>
-            Complete directory of all pages and tools on ToolSathi.
+            Complete directory of all pages and tools on ProToolBox.
           </p>
         </div>
 

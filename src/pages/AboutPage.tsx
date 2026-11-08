@@ -13,7 +13,7 @@ export default function AboutPage() {
       <div style={{ textAlign: 'center', marginBottom: 'var(--space-3xl)' }}>
         <span className="section-label">Empowering Productivity</span>
         <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: 'var(--space-sm) 0', background: 'linear-gradient(135deg, var(--color-text), var(--color-primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          About ToolSathi
+          About ProToolBox
         </h1>
         <p style={{ color: 'var(--color-text-muted)', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto' }}>
           The all-in-one browser utility platform engineered for speed, privacy, and seamless creative workflows.

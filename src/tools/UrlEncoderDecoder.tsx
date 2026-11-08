@@ -4,7 +4,7 @@ import './tools.css';
 
 export default function UrlEncoderDecoder() {
   const [mode, setMode] = useState<'encode' | 'decode'>('encode');
-  const [inputText, setInputText] = useState<string>('https://toolsathi.com/search?query=react 19 & tools=pdf,video');
+  const [inputText, setInputText] = useState<string>('https://protoolbox.in/search?query=react 19 & tools=pdf,video');
   const [outputText, setOutputText] = useState<string>('');
   const [copied, setCopied] = useState(false);
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BookOpen, Sparkles, Clock } from 'lucide-react';
 import './tools.css';
 
-const SAMPLE_TEXT = `ToolSathi provides a rich suite of online browser utilities designed for maximum speed and privacy. Users can convert media, optimize documents, inspect metadata, and playback video streams directly inside their web browser without unnecessary server uploads. The clean architecture ensures complete data isolation.`;
+const SAMPLE_TEXT = `ProToolBox provides a rich suite of online browser utilities designed for maximum speed and privacy. Users can convert media, optimize documents, inspect metadata, and playback video streams directly inside their web browser without unnecessary server uploads. The clean architecture ensures complete data isolation.`;
 
 export default function ReadabilityChecker() {
   const [text, setText] = useState<string>(SAMPLE_TEXT);

@@ -5,7 +5,7 @@ import { saveAs } from 'file-saver';
 import './tools.css';
 
 export default function QrCodeGenerator() {
-  const [text, setText] = useState<string>('https://toolsathi.com');
+  const [text, setText] = useState<string>('https://protoolbox.in');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [darkColor, setDarkColor] = useState<string>('#000000');
   const [lightColor, setLightColor] = useState<string>('#ffffff');

@@ -3,7 +3,7 @@ import { Link, Copy, Check, ExternalLink } from 'lucide-react';
 import './tools.css';
 
 export default function UtmBuilder() {
-  const [baseUrl, setBaseUrl] = useState<string>('https://toolsathi.com/tools/video-player');
+  const [baseUrl, setBaseUrl] = useState<string>('https://protoolbox.in/tools/video-player');
   const [source, setSource] = useState<string>('google');
   const [medium, setMedium] = useState<string>('cpc');
   const [campaign, setCampaign] = useState<string>('launch_2026');

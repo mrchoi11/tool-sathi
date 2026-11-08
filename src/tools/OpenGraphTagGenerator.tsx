@@ -3,12 +3,12 @@ import { Tag, Copy, Check } from 'lucide-react';
 import './tools.css';
 
 export default function OpenGraphTagGenerator() {
-  const [title, setTitle] = useState<string>('ToolSathi Studio');
+  const [title, setTitle] = useState<string>('ProToolBox Studio');
   const [description, setDescription] = useState<string>('Free web utilities for creators and developers.');
-  const [url, setUrl] = useState<string>('https://toolsathi.com');
-  const [imageUrl, setImageUrl] = useState<string>('https://toolsathi.com/og-banner.png');
-  const [siteName, setSiteName] = useState<string>('ToolSathi');
-  const [twitterUser, setTwitterUser] = useState<string>('@toolsathi');
+  const [url, setUrl] = useState<string>('https://protoolbox.in');
+  const [imageUrl, setImageUrl] = useState<string>('https://protoolbox.in/og-banner.png');
+  const [siteName, setSiteName] = useState<string>('ProToolBox');
+  const [twitterUser, setTwitterUser] = useState<string>('@protoolbox');
   const [copied, setCopied] = useState<boolean>(false);
 
   const tagsSnippet = `<!-- Primary Meta Tags -->

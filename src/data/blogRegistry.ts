@@ -152,7 +152,7 @@ export const INITIAL_POSTS: BlogPost[] = [
     status: "published",
     readTime: "4 min read",
     views: 1420,
-    metaTitle: "Play TeraBox Videos Online Free – No App Needed | ToolSathi",
+    metaTitle: "Play TeraBox Videos Online Free – No App Needed | ProToolBox",
     metaDescription: "Stream any TeraBox shared video link directly in your browser. No app download required. Works on mobile & PC.",
     author: {
       name: "Alex Rivera",

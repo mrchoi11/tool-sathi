@@ -14,7 +14,7 @@ export default function Footer() {
                 <path d="M8 10h12M8 14h8M8 18h10" stroke="white" strokeWidth="2" strokeLinecap="round" />
                 <defs><linearGradient id="flogo" x1="0" y1="0" x2="28" y2="28"><stop stopColor="#6366f1" /><stop offset="1" stopColor="#8b5cf6" /></linearGradient></defs>
               </svg>
-              <span>ToolSathi</span>
+              <span>ProToolBox</span>
             </Link>
             <p className="footer-tagline">Free online tools for everyday tasks. Fast, private, and easy to use.</p>
           </div>
@@ -52,7 +52,7 @@ export default function Footer() {
         </div>
 
         <div className="footer-bottom">
-          <p>&copy; {new Date().getFullYear()} ToolSathi. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} ProToolBox. All rights reserved.</p>
           <p className="footer-disclaimer">Processing happens in your browser where possible. See our privacy policy for details.</p>
         </div>
       </div>

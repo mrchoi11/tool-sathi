@@ -3,11 +3,11 @@ import { Map, Copy, Download, Check } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import './tools.css';
 
-const DEFAULT_URLS = `https://toolsathi.com/
-https://toolsathi.com/tools
-https://toolsathi.com/tools/video-player
-https://toolsathi.com/tools/pdf-merger
-https://toolsathi.com/tools/image-compressor`;
+const DEFAULT_URLS = `https://protoolbox.in/
+https://protoolbox.in/tools
+https://protoolbox.in/tools/video-player
+https://protoolbox.in/tools/pdf-merger
+https://protoolbox.in/tools/image-compressor`;
 
 export default function XmlSitemapGenerator() {
   const [urlsInput, setUrlsInput] = useState<string>(DEFAULT_URLS);

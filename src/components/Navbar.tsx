@@ -52,7 +52,7 @@ export default function Navbar() {
     <>
       <nav className={`navbar ${scrolled ? 'navbar-scrolled' : ''}`} role="navigation" aria-label="Main navigation">
         <div className="navbar-inner container">
-          <Link to="/" className="navbar-brand" aria-label="ToolSathi Home">
+          <Link to="/" className="navbar-brand" aria-label="ProToolBox Home">
             <div className="navbar-logo">
               <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                 <rect width="28" height="28" rx="7" fill="url(#logo-grad)" />
@@ -65,7 +65,7 @@ export default function Navbar() {
                 </defs>
               </svg>
             </div>
-            <span className="navbar-brand-text">ToolSathi</span>
+            <span className="navbar-brand-text">ProToolBox</span>
           </Link>
 
           <div className={`navbar-links ${mobileOpen ? 'navbar-links-open' : ''}`}>

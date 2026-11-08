@@ -19,7 +19,7 @@ export default function DiskwalaVideoPlayer() {
   const [backendUrl] = useState<string>(
     import.meta.env.VITE_BACKEND_URL ||
     import.meta.env.VITE_GATEWAY_URL ||
-    'https://tool-sathi-tool-sathi.up.railway.app'
+    ''
   );
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasStream, setHasStream] = useState<boolean>(false);

@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { GitCompare, Check, RefreshCw } from 'lucide-react';
 import './tools.css';
 
-const TEXT_ORIG = `ToolSathi version 1.0
+const TEXT_ORIG = `ProToolBox version 1.0
 Features:
 - Video Player
 - PDF Splitter
 - Basic Converter`;
 
-const TEXT_MOD = `ToolSathi version 2.0
+const TEXT_MOD = `ProToolBox version 2.0
 Features:
 - Powerful HLS & MP4 Video Player
 - PDF Suite (Merge, Split, Compress)

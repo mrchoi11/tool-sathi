@@ -1,6 +1,12 @@
+# Robots.txt for ProToolBox (https://protoolbox.in)
 User-agent: *
 Allow: /
+
+# Disallow internal admin areas
 Disallow: /admin
+Disallow: /admin/
 Disallow: /admin/dashboard
 
-Sitemap: https://toolsathi.com/sitemap.xml
+# Host and Sitemap
+Host: https://protoolbox.in
+Sitemap: https://protoolbox.in/sitemap.xml

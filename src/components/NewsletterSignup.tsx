@@ -53,7 +53,7 @@ export default function NewsletterSignup() {
               </div>
             </div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-              Stay Updated with ToolSathi
+              Stay Updated with ProToolBox
             </h2>
             <p style={{ color: 'var(--text-muted)', maxWidth: '450px', margin: '0 auto 1.5rem', fontSize: '0.95rem' }}>
               Get notified about new tools, feature updates, tips & tricks, and exclusive guides. No spam, ever.

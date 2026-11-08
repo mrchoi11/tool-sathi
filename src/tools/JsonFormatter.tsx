@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Braces, Copy, Check, Minimize2, Maximize2, AlertCircle } from 'lucide-react';
 import './tools.css';
 
-const SAMPLE_RAW = `{"platform":"ToolSathi","features":["video-playback","pdf-suite","media-converters"],"stats":{"tools":60,"clientSide":true,"status":"optimal"}}`;
+const SAMPLE_RAW = `{"platform":"ProToolBox","features":["video-playback","pdf-suite","media-converters"],"stats":{"tools":60,"clientSide":true,"status":"optimal"}}`;
 
 export default function JsonFormatter() {
   const [jsonInput, setJsonInput] = useState<string>(SAMPLE_RAW);

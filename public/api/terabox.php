@@ -1,7 +1,7 @@
 <?php
 /**
- * ToolSathi TeraBox API & Streaming Gateway (PHP)
- * Runs natively on Hostinger under tool-sathi.propdigital360.in
+ * ProToolBox TeraBox API & Streaming Gateway (PHP)
+ * Runs natively on Hostinger under protoolbox.in
  *
  * Features:
  *  - Resolve cache (600s TTL) — eliminates repeat TeraBox API calls
@@ -368,8 +368,8 @@ if ($mode === 'resolve' || $_SERVER['REQUEST_METHOD'] === 'POST' || isset($_GET[
 header('Content-Type: application/json');
 echo json_encode([
     'status'      => 'online',
-    'service'     => 'ToolSathi TeraBox Native Gateway',
-    'domain'      => 'tool-sathi.propdigital360.in',
+    'service'     => 'ProToolBox TeraBox Native Gateway',
+    'domain'      => 'protoolbox.in',
     'php_version' => PHP_VERSION,
     'cookieActive'=> !empty($ndus),
     'cacheDir'    => sys_get_temp_dir(),

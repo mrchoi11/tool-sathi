@@ -24,28 +24,28 @@ export default function TermsPage() {
         <section>
           <h2 style={{ color: 'var(--color-text)', fontSize: '1.25rem', marginBottom: 'var(--space-sm)' }}>1. Acceptance of Terms</h2>
           <p>
-            By accessing and using ToolSathi, you agree to comply with and be bound by these Terms of Service. If you do not agree, please discontinue using the platform.
+            By accessing and using ProToolBox, you agree to comply with and be bound by these Terms of Service. If you do not agree, please discontinue using the platform.
           </p>
         </section>
 
         <section>
           <h2 style={{ color: 'var(--color-text)', fontSize: '1.25rem', marginBottom: 'var(--space-sm)' }}>2. Permissible Use</h2>
           <p>
-            ToolSathi provides browser-based utilities for lawful personal and commercial tasks. You agree not to use the service to process harmful, unlawful, infringing, or malicious content, or attempt to circumvent security and rate limits.
+            ProToolBox provides browser-based utilities for lawful personal and commercial tasks. You agree not to use the service to process harmful, unlawful, infringing, or malicious content, or attempt to circumvent security and rate limits.
           </p>
         </section>
 
         <section>
           <h2 style={{ color: 'var(--color-text)', fontSize: '1.25rem', marginBottom: 'var(--space-sm)' }}>3. Intellectual Property Rights</h2>
           <p>
-            You retain all rights, title, and ownership of any media, text, or files processed using ToolSathi. We do not claim ownership or rights over your outputs or data.
+            You retain all rights, title, and ownership of any media, text, or files processed using ProToolBox. We do not claim ownership or rights over your outputs or data.
           </p>
         </section>
 
         <section>
           <h2 style={{ color: 'var(--color-text)', fontSize: '1.25rem', marginBottom: 'var(--space-sm)' }}>4. Disclaimer of Warranties</h2>
           <p>
-            The software and utilities are provided "as is" and "as available" without warranty of any kind. ToolSathi does not guarantee uninterrupted operation or zero data conversion anomalies. Always maintain backups of critical files.
+            The software and utilities are provided "as is" and "as available" without warranty of any kind. ProToolBox does not guarantee uninterrupted operation or zero data conversion anomalies. Always maintain backups of critical files.
           </p>
         </section>
       </div>

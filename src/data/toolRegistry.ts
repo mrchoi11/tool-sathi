@@ -67,7 +67,7 @@ export const tools: Tool[] = [
     status: 'active',
     isFeatured: true,
     keywords: ['video', 'player', 'mp4', 'webm', 'stream', 'play online'],
-    seo: { title: 'Online Video Player — Play MP4, WebM & More | ToolSathi', description: 'Play video files directly in your browser. Supports MP4, WebM, and HLS streams with full playback controls.' },
+    seo: { title: 'Online Video Player — Play MP4, WebM & More | ProToolBox', description: 'Play video files directly in your browser. Supports MP4, WebM, and HLS streams with full playback controls.' },
     relatedTools: ['terabox-video-player', 'direct-video-player', 'video-metadata-viewer'],
   },
   {
@@ -81,7 +81,7 @@ export const tools: Tool[] = [
     isFeatured: true,
     isNew: true,
     keywords: ['terabox', 'player', 'shared link', 'cloud video', 'stream'],
-    seo: { title: 'TeraBox Video Player — Play Shared Links Online | ToolSathi', description: 'Paste TeraBox shared video links and attempt playback using supported methods. Full player controls included.' },
+    seo: { title: 'TeraBox Video Player — Play Shared Links Online | ProToolBox', description: 'Paste TeraBox shared video links and attempt playback using supported methods. Full player controls included.' },
     relatedTools: ['video-player', 'direct-video-player', 'diskwala-video-player'],
   },
   {
@@ -95,7 +95,7 @@ export const tools: Tool[] = [
     isFeatured: true,
     isNew: true,
     keywords: ['diskwala', 'video player', 'diskwala stream', 'diskwala app', 'm3u8', 'mp4'],
-    seo: { title: 'Diskwala Video Player — Stream Diskwala Links Online | ToolSathi', description: 'Paste Diskwala links to stream MP4 and HLS videos directly in your browser without iframes or downloading the app.' },
+    seo: { title: 'Diskwala Video Player — Stream Diskwala Links Online | ProToolBox', description: 'Paste Diskwala links to stream MP4 and HLS videos directly in your browser without iframes or downloading the app.' },
     relatedTools: ['video-player', 'terabox-video-player', 'direct-video-player'],
   },
   {
@@ -107,7 +107,7 @@ export const tools: Tool[] = [
     icon: 'MonitorPlay',
     status: 'active',
     keywords: ['direct', 'mp4', 'webm', 'url', 'play'],
-    seo: { title: 'Direct MP4/WebM Video Player | ToolSathi', description: 'Play MP4 and WebM videos from direct URLs with full playback controls.' },
+    seo: { title: 'Direct MP4/WebM Video Player | ProToolBox', description: 'Play MP4 and WebM videos from direct URLs with full playback controls.' },
     relatedTools: ['video-player', 'video-metadata-viewer'],
   },
   {
@@ -120,7 +120,7 @@ export const tools: Tool[] = [
     status: 'active',
     inputFormats: ['mp4', 'webm', 'ogg', 'mov'],
     keywords: ['video', 'metadata', 'info', 'codec', 'resolution', 'duration'],
-    seo: { title: 'Video Metadata Viewer | ToolSathi', description: 'Upload a video to view its metadata including resolution, duration, codec, and more.' },
+    seo: { title: 'Video Metadata Viewer | ProToolBox', description: 'Upload a video to view its metadata including resolution, duration, codec, and more.' },
     relatedTools: ['video-player', 'image-metadata-viewer'],
   },
   {
@@ -132,7 +132,7 @@ export const tools: Tool[] = [
     icon: 'Maximize2',
     status: 'active',
     keywords: ['aspect ratio', '16:9', '4:3', 'widescreen', 'calculate'],
-    seo: { title: 'Video Aspect Ratio Calculator | ToolSathi', description: 'Calculate video aspect ratios and find matching resolutions for any width or height.' },
+    seo: { title: 'Video Aspect Ratio Calculator | ProToolBox', description: 'Calculate video aspect ratios and find matching resolutions for any width or height.' },
     relatedTools: ['video-resolution-calculator'],
   },
   {
@@ -144,7 +144,7 @@ export const tools: Tool[] = [
     icon: 'Ruler',
     status: 'active',
     keywords: ['resolution', '1080p', '4k', '720p', 'calculate', 'width', 'height'],
-    seo: { title: 'Video Resolution Calculator | ToolSathi', description: 'Calculate video resolution dimensions based on aspect ratio.' },
+    seo: { title: 'Video Resolution Calculator | ProToolBox', description: 'Calculate video resolution dimensions based on aspect ratio.' },
     relatedTools: ['video-aspect-ratio-calculator'],
   },
   {
@@ -158,7 +158,7 @@ export const tools: Tool[] = [
     inputFormats: ['mp4', 'webm'],
     outputFormats: ['png', 'jpg'],
     keywords: ['thumbnail', 'screenshot', 'frame', 'extract', 'capture'],
-    seo: { title: 'Video Thumbnail Extractor | ToolSathi', description: 'Extract thumbnail frames from any video file at any timestamp.' },
+    seo: { title: 'Video Thumbnail Extractor | ProToolBox', description: 'Extract thumbnail frames from any video file at any timestamp.' },
     relatedTools: ['video-player'],
   },
   {
@@ -170,7 +170,7 @@ export const tools: Tool[] = [
     icon: 'Gauge',
     status: 'active',
     keywords: ['speed', 'playback', 'slow motion', 'fast forward', '2x'],
-    seo: { title: 'Video Playback Speed Controller | ToolSathi', description: 'Control video playback speed from 0.25x to 4x with a smooth interface.' },
+    seo: { title: 'Video Playback Speed Controller | ProToolBox', description: 'Control video playback speed from 0.25x to 4x with a smooth interface.' },
     relatedTools: ['video-player'],
   },
 
@@ -187,7 +187,7 @@ export const tools: Tool[] = [
     inputFormats: ['pdf'],
     outputFormats: ['pdf'],
     keywords: ['merge', 'combine', 'join', 'pdf', 'multiple'],
-    seo: { title: 'Merge PDF Files Online — Free PDF Merger | ToolSathi', description: 'Combine multiple PDF files into one document. Free, fast, and processed in your browser.' },
+    seo: { title: 'Merge PDF Files Online — Free PDF Merger | ProToolBox', description: 'Combine multiple PDF files into one document. Free, fast, and processed in your browser.' },
     relatedTools: ['pdf-splitter', 'pdf-compressor'],
   },
   {
@@ -202,7 +202,7 @@ export const tools: Tool[] = [
     inputFormats: ['pdf'],
     outputFormats: ['pdf'],
     keywords: ['split', 'separate', 'extract', 'pages', 'pdf'],
-    seo: { title: 'Split PDF Online — Free PDF Splitter | ToolSathi', description: 'Split PDF files into individual pages or custom page ranges.' },
+    seo: { title: 'Split PDF Online — Free PDF Splitter | ProToolBox', description: 'Split PDF files into individual pages or custom page ranges.' },
     relatedTools: ['pdf-merger', 'pdf-page-extractor'],
   },
   {
@@ -217,7 +217,7 @@ export const tools: Tool[] = [
     inputFormats: ['pdf'],
     outputFormats: ['pdf'],
     keywords: ['compress', 'reduce', 'size', 'smaller', 'pdf', 'optimize'],
-    seo: { title: 'Compress PDF Online — Free PDF Compressor | ToolSathi', description: 'Reduce PDF file size. Basic compression removes unused objects. Results vary by document.' },
+    seo: { title: 'Compress PDF Online — Free PDF Compressor | ProToolBox', description: 'Reduce PDF file size. Basic compression removes unused objects. Results vary by document.' },
     relatedTools: ['pdf-merger', 'image-compressor'],
   },
   {
@@ -231,7 +231,7 @@ export const tools: Tool[] = [
     inputFormats: ['pdf'],
     outputFormats: ['jpg'],
     keywords: ['pdf', 'jpg', 'jpeg', 'convert', 'image'],
-    seo: { title: 'PDF to JPG Converter | ToolSathi', description: 'Convert each page of a PDF to a JPG image.' },
+    seo: { title: 'PDF to JPG Converter | ProToolBox', description: 'Convert each page of a PDF to a JPG image.' },
     relatedTools: ['jpg-to-pdf', 'pdf-to-png'],
   },
   {
@@ -245,7 +245,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png'],
     outputFormats: ['pdf'],
     keywords: ['jpg', 'jpeg', 'pdf', 'convert', 'image to pdf'],
-    seo: { title: 'JPG to PDF Converter | ToolSathi', description: 'Convert JPG and PNG images into a PDF document.' },
+    seo: { title: 'JPG to PDF Converter | ProToolBox', description: 'Convert JPG and PNG images into a PDF document.' },
     relatedTools: ['pdf-to-jpg'],
   },
   {
@@ -258,7 +258,7 @@ export const tools: Tool[] = [
     status: 'active',
     inputFormats: ['pdf'],
     keywords: ['pdf', 'metadata', 'info', 'author', 'pages', 'size'],
-    seo: { title: 'PDF Metadata Viewer | ToolSathi', description: 'View PDF metadata including author, page count, creation date, and more.' },
+    seo: { title: 'PDF Metadata Viewer | ProToolBox', description: 'View PDF metadata including author, page count, creation date, and more.' },
     relatedTools: ['pdf-compressor'],
   },
   {
@@ -272,7 +272,7 @@ export const tools: Tool[] = [
     inputFormats: ['pdf'],
     outputFormats: ['pdf'],
     keywords: ['rotate', 'pdf', 'orientation', 'landscape', 'portrait'],
-    seo: { title: 'Rotate PDF Pages | ToolSathi', description: 'Rotate PDF pages to any orientation.' },
+    seo: { title: 'Rotate PDF Pages | ProToolBox', description: 'Rotate PDF pages to any orientation.' },
     relatedTools: ['pdf-merger'],
   },
 
@@ -289,7 +289,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'webp'],
     outputFormats: ['jpg', 'png', 'webp'],
     keywords: ['compress', 'reduce', 'size', 'image', 'optimize', 'quality'],
-    seo: { title: 'Image Compressor — Reduce Image Size | ToolSathi', description: 'Compress images with adjustable quality. Supports JPG, PNG, and WebP.' },
+    seo: { title: 'Image Compressor — Reduce Image Size | ProToolBox', description: 'Compress images with adjustable quality. Supports JPG, PNG, and WebP.' },
     relatedTools: ['image-resizer', 'webp-converter', 'image-size-reducer'],
   },
   {
@@ -304,7 +304,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
     outputFormats: ['jpg', 'png', 'webp'],
     keywords: ['image size reducer', 'compress image', 'reduce mb', 'browser compression'],
-    seo: { title: 'Image Size Reducer — Compress Images Client-Side | ToolSathi', description: 'Quickly compress and reduce image file sizes in your browser using Web Workers without serverless timeouts.' },
+    seo: { title: 'Image Size Reducer — Compress Images Client-Side | ProToolBox', description: 'Quickly compress and reduce image file sizes in your browser using Web Workers without serverless timeouts.' },
     relatedTools: ['image-compressor', 'webp-converter'],
   },
   {
@@ -320,7 +320,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg'],
     outputFormats: ['webp'],
     keywords: ['webp converter', 'convert to webp', 'canvas webp', 'png to webp', 'jpg to webp'],
-    seo: { title: 'WebP Converter — Convert Images to WebP Online | ToolSathi', description: 'Convert images to WebP format client-side using HTML5 Canvas API with adjustable quality.' },
+    seo: { title: 'WebP Converter — Convert Images to WebP Online | ProToolBox', description: 'Convert images to WebP format client-side using HTML5 Canvas API with adjustable quality.' },
     relatedTools: ['jpg-to-webp', 'png-to-webp', 'image-compressor'],
   },
   {
@@ -335,7 +335,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'webp'],
     outputFormats: ['jpg', 'png', 'webp'],
     keywords: ['resize', 'scale', 'dimensions', 'width', 'height', 'image'],
-    seo: { title: 'Image Resizer — Resize Images Online | ToolSathi', description: 'Resize images to exact dimensions or by percentage. Free browser-based tool.' },
+    seo: { title: 'Image Resizer — Resize Images Online | ProToolBox', description: 'Resize images to exact dimensions or by percentage. Free browser-based tool.' },
     relatedTools: ['image-compressor', 'image-cropper'],
   },
   {
@@ -349,7 +349,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg'],
     outputFormats: ['png'],
     keywords: ['jpg', 'png', 'convert', 'transparent'],
-    seo: { title: 'JPG to PNG Converter | ToolSathi', description: 'Convert JPG images to PNG format for transparency support.' },
+    seo: { title: 'JPG to PNG Converter | ProToolBox', description: 'Convert JPG images to PNG format for transparency support.' },
     relatedTools: ['png-to-jpg', 'jpg-to-webp'],
   },
   {
@@ -363,7 +363,7 @@ export const tools: Tool[] = [
     inputFormats: ['png'],
     outputFormats: ['jpg'],
     keywords: ['png', 'jpg', 'convert', 'jpeg'],
-    seo: { title: 'PNG to JPG Converter | ToolSathi', description: 'Convert PNG images to JPG. Note: transparent areas become white.' },
+    seo: { title: 'PNG to JPG Converter | ProToolBox', description: 'Convert PNG images to JPG. Note: transparent areas become white.' },
     relatedTools: ['jpg-to-png'],
   },
   {
@@ -377,7 +377,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg'],
     outputFormats: ['webp'],
     keywords: ['jpg', 'webp', 'convert', 'web', 'performance'],
-    seo: { title: 'JPG to WebP Converter | ToolSathi', description: 'Convert JPG to WebP for smaller file sizes and better web performance.' },
+    seo: { title: 'JPG to WebP Converter | ProToolBox', description: 'Convert JPG to WebP for smaller file sizes and better web performance.' },
     relatedTools: ['webp-to-jpg', 'png-to-webp'],
   },
   {
@@ -391,7 +391,7 @@ export const tools: Tool[] = [
     inputFormats: ['png'],
     outputFormats: ['webp'],
     keywords: ['png', 'webp', 'convert'],
-    seo: { title: 'PNG to WebP Converter | ToolSathi', description: 'Convert PNG to WebP for smaller files with transparency support.' },
+    seo: { title: 'PNG to WebP Converter | ProToolBox', description: 'Convert PNG to WebP for smaller files with transparency support.' },
     relatedTools: ['jpg-to-webp'],
   },
   {
@@ -405,7 +405,7 @@ export const tools: Tool[] = [
     inputFormats: ['webp'],
     outputFormats: ['jpg'],
     keywords: ['webp', 'jpg', 'convert'],
-    seo: { title: 'WebP to JPG Converter | ToolSathi', description: 'Convert WebP images to widely compatible JPG format.' },
+    seo: { title: 'WebP to JPG Converter | ProToolBox', description: 'Convert WebP images to widely compatible JPG format.' },
     relatedTools: ['jpg-to-webp'],
   },
   {
@@ -419,7 +419,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'webp'],
     outputFormats: ['jpg', 'png', 'webp'],
     keywords: ['crop', 'trim', 'cut', 'image'],
-    seo: { title: 'Image Cropper | ToolSathi', description: 'Crop images to exact dimensions or preset aspect ratios.' },
+    seo: { title: 'Image Cropper | ProToolBox', description: 'Crop images to exact dimensions or preset aspect ratios.' },
     relatedTools: ['image-resizer'],
   },
   {
@@ -433,7 +433,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'webp'],
     outputFormats: ['jpg', 'png', 'webp'],
     keywords: ['rotate', 'image', 'angle', 'turn'],
-    seo: { title: 'Image Rotator | ToolSathi', description: 'Rotate images by 90°, 180°, 270°, or any custom angle.' },
+    seo: { title: 'Image Rotator | ProToolBox', description: 'Rotate images by 90°, 180°, 270°, or any custom angle.' },
     relatedTools: ['image-flipper'],
   },
   {
@@ -447,7 +447,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'webp'],
     outputFormats: ['jpg', 'png', 'webp'],
     keywords: ['flip', 'mirror', 'horizontal', 'vertical', 'image'],
-    seo: { title: 'Image Flipper | ToolSathi', description: 'Flip images horizontally or vertically.' },
+    seo: { title: 'Image Flipper | ProToolBox', description: 'Flip images horizontally or vertically.' },
     relatedTools: ['image-rotator'],
   },
   {
@@ -460,7 +460,7 @@ export const tools: Tool[] = [
     status: 'active',
     inputFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
     keywords: ['exif', 'metadata', 'info', 'image', 'details'],
-    seo: { title: 'Image Metadata Viewer | ToolSathi', description: 'View image metadata including dimensions, file size, type, and EXIF data.' },
+    seo: { title: 'Image Metadata Viewer | ProToolBox', description: 'View image metadata including dimensions, file size, type, and EXIF data.' },
     relatedTools: ['image-dimensions-checker'],
   },
   {
@@ -473,7 +473,7 @@ export const tools: Tool[] = [
     status: 'active',
     inputFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg'],
     keywords: ['dimensions', 'width', 'height', 'size', 'image', 'resolution'],
-    seo: { title: 'Image Dimensions Checker | ToolSathi', description: 'Quickly check the width, height, and aspect ratio of any image file.' },
+    seo: { title: 'Image Dimensions Checker | ProToolBox', description: 'Quickly check the width, height, and aspect ratio of any image file.' },
     relatedTools: ['image-metadata-viewer'],
   },
   {
@@ -486,7 +486,7 @@ export const tools: Tool[] = [
     status: 'active',
     inputFormats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'],
     keywords: ['base64', 'encode', 'image', 'data uri'],
-    seo: { title: 'Image to Base64 Converter | ToolSathi', description: 'Convert any image to a Base64 encoded string for embedding in code.' },
+    seo: { title: 'Image to Base64 Converter | ProToolBox', description: 'Convert any image to a Base64 encoded string for embedding in code.' },
     relatedTools: ['base64-to-image'],
   },
   {
@@ -499,7 +499,7 @@ export const tools: Tool[] = [
     status: 'active',
     outputFormats: ['png', 'jpg'],
     keywords: ['base64', 'decode', 'image', 'convert'],
-    seo: { title: 'Base64 to Image Converter | ToolSathi', description: 'Convert Base64 encoded strings to downloadable image files.' },
+    seo: { title: 'Base64 to Image Converter | ProToolBox', description: 'Convert Base64 encoded strings to downloadable image files.' },
     relatedTools: ['image-to-base64'],
   },
   {
@@ -513,7 +513,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'webp'],
     outputFormats: ['png', 'ico'],
     keywords: ['favicon', 'icon', 'website', 'generate'],
-    seo: { title: 'Favicon Generator | ToolSathi', description: 'Generate favicon images in all standard sizes from a single image.' },
+    seo: { title: 'Favicon Generator | ProToolBox', description: 'Generate favicon images in all standard sizes from a single image.' },
     relatedTools: ['image-resizer'],
   },
 
@@ -529,7 +529,7 @@ export const tools: Tool[] = [
     inputFormats: ['csv'],
     outputFormats: ['json'],
     keywords: ['csv', 'json', 'convert', 'data'],
-    seo: { title: 'CSV to JSON Converter | ToolSathi', description: 'Convert CSV data to JSON format instantly in your browser.' },
+    seo: { title: 'CSV to JSON Converter | ProToolBox', description: 'Convert CSV data to JSON format instantly in your browser.' },
     relatedTools: ['json-to-csv'],
   },
   {
@@ -543,7 +543,7 @@ export const tools: Tool[] = [
     inputFormats: ['json'],
     outputFormats: ['csv'],
     keywords: ['json', 'csv', 'convert', 'data', 'spreadsheet'],
-    seo: { title: 'JSON to CSV Converter | ToolSathi', description: 'Convert JSON arrays to downloadable CSV files.' },
+    seo: { title: 'JSON to CSV Converter | ProToolBox', description: 'Convert JSON arrays to downloadable CSV files.' },
     relatedTools: ['csv-to-json'],
   },
   {
@@ -556,7 +556,7 @@ export const tools: Tool[] = [
     status: 'active',
     isFeatured: true,
     keywords: ['json', 'format', 'beautify', 'pretty', 'print', 'indent'],
-    seo: { title: 'JSON Formatter & Beautifier | ToolSathi', description: 'Format, beautify, and validate JSON with syntax highlighting.' },
+    seo: { title: 'JSON Formatter & Beautifier | ProToolBox', description: 'Format, beautify, and validate JSON with syntax highlighting.' },
     relatedTools: ['json-validator'],
   },
   {
@@ -568,7 +568,7 @@ export const tools: Tool[] = [
     icon: 'CheckCircle',
     status: 'active',
     keywords: ['json', 'validate', 'check', 'syntax', 'error'],
-    seo: { title: 'JSON Validator | ToolSathi', description: 'Validate JSON syntax and find parsing errors with clear messages.' },
+    seo: { title: 'JSON Validator | ProToolBox', description: 'Validate JSON syntax and find parsing errors with clear messages.' },
     relatedTools: ['json-formatter'],
   },
   {
@@ -580,7 +580,7 @@ export const tools: Tool[] = [
     icon: 'FileCode',
     status: 'active',
     keywords: ['markdown', 'html', 'convert', 'preview', 'md'],
-    seo: { title: 'Markdown to HTML Converter | ToolSathi', description: 'Convert Markdown to HTML with live preview and copy functionality.' },
+    seo: { title: 'Markdown to HTML Converter | ProToolBox', description: 'Convert Markdown to HTML with live preview and copy functionality.' },
     relatedTools: ['html-to-text'],
   },
   {
@@ -592,7 +592,7 @@ export const tools: Tool[] = [
     icon: 'FileText',
     status: 'active',
     keywords: ['html', 'text', 'strip', 'tags', 'plain'],
-    seo: { title: 'HTML to Plain Text | ToolSathi', description: 'Strip HTML tags and extract clean plain text.' },
+    seo: { title: 'HTML to Plain Text | ProToolBox', description: 'Strip HTML tags and extract clean plain text.' },
     relatedTools: ['markdown-to-html'],
   },
   {
@@ -604,7 +604,7 @@ export const tools: Tool[] = [
     icon: 'FileJson',
     status: 'active',
     keywords: ['yaml', 'json', 'convert', 'config'],
-    seo: { title: 'YAML to JSON Converter | ToolSathi', description: 'Convert YAML configuration files to JSON format.' },
+    seo: { title: 'YAML to JSON Converter | ProToolBox', description: 'Convert YAML configuration files to JSON format.' },
     relatedTools: ['json-formatter'],
   },
   {
@@ -616,7 +616,7 @@ export const tools: Tool[] = [
     icon: 'Binary',
     status: 'active',
     keywords: ['base64', 'encode', 'decode', 'text', 'convert'],
-    seo: { title: 'Base64 Encoder & Decoder | ToolSathi', description: 'Encode text to Base64 or decode Base64 strings.' },
+    seo: { title: 'Base64 Encoder & Decoder | ProToolBox', description: 'Encode text to Base64 or decode Base64 strings.' },
     relatedTools: ['url-encoder-decoder'],
   },
   {
@@ -628,7 +628,7 @@ export const tools: Tool[] = [
     icon: 'Link',
     status: 'active',
     keywords: ['url', 'encode', 'decode', 'percent', 'uri'],
-    seo: { title: 'URL Encoder & Decoder | ToolSathi', description: 'Encode or decode URL strings and components.' },
+    seo: { title: 'URL Encoder & Decoder | ProToolBox', description: 'Encode or decode URL strings and components.' },
     relatedTools: ['base64-encoder-decoder'],
   },
   {
@@ -640,7 +640,7 @@ export const tools: Tool[] = [
     icon: 'Hash',
     status: 'active',
     keywords: ['hash', 'md5', 'sha', 'sha256', 'checksum', 'file'],
-    seo: { title: 'File Hash Generator | ToolSathi', description: 'Generate MD5, SHA-1, and SHA-256 checksums for any file.' },
+    seo: { title: 'File Hash Generator | ProToolBox', description: 'Generate MD5, SHA-1, and SHA-256 checksums for any file.' },
     relatedTools: [],
   },
   {
@@ -652,7 +652,7 @@ export const tools: Tool[] = [
     icon: 'FileQuestion',
     status: 'active',
     keywords: ['mime', 'type', 'file', 'content-type', 'detect'],
-    seo: { title: 'MIME Type Checker | ToolSathi', description: 'Upload a file to detect its MIME type.' },
+    seo: { title: 'MIME Type Checker | ProToolBox', description: 'Upload a file to detect its MIME type.' },
     relatedTools: ['file-hash-generator'],
   },
 
@@ -669,7 +669,7 @@ export const tools: Tool[] = [
     inputFormats: ['srt'],
     outputFormats: ['vtt'],
     keywords: ['srt', 'vtt', 'subtitle', 'convert', 'webvtt'],
-    seo: { title: 'SRT to VTT Converter | ToolSathi', description: 'Convert SRT subtitle files to WebVTT format for HTML5 video.' },
+    seo: { title: 'SRT to VTT Converter | ProToolBox', description: 'Convert SRT subtitle files to WebVTT format for HTML5 video.' },
     relatedTools: ['vtt-to-srt', 'subtitle-timestamp-shifter'],
   },
   {
@@ -683,7 +683,7 @@ export const tools: Tool[] = [
     inputFormats: ['vtt'],
     outputFormats: ['srt'],
     keywords: ['vtt', 'srt', 'subtitle', 'convert'],
-    seo: { title: 'VTT to SRT Converter | ToolSathi', description: 'Convert WebVTT subtitle files to SRT format.' },
+    seo: { title: 'VTT to SRT Converter | ProToolBox', description: 'Convert WebVTT subtitle files to SRT format.' },
     relatedTools: ['srt-to-vtt'],
   },
   {
@@ -697,7 +697,7 @@ export const tools: Tool[] = [
     inputFormats: ['srt', 'vtt'],
     outputFormats: ['srt', 'vtt'],
     keywords: ['subtitle', 'timestamp', 'shift', 'sync', 'offset', 'delay'],
-    seo: { title: 'Subtitle Timestamp Shifter | ToolSathi', description: 'Shift subtitle timestamps forward or backward to sync with video.' },
+    seo: { title: 'Subtitle Timestamp Shifter | ProToolBox', description: 'Shift subtitle timestamps forward or backward to sync with video.' },
     relatedTools: ['srt-to-vtt'],
   },
 
@@ -712,7 +712,7 @@ export const tools: Tool[] = [
     status: 'active',
     isFeatured: true,
     keywords: ['qr', 'code', 'generate', 'barcode', 'scan'],
-    seo: { title: 'QR Code Generator — Free Online | ToolSathi', description: 'Generate customizable QR codes from text, URLs, or data. Download in PNG format.' },
+    seo: { title: 'QR Code Generator — Free Online | ProToolBox', description: 'Generate customizable QR codes from text, URLs, or data. Download in PNG format.' },
     relatedTools: ['qr-code-reader'],
   },
   {
@@ -725,7 +725,7 @@ export const tools: Tool[] = [
     status: 'active',
     inputFormats: ['jpg', 'png', 'webp'],
     keywords: ['qr', 'code', 'read', 'scan', 'decode'],
-    seo: { title: 'QR Code Reader | ToolSathi', description: 'Upload an image containing a QR code to decode its contents.' },
+    seo: { title: 'QR Code Reader | ProToolBox', description: 'Upload an image containing a QR code to decode its contents.' },
     relatedTools: ['qr-code-generator'],
   },
   {
@@ -739,7 +739,7 @@ export const tools: Tool[] = [
     inputFormats: ['jpg', 'jpeg', 'png', 'webp'],
     outputFormats: ['jpg', 'png'],
     keywords: ['social media', 'resize', 'instagram', 'facebook', 'twitter', 'linkedin'],
-    seo: { title: 'Social Media Image Resizer | ToolSathi', description: 'Resize images to the right dimensions for Instagram, Facebook, Twitter, and more.' },
+    seo: { title: 'Social Media Image Resizer | ProToolBox', description: 'Resize images to the right dimensions for Instagram, Facebook, Twitter, and more.' },
     relatedTools: ['image-resizer'],
   },
   {
@@ -751,7 +751,7 @@ export const tools: Tool[] = [
     icon: 'Eye',
     status: 'active',
     keywords: ['open graph', 'og', 'preview', 'social', 'share', 'facebook'],
-    seo: { title: 'Open Graph Preview Generator | ToolSathi', description: 'Preview how your page will look when shared on social media.' },
+    seo: { title: 'Open Graph Preview Generator | ProToolBox', description: 'Preview how your page will look when shared on social media.' },
     relatedTools: ['meta-title-preview'],
   },
 
@@ -766,7 +766,7 @@ export const tools: Tool[] = [
     status: 'active',
     isFeatured: true,
     keywords: ['meta', 'title', 'description', 'serp', 'preview', 'seo'],
-    seo: { title: 'Meta Title & Description Preview | ToolSathi', description: 'Preview your meta title and description as they appear in Google search results.' },
+    seo: { title: 'Meta Title & Description Preview | ProToolBox', description: 'Preview your meta title and description as they appear in Google search results.' },
     relatedTools: ['serp-preview', 'url-slug-generator'],
   },
   {
@@ -778,7 +778,7 @@ export const tools: Tool[] = [
     icon: 'Search',
     status: 'active',
     keywords: ['serp', 'snippet', 'google', 'preview', 'search'],
-    seo: { title: 'SERP Snippet Preview | ToolSathi', description: 'See a simulated preview of your page in Google search results.' },
+    seo: { title: 'SERP Snippet Preview | ProToolBox', description: 'See a simulated preview of your page in Google search results.' },
     relatedTools: ['meta-title-preview'],
   },
   {
@@ -790,7 +790,7 @@ export const tools: Tool[] = [
     icon: 'Bot',
     status: 'active',
     keywords: ['robots', 'txt', 'crawl', 'seo', 'search engine'],
-    seo: { title: 'Robots.txt Generator | ToolSathi', description: 'Generate a robots.txt file to control search engine crawling.' },
+    seo: { title: 'Robots.txt Generator | ProToolBox', description: 'Generate a robots.txt file to control search engine crawling.' },
     relatedTools: ['xml-sitemap-generator'],
   },
   {
@@ -802,7 +802,7 @@ export const tools: Tool[] = [
     icon: 'Map',
     status: 'active',
     keywords: ['sitemap', 'xml', 'seo', 'index', 'search engine'],
-    seo: { title: 'XML Sitemap Generator | ToolSathi', description: 'Create an XML sitemap to help search engines discover your pages.' },
+    seo: { title: 'XML Sitemap Generator | ProToolBox', description: 'Create an XML sitemap to help search engines discover your pages.' },
     relatedTools: ['robots-txt-generator'],
   },
   {
@@ -814,7 +814,7 @@ export const tools: Tool[] = [
     icon: 'Link2',
     status: 'active',
     keywords: ['slug', 'url', 'seo', 'permalink', 'friendly'],
-    seo: { title: 'URL Slug Generator | ToolSathi', description: 'Convert any text into a clean, SEO-friendly URL slug.' },
+    seo: { title: 'URL Slug Generator | ProToolBox', description: 'Convert any text into a clean, SEO-friendly URL slug.' },
     relatedTools: ['meta-title-preview'],
   },
   {
@@ -827,7 +827,7 @@ export const tools: Tool[] = [
     status: 'active',
     isFeatured: true,
     keywords: ['utm', 'tracking', 'campaign', 'link', 'analytics', 'google analytics'],
-    seo: { title: 'UTM Link Builder | ToolSathi', description: 'Create UTM-tagged URLs for marketing campaign tracking in Google Analytics.' },
+    seo: { title: 'UTM Link Builder | ProToolBox', description: 'Create UTM-tagged URLs for marketing campaign tracking in Google Analytics.' },
     relatedTools: ['url-slug-generator'],
   },
   {
@@ -839,7 +839,7 @@ export const tools: Tool[] = [
     icon: 'Braces',
     status: 'active',
     keywords: ['json-ld', 'schema', 'structured data', 'seo', 'rich results'],
-    seo: { title: 'JSON-LD Schema Generator | ToolSathi', description: 'Generate JSON-LD structured data markup for rich search results.' },
+    seo: { title: 'JSON-LD Schema Generator | ProToolBox', description: 'Generate JSON-LD structured data markup for rich search results.' },
     relatedTools: ['open-graph-tag-generator'],
   },
   {
@@ -851,7 +851,7 @@ export const tools: Tool[] = [
     icon: 'Share2',
     status: 'active',
     keywords: ['open graph', 'og', 'tags', 'social', 'meta', 'facebook'],
-    seo: { title: 'Open Graph Tag Generator | ToolSathi', description: 'Generate Open Graph meta tags to control how your page appears when shared.' },
+    seo: { title: 'Open Graph Tag Generator | ProToolBox', description: 'Generate Open Graph meta tags to control how your page appears when shared.' },
     relatedTools: ['meta-title-preview'],
   },
   {
@@ -863,7 +863,7 @@ export const tools: Tool[] = [
     icon: 'List',
     status: 'active',
     keywords: ['heading', 'h1', 'h2', 'hierarchy', 'structure', 'seo'],
-    seo: { title: 'Heading Structure Analyzer | ToolSathi', description: 'Analyze your page heading hierarchy for SEO best practices.' },
+    seo: { title: 'Heading Structure Analyzer | ProToolBox', description: 'Analyze your page heading hierarchy for SEO best practices.' },
     relatedTools: ['readability-checker'],
   },
   {
@@ -875,7 +875,7 @@ export const tools: Tool[] = [
     icon: 'BookOpen',
     status: 'active',
     keywords: ['readability', 'flesch', 'reading', 'level', 'score'],
-    seo: { title: 'Readability Checker | ToolSathi', description: 'Analyze text readability with Flesch Reading Ease and other metrics.' },
+    seo: { title: 'Readability Checker | ProToolBox', description: 'Analyze text readability with Flesch Reading Ease and other metrics.' },
     relatedTools: ['word-counter'],
   },
 
@@ -890,7 +890,7 @@ export const tools: Tool[] = [
     status: 'active',
     isFeatured: true,
     keywords: ['word', 'count', 'character', 'text', 'letter'],
-    seo: { title: 'Word Counter — Count Words & Characters | ToolSathi', description: 'Count words, characters, sentences, and paragraphs in your text. Free online tool.' },
+    seo: { title: 'Word Counter — Count Words & Characters | ProToolBox', description: 'Count words, characters, sentences, and paragraphs in your text. Free online tool.' },
     relatedTools: ['character-counter', 'case-converter'],
   },
   {
@@ -902,7 +902,7 @@ export const tools: Tool[] = [
     icon: 'Hash',
     status: 'active',
     keywords: ['character', 'count', 'length', 'text'],
-    seo: { title: 'Character Counter | ToolSathi', description: 'Count characters with and without spaces.' },
+    seo: { title: 'Character Counter | ProToolBox', description: 'Count characters with and without spaces.' },
     relatedTools: ['word-counter'],
   },
   {
@@ -914,7 +914,7 @@ export const tools: Tool[] = [
     icon: 'CaseSensitive',
     status: 'active',
     keywords: ['case', 'upper', 'lower', 'title', 'convert', 'text'],
-    seo: { title: 'Case Converter | ToolSathi', description: 'Convert text to uppercase, lowercase, title case, sentence case, and more.' },
+    seo: { title: 'Case Converter | ProToolBox', description: 'Convert text to uppercase, lowercase, title case, sentence case, and more.' },
     relatedTools: ['word-counter'],
   },
   {
@@ -926,7 +926,7 @@ export const tools: Tool[] = [
     icon: 'ListMinus',
     status: 'active',
     keywords: ['duplicate', 'remove', 'unique', 'lines', 'text', 'deduplicate'],
-    seo: { title: 'Remove Duplicate Lines | ToolSathi', description: 'Remove duplicate lines from any text. Keep unique lines only.' },
+    seo: { title: 'Remove Duplicate Lines | ProToolBox', description: 'Remove duplicate lines from any text. Keep unique lines only.' },
     relatedTools: ['text-sorter'],
   },
   {
@@ -938,7 +938,7 @@ export const tools: Tool[] = [
     icon: 'GitCompare',
     status: 'active',
     keywords: ['diff', 'compare', 'difference', 'text', 'merge'],
-    seo: { title: 'Text Diff Checker | ToolSathi', description: 'Compare two pieces of text and see the differences highlighted.' },
+    seo: { title: 'Text Diff Checker | ProToolBox', description: 'Compare two pieces of text and see the differences highlighted.' },
     relatedTools: ['word-counter'],
   },
   {
@@ -950,7 +950,7 @@ export const tools: Tool[] = [
     icon: 'ArrowUpDown',
     status: 'active',
     keywords: ['sort', 'alphabetical', 'lines', 'order', 'text'],
-    seo: { title: 'Text Sorter | ToolSathi', description: 'Sort lines alphabetically, numerically, or in reverse.' },
+    seo: { title: 'Text Sorter | ProToolBox', description: 'Sort lines alphabetically, numerically, or in reverse.' },
     relatedTools: ['remove-duplicate-lines'],
   },
   {
@@ -962,7 +962,7 @@ export const tools: Tool[] = [
     icon: 'AlignLeft',
     status: 'active',
     keywords: ['lorem', 'ipsum', 'placeholder', 'dummy', 'text'],
-    seo: { title: 'Lorem Ipsum Generator | ToolSathi', description: 'Generate lorem ipsum placeholder text in paragraphs, sentences, or words.' },
+    seo: { title: 'Lorem Ipsum Generator | ProToolBox', description: 'Generate lorem ipsum placeholder text in paragraphs, sentences, or words.' },
     relatedTools: ['word-counter'],
   },
   {
@@ -974,7 +974,7 @@ export const tools: Tool[] = [
     icon: 'KeyRound',
     status: 'active',
     keywords: ['password', 'generate', 'random', 'secure', 'strong'],
-    seo: { title: 'Password Generator | ToolSathi', description: 'Generate strong, secure random passwords with customizable options.' },
+    seo: { title: 'Password Generator | ProToolBox', description: 'Generate strong, secure random passwords with customizable options.' },
     relatedTools: ['uuid-generator'],
   },
   {
@@ -986,7 +986,7 @@ export const tools: Tool[] = [
     icon: 'Fingerprint',
     status: 'active',
     keywords: ['uuid', 'guid', 'unique', 'id', 'generate'],
-    seo: { title: 'UUID Generator | ToolSathi', description: 'Generate random UUID v4 identifiers.' },
+    seo: { title: 'UUID Generator | ProToolBox', description: 'Generate random UUID v4 identifiers.' },
     relatedTools: ['password-generator'],
   },
   {
@@ -998,7 +998,7 @@ export const tools: Tool[] = [
     icon: 'Palette',
     status: 'active',
     keywords: ['color', 'picker', 'hex', 'rgb', 'hsl', 'palette'],
-    seo: { title: 'Color Picker & Converter | ToolSathi', description: 'Pick colors and convert between HEX, RGB, and HSL formats.' },
+    seo: { title: 'Color Picker & Converter | ProToolBox', description: 'Pick colors and convert between HEX, RGB, and HSL formats.' },
     relatedTools: ['color-converter'],
   },
   {
@@ -1010,7 +1010,7 @@ export const tools: Tool[] = [
     icon: 'Paintbrush',
     status: 'active',
     keywords: ['color', 'convert', 'hex', 'rgb', 'hsl'],
-    seo: { title: 'Color Converter | ToolSathi', description: 'Convert colors between HEX, RGB, and HSL.' },
+    seo: { title: 'Color Converter | ProToolBox', description: 'Convert colors between HEX, RGB, and HSL.' },
     relatedTools: ['color-picker'],
   },
   {
@@ -1022,7 +1022,7 @@ export const tools: Tool[] = [
     icon: 'Percent',
     status: 'active',
     keywords: ['percentage', 'percent', 'calculate', 'math'],
-    seo: { title: 'Percentage Calculator | ToolSathi', description: 'Calculate percentages, percentage changes, and more.' },
+    seo: { title: 'Percentage Calculator | ProToolBox', description: 'Calculate percentages, percentage changes, and more.' },
     relatedTools: ['discount-calculator'],
   },
   {
@@ -1034,7 +1034,7 @@ export const tools: Tool[] = [
     icon: 'BadgePercent',
     status: 'active',
     keywords: ['discount', 'sale', 'price', 'savings', 'calculate'],
-    seo: { title: 'Discount Calculator | ToolSathi', description: 'Calculate the discounted price and amount saved.' },
+    seo: { title: 'Discount Calculator | ProToolBox', description: 'Calculate the discounted price and amount saved.' },
     relatedTools: ['percentage-calculator'],
   },
   {
@@ -1046,7 +1046,7 @@ export const tools: Tool[] = [
     icon: 'Calendar',
     status: 'active',
     keywords: ['age', 'birthday', 'date', 'calculate', 'years'],
-    seo: { title: 'Age Calculator | ToolSathi', description: 'Calculate your exact age in years, months, and days.' },
+    seo: { title: 'Age Calculator | ProToolBox', description: 'Calculate your exact age in years, months, and days.' },
     relatedTools: ['date-difference-calculator'],
   },
   {
@@ -1058,7 +1058,7 @@ export const tools: Tool[] = [
     icon: 'CalendarRange',
     status: 'active',
     keywords: ['date', 'difference', 'days', 'between', 'calculate'],
-    seo: { title: 'Date Difference Calculator | ToolSathi', description: 'Calculate the number of days, months, and years between two dates.' },
+    seo: { title: 'Date Difference Calculator | ProToolBox', description: 'Calculate the number of days, months, and years between two dates.' },
     relatedTools: ['age-calculator'],
   },
   {
@@ -1070,7 +1070,7 @@ export const tools: Tool[] = [
     icon: 'Binary',
     status: 'active',
     keywords: ['binary', 'decimal', 'hex', 'octal', 'convert', 'number', 'base'],
-    seo: { title: 'Number Base Converter | ToolSathi', description: 'Convert numbers between binary, decimal, hexadecimal, and octal bases.' },
+    seo: { title: 'Number Base Converter | ProToolBox', description: 'Convert numbers between binary, decimal, hexadecimal, and octal bases.' },
     relatedTools: [],
   },
   {
@@ -1082,7 +1082,7 @@ export const tools: Tool[] = [
     icon: 'Dice5',
     status: 'active',
     keywords: ['random', 'number', 'generate', 'dice', 'range'],
-    seo: { title: 'Random Number Generator | ToolSathi', description: 'Generate random numbers within any range.' },
+    seo: { title: 'Random Number Generator | ProToolBox', description: 'Generate random numbers within any range.' },
     relatedTools: ['password-generator'],
   },
 ];

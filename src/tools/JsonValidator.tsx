@@ -3,7 +3,7 @@ import { CheckCircle, AlertCircle, FileCode } from 'lucide-react';
 import './tools.css';
 
 export default function JsonValidator() {
-  const [jsonInput, setJsonInput] = useState<string>('{\n  "title": "ToolSathi Validator",\n  "status": "active",\n  "version": 2.0\n}');
+  const [jsonInput, setJsonInput] = useState<string>('{\n  "title": "ProToolBox Validator",\n  "status": "active",\n  "version": 2.0\n}');
   const [validationResult, setValidationResult] = useState<{ isValid: boolean; error?: string; stats?: { keys: number; size: number } } | null>(null);
 
   const validate = (text: string) => {

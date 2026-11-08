@@ -49,8 +49,9 @@ export default function TeraboxVideoPlayer() {
 
   // Load saved gateway URL on mount
   useEffect(() => {
-    const saved = localStorage.getItem('toolsathi_gateway_url');
-    if (saved && (saved.includes('workers.dev') || saved.includes('railway.app'))) {
+    const saved = localStorage.getItem('protoolbox_gateway_url') || localStorage.getItem('toolsathi_gateway_url');
+    if (saved && (saved.includes('workers.dev') || saved.includes('railway.app') || saved.includes('propdigital360.in'))) {
+      localStorage.removeItem('protoolbox_gateway_url');
       localStorage.removeItem('toolsathi_gateway_url');
       setGatewayUrl('');
     } else if (saved) {

@@ -3,7 +3,7 @@ import { Type, Copy, Check, Trash2 } from 'lucide-react';
 import './tools.css';
 
 export default function WordCounter() {
-  const [text, setText] = useState<string>('ToolSathi delivers an incredible collection of client-side web tools.');
+  const [text, setText] = useState<string>('ProToolBox delivers an incredible collection of client-side web tools.');
   const [copied, setCopied] = useState(false);
 
   const cleanWords = text.trim() ? text.trim().split(/\s+/).filter(Boolean) : [];

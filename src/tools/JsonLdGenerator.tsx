@@ -6,8 +6,8 @@ type SchemaType = 'SoftwareApplication' | 'Article' | 'Organization' | 'FAQPage'
 
 export default function JsonLdGenerator() {
   const [schemaType, setSchemaType] = useState<SchemaType>('SoftwareApplication');
-  const [name, setName] = useState<string>('ToolSathi');
-  const [url, setUrl] = useState<string>('https://toolsathi.com');
+  const [name, setName] = useState<string>('ProToolBox');
+  const [url, setUrl] = useState<string>('https://protoolbox.in');
   const [description, setDescription] = useState<string>('Complete web-based productivity, media player, and document toolkit.');
   const [copied, setCopied] = useState(false);
 
@@ -35,7 +35,7 @@ export default function JsonLdGenerator() {
       data = {
         ...data,
         logo: `${url}/logo.png`,
-        sameAs: ['https://twitter.com/toolsathi'],
+        sameAs: ['https://twitter.com/protoolbox'],
       };
     }
 

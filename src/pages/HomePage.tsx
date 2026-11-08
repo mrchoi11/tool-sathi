@@ -21,12 +21,12 @@ export default function HomePage() {
   };
 
   const faqs = [
-    { q: 'Is ToolSathi free to use?', a: 'Yes, all core tools are free to use. We plan to offer optional premium features for advanced workflows like batch processing and larger file limits.' },
+    { q: 'Is ProToolBox free to use?', a: 'Yes, all core tools are free to use. We plan to offer optional premium features for advanced workflows like batch processing and larger file limits.' },
     { q: 'Are my files safe?', a: 'Most tools process files directly in your browser. Your files are not uploaded to our servers unless explicitly stated. We never store your files after processing.' },
     { q: 'What file formats are supported?', a: 'We support a wide range of formats including PDF, JPG, PNG, WebP, MP4, WebM, MP3, SRT, VTT, CSV, JSON, and many more. Check individual tool pages for specific format support.' },
     { q: 'Do I need to create an account?', a: 'No account is needed to use any of the free tools. Premium features may require an account in the future.' },
     { q: 'What if my file is too large?', a: 'Browser-based tools have memory limits that vary by device. For very large files (100MB+), processing may be slow or unavailable. We display file size limits on each tool page.' },
-    { q: 'Can I use ToolSathi on mobile?', a: 'Yes, the entire platform is designed to work on mobile devices. Some tools like video processing may work better on desktop due to processing requirements.' },
+    { q: 'Can I use ProToolBox on mobile?', a: 'Yes, the entire platform is designed to work on mobile devices. Some tools like video processing may work better on desktop due to processing requirements.' },
   ];
 
   return (

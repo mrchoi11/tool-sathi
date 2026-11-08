@@ -3,7 +3,7 @@ import { Search, Monitor, Smartphone, Copy, Check } from 'lucide-react';
 import './tools.css';
 
 export default function MetaTitlePreview() {
-  const [title, setTitle] = useState<string>('ToolSathi — Fast Online Video Player, PDF Tools & Media Converters');
+  const [title, setTitle] = useState<string>('ProToolBox — Fast Online Video Player, PDF Tools & Media Converters');
   const [description, setDescription] = useState<string>('Process media, convert documents, format data, and stream videos directly in your browser. Fast, free, and secure zero-upload client tools.');
   const [slug, setSlug] = useState<string>('tools/video-player');
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
@@ -108,9 +108,9 @@ export default function MetaTitlePreview() {
               TS
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '14px', color: '#202124', lineHeight: 1.2 }}>ToolSathi</span>
+              <span style={{ fontSize: '14px', color: '#202124', lineHeight: 1.2 }}>ProToolBox</span>
               <span style={{ fontSize: '12px', color: '#4d5156', lineHeight: 1.2 }}>
-                https://toolsathi.com › {slug}
+                https://protoolbox.in › {slug}
               </span>
             </div>
           </div>

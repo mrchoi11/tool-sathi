@@ -26,8 +26,8 @@ import Highlight from "@tiptap/extension-highlight";
 import "./AdminPage.css";
 
 const ADMIN_USER = "admin";
-const ADMIN_PASS = "toolsathi2026";
-const AUTH_KEY = "toolsathi_admin_auth";
+const ADMIN_PASS = "protoolbox2026";
+const AUTH_KEY = "protoolbox_admin_auth";
 
 type Tab = "posts" | "editor" | "settings";
 
@@ -124,7 +124,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
       <div className="login-card">
         <div className="login-logo"><Lock size={22} /></div>
         <h1 className="login-heading">Admin Portal</h1>
-        <p className="login-sub">ToolSathi Blog Management System</p>
+        <p className="login-sub">ProToolBox Blog Management System</p>
         <form onSubmit={handleSubmit} className="login-form">
           <div className="field-group">
             <label className="field-label">Username</label>
@@ -146,8 +146,8 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
         </form>
         <div className="login-hint">
           <KeyRound size={12} />
-          <span>Demo: <strong>admin</strong> / <strong>toolsathi2026</strong></span>
-          <button type="button" className="autofill-btn" onClick={() => { setUser("admin"); setPass("toolsathi2026"); }}>Autofill</button>
+          <span>Demo: <strong>admin</strong> / <strong>protoolbox2026</strong></span>
+          <button type="button" className="autofill-btn" onClick={() => { setUser("admin"); setPass("protoolbox2026"); }}>Autofill</button>
         </div>
       </div>
     </div>
@@ -276,7 +276,7 @@ export default function AdminPage() {
     const blob = new Blob([JSON.stringify(posts, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
-    a.download = `toolsathi-posts-${Date.now()}.json`; a.click();
+    a.download = `protoolbox-posts-${Date.now()}.json`; a.click();
   };
 
   const handleSeed = async () => {
@@ -307,7 +307,7 @@ export default function AdminPage() {
   return (
     <div className="adm-root">
       <aside className="adm-sidebar">
-        <div className="adm-brand"><span className="adm-brand-dot" /><span>ToolSathi CMS</span></div>
+        <div className="adm-brand"><span className="adm-brand-dot" /><span>ProToolBox CMS</span></div>
         <nav className="adm-nav">
           <button className={`adm-nav-item ${tab === "posts" ? "active" : ""}`} onClick={() => setTab("posts")}><FileText size={16} /> Articles</button>
           <button className={`adm-nav-item ${tab === "editor" ? "active" : ""}`} onClick={startCreate}><Plus size={16} /> New Article</button>
@@ -511,7 +511,7 @@ export default function AdminPage() {
                   </div>
                   <div className="ed-field">
                     <label className="ed-label">Canonical URL <span className="optional-badge">Optional</span></label>
-                    <input type="url" className="ed-input" value={form.canonicalUrl || ""} onChange={(e) => setForm((p) => ({ ...p, canonicalUrl: e.target.value }))} placeholder="https://toolsathi.com/blog/..." />
+                    <input type="url" className="ed-input" value={form.canonicalUrl || ""} onChange={(e) => setForm((p) => ({ ...p, canonicalUrl: e.target.value }))} placeholder="https://protoolbox.in/blog/..." />
                   </div>
                   <div className="ed-field">
                     <label className="ed-label">OG Image URL <span className="optional-badge">Optional</span></label>
@@ -520,7 +520,7 @@ export default function AdminPage() {
                   {(form.metaTitle || form.title) && (
                     <div className="serp-preview">
                       <div className="serp-label">Google Preview</div>
-                      <div className="serp-url">toolsathi.com › blog › {form.slug || "article"}</div>
+                      <div className="serp-url">protoolbox.in › blog › {form.slug || "article"}</div>
                       <div className="serp-title">{form.metaTitle || form.title || "Article Title"}</div>
                       <div className="serp-desc">{form.metaDescription || form.excerpt || "Article description will appear here..."}</div>
                     </div>

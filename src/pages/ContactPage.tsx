@@ -50,7 +50,7 @@ export default function ContactPage() {
                 <Mail size={20} style={{ color: '#6366f1', flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>Email</div>
-                  <a href="mailto:support@toolsathi.com" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>support@toolsathi.com</a>
+                  <a href="mailto:support@protoolbox.in" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>support@protoolbox.in</a>
                 </div>
               </div>
 

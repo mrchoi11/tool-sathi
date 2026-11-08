@@ -3,7 +3,7 @@ import { Type, Copy, Check } from 'lucide-react';
 import './tools.css';
 
 export default function CaseConverter() {
-  const [text, setText] = useState<string>('ToolSathi is the ultimate online developer and multimedia toolkit.');
+  const [text, setText] = useState<string>('ProToolBox is the ultimate online developer and multimedia toolkit.');
   const [copied, setCopied] = useState(false);
 
   const toSentenceCase = (str: string) => {

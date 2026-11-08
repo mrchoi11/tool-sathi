@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FileCode, Copy, Check, Eye } from 'lucide-react';
 import './tools.css';
 
-const SAMPLE_MD = `# ToolSathi Studio
+const SAMPLE_MD = `# ProToolBox Studio
 Welcome to the **fastest** browser utility suite.
 
 ### Key Capabilities:

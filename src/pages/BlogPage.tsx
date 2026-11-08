@@ -44,7 +44,7 @@ export default function BlogPage() {
         {/* Hero Section */}
         <div className="blog-hero">
           <div className="section-label">Knowledge Base & Guides</div>
-          <h1 className="blog-title">ToolSathi Insights & Tutorials</h1>
+          <h1 className="blog-title">ProToolBox Insights & Tutorials</h1>
           <p className="blog-subtitle">
             Expert articles on cloud video streaming, client-side PDF architectures, web performance, and modern developer productivity.
           </p>

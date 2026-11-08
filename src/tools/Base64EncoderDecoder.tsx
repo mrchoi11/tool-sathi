@@ -4,7 +4,7 @@ import './tools.css';
 
 export default function Base64EncoderDecoder() {
   const [mode, setMode] = useState<'encode' | 'decode'>('encode');
-  const [inputText, setInputText] = useState<string>('Hello from ToolSathi! 🚀');
+  const [inputText, setInputText] = useState<string>('Hello from ProToolBox! 🚀');
   const [outputText, setOutputText] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

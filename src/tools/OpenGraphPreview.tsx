@@ -3,10 +3,10 @@ import { Eye, Copy, Check, Share2, Globe } from 'lucide-react';
 import './tools.css';
 
 export default function OpenGraphPreview() {
-  const [title, setTitle] = useState<string>('ToolSathi — Ultimate Web Tools & Video Player Suite');
+  const [title, setTitle] = useState<string>('ProToolBox — Ultimate Web Tools & Video Player Suite');
   const [description, setDescription] = useState<string>('Free online tools for developers, creators, and professionals. Play videos, convert PDFs, optimize images and edit data directly in browser.');
-  const [url, setUrl] = useState<string>('https://toolsathi.com');
-  const [siteName, setSiteName] = useState<string>('ToolSathi');
+  const [url, setUrl] = useState<string>('https://protoolbox.in');
+  const [siteName, setSiteName] = useState<string>('ProToolBox');
   const [imageUrl, setImageUrl] = useState<string>('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80');
   const [copied, setCopied] = useState(false);
 
@@ -97,7 +97,7 @@ export default function OpenGraphPreview() {
           )}
           <div style={{ padding: '16px' }}>
             <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.05em' }}>
-              {siteName.toUpperCase()} • {new URL(url || 'https://toolsathi.com').hostname}
+              {siteName.toUpperCase()} • {new URL(url || 'https://protoolbox.in').hostname}
             </span>
             <h4 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '6px 0', color: '#f8fafc', lineHeight: 1.3 }}>
               {title}

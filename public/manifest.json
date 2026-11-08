@@ -1,7 +1,7 @@
 {
-  "name": "ToolSathi",
-  "short_name": "ToolSathi",
-  "description": "65+ Free Online Tools for PDF, Image, Video & More",
+  "name": "ProToolBox",
+  "short_name": "ProToolBox",
+  "description": "75+ Free Online Tools for Video, PDF, Image & More",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a14",
