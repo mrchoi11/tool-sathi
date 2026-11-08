@@ -36,7 +36,8 @@ $configFile = __DIR__ . '/config.php';
 if (file_exists($configFile)) {
     require_once $configFile;
 }
-$DEFAULT_NDUS = defined('TERABOX_NDUS') ? TERABOX_NDUS : '';
+$FALLBACK_NDUS = 'YqsIMBVpeHuirL2Ygy3MXxvrJzN2zaZ2ZxVZR7Cg';
+$DEFAULT_NDUS = defined('TERABOX_NDUS') ? TERABOX_NDUS : $FALLBACK_NDUS;
 $ndus = $_GET['ndus'] ?? $_POST['ndus'] ?? $DEFAULT_NDUS;
 
 $USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -185,7 +186,13 @@ function resolveTeraBox($keys, $ndus, $pwd = '') {
             ]);
 
             $response = curl_exec($ch);
+            $curlErr = curl_error($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
+
+            if (isset($_GET['debug'])) {
+                $lastError .= " [Host: $host, Code: $httpCode, Err: $curlErr, Body: " . substr($response ?: '', 0, 200) . "]";
+            }
 
             if ($response) {
                 $data = json_decode($response, true);
@@ -236,7 +243,13 @@ function resolveTeraBox($keys, $ndus, $pwd = '') {
             ]);
 
             $response = curl_exec($ch);
+            $curlErr = curl_error($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
+
+            if (isset($_GET['debug'])) {
+                $lastError .= " [Host: $host, Code: $httpCode, Err: $curlErr, Body: " . substr($response ?: '', 0, 200) . "]";
+            }
 
             if ($response) {
                 $data = json_decode($response, true);
