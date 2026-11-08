@@ -1,4 +1,4 @@
-name: Deploy to Hostinger via FTP
+name: Deploy to Hostinger
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
       - name: 4. Build application
         run: npm run build
         env:
-          VITE_GATEWAY_URL: https://tool-sathi.propdigital360.in
+          VITE_GATEWAY_URL: https://protoolbox.in
 
       - name: 5. Verify dist output
         run: |
@@ -43,5 +43,5 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}
           port: 65002
           source: "dist"
-          target: "/home/u257093299/domains/propdigital360.in/public_html/Tool-sathi"
+          target: "/home/u257093299/domains/protoolbox.in/public_html"
           strip_components: 1
