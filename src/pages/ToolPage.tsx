@@ -4,6 +4,7 @@ import { getToolBySlug, getCategoryInfo, getToolsByCategory } from '../data/tool
 import type { Tool } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
 import { lazy, Suspense, useEffect } from 'react';
+import { usePageSeo } from '../hooks/usePageSeo';
 import AdPlaceholder from '../components/AdPlaceholder';
 import './ToolPage.css';
 
@@ -92,6 +93,13 @@ const toolComponents: Record<string, React.LazyExoticComponent<React.ComponentTy
 export default function ToolPage() {
   const { slug } = useParams<{ slug: string }>();
   const tool = slug ? getToolBySlug(slug) : undefined;
+
+  usePageSeo(
+    tool ? `tool-${tool.slug}` : '',
+    tool?.seo?.title || `${tool?.name} | ProToolBox`,
+    tool?.seo?.description || tool?.description || '',
+    tool?.keywords ? tool.keywords.join(', ') : undefined
+  );
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });

@@ -3,6 +3,7 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import { ChevronRight, Calendar, Clock, ArrowLeft, Share2, Check, Bookmark, Heart } from 'lucide-react';
 import { getPostBySlug, getPublishedPosts } from '../data/blogRegistry';
 import type { BlogPost } from '../data/blogRegistry';
+import { applyDocumentSeo } from '../data/seoRegistry';
 import NewsletterSignup from '../components/NewsletterSignup';
 import AdPlaceholder from '../components/AdPlaceholder';
 import './BlogPostPage.css';
@@ -20,6 +21,10 @@ export default function BlogPostPage() {
     getPostBySlug(slug).then((p) => {
       setPost(p || null);
       if (p) {
+        applyDocumentSeo(
+          p.metaTitle || `${p.title} | ProToolBox`,
+          p.metaDescription || p.excerpt
+        );
         getPublishedPosts().then((all) => setRelatedPosts(all.filter((x) => x.id !== p.id).slice(0, 3)));
       }
     }).catch(() => setPost(null));

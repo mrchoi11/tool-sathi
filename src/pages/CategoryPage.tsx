@@ -2,11 +2,19 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import { ArrowRight, ChevronRight } from 'lucide-react';
 import { getCategoryInfo, getToolsByCategory, categories } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
+import { usePageSeo } from '../hooks/usePageSeo';
 import './AllToolsPage.css';
 
 export default function CategoryPage() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const category = categoryId ? getCategoryInfo(categoryId as any) : undefined;
+
+  usePageSeo(
+    category ? `cat-${category.id}` : '',
+    `${category?.name} — Free Online Utilities | ProToolBox`,
+    `${category?.description}. Free, fast, in-browser processing with zero file uploads.`,
+    `${category?.name}, free ${category?.id} tools, online utilities`
+  );
 
   if (!category) return <Navigate to="/404" replace />;
 

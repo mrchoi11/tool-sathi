@@ -3,12 +3,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search, ArrowRight, Upload, Cpu, Download, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { categories, getFeaturedTools, getActiveTools } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
+import { usePageSeo } from '../hooks/usePageSeo';
 import NewsletterSignup from '../components/NewsletterSignup';
 import './HomePage.css';
 
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  usePageSeo(
+    'page-home',
+    'ProToolBox — Free Online Tools for Video, PDF, Image & More',
+    '75+ free browser-based online tools: play videos, merge PDFs, compress images, generate QR codes, convert formats, and more. Fast, private, no file uploads needed.'
+  );
   const featuredTools = getFeaturedTools();
   const activeTools = getActiveTools();
   const [faqOpen, setFaqOpen] = useState<number | null>(null);

@@ -608,3 +608,13 @@
   .adm-stats-row { grid-template-columns: 1fr 1fr; }
   .settings-grid { grid-template-columns: 1fr; }
 }
+
+/* ── FULLSCREEN ISOLATION FOR ADMIN ── */
+.admin-isolated-container {
+  width: 100vw;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  background: var(--adm-bg);
+}

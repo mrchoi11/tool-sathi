@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Search, Calendar, Clock, ArrowRight, Tag, BookOpen } from 'lucide-react';
 import { getPublishedPosts } from '../data/blogRegistry';
 import type { BlogPost } from '../data/blogRegistry';
+import { usePageSeo } from '../hooks/usePageSeo';
 import './BlogPage.css';
 
 export default function BlogPage() {
@@ -10,6 +11,12 @@ export default function BlogPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+
+  usePageSeo(
+    'page-blog',
+    'ProToolBox Insights, Guides & Tutorials | ProToolBox',
+    'Read the latest guides, tutorials, and tips on video streaming, PDF editing, image optimization, and web productivity.'
+  );
 
   useEffect(() => {
     getPublishedPosts().then((posts) => { setAllPosts(posts); setLoadingPosts(false); }).catch(() => setLoadingPosts(false));
