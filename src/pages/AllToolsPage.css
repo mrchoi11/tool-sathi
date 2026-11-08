@@ -1,5 +1,11 @@
+/* ==========================================================================
+   All Tools & Category Page Styles — Apple Liquid Glassmorphism (ToolSathi)
+   ========================================================================== */
+
 .all-tools-page {
   padding: var(--space-xl) 0 var(--space-3xl);
+  position: relative;
+  z-index: 1;
 }
 
 .all-tools-header {
@@ -17,21 +23,34 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 0 var(--space-md);
-  max-width: 400px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 1.25rem;
+  max-width: 440px;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.06), inset 0 1px 0 #ffffff;
+  transition: all var(--duration-fast) var(--ease-apple);
+}
+
+.all-tools-search:focus-within {
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.14);
 }
 
 .all-tools-search svg {
-  color: var(--text-muted);
+  color: #64748b;
   flex-shrink: 0;
 }
 
 .all-tools-search .input {
   border: none;
   background: transparent;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.925rem;
+  color: #0f172a;
 }
 
 .all-tools-search .input:focus {
@@ -41,13 +60,41 @@
 .all-tools-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: 0.5rem;
+}
+
+.filter-btn {
+  padding: 0.45rem 1.15rem;
+  font-size: 0.835rem;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  color: #334155;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.04);
+  transition: all var(--duration-fast) var(--ease-apple);
+}
+
+.filter-btn:hover {
+  background: #ffffff;
+  color: #4f46e5;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.1);
+  transform: translateY(-1px);
+}
+
+.filter-btn-active {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35) !important;
 }
 
 .all-tools-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-md);
+  gap: 1.25rem;
 }
 
 @media (max-width: 480px) {
@@ -58,10 +105,9 @@
 
 .all-tools-empty {
   text-align: center;
-  padding: var(--space-3xl);
-  color: var(--text-tertiary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-md);
+  padding: 4rem 1rem;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-xl);
+  border: 1px dashed rgba(203, 213, 225, 0.8);
 }

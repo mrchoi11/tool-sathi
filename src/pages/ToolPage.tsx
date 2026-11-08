@@ -1,6 +1,6 @@
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
-import { getToolBySlug, getCategoryInfo, getToolsByCategory } from '../data/toolRegistry';
+import { getToolBySlug, getCategoryInfo, getToolsByCategory, categories } from '../data/toolRegistry';
 import type { Tool } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
 import { lazy, Suspense, useEffect } from 'react';
@@ -96,7 +96,7 @@ export default function ToolPage() {
 
   usePageSeo(
     tool ? `tool-${tool.slug}` : '',
-    tool?.seo?.title || `${tool?.name} | ProToolBox`,
+    tool?.seo?.title || `${tool?.name} — Free In-Browser Tool | ToolSathi`,
     tool?.seo?.description || tool?.description || '',
     tool?.keywords ? tool.keywords.join(', ') : undefined
   );
@@ -133,12 +133,12 @@ export default function ToolPage() {
 
         {/* Tool header */}
         <div className="tool-page-header">
-          <Link to={category ? `/category/${category.id}` : '/tools'} className="btn btn-ghost btn-sm">
-            <ArrowLeft size={16} /> Back
+          <Link to={category ? `/category/${category.id}` : '/tools'} className="btn btn-secondary btn-sm" style={{ marginBottom: '1rem' }}>
+            <ArrowLeft size={16} /> Back to {category?.name || 'Tools'}
           </Link>
           <div className="tool-page-title-row">
-            <div className="tool-page-icon" style={{ background: `${category?.color || '#6366f1'}18` }}>
-              {(() => { const Icon = getIconComponent(tool.icon); return <Icon size={28} style={{ color: category?.color }} />; })()}
+            <div className="tool-page-icon" style={{ background: `${category?.color || '#4f46e5'}18` }}>
+              {(() => { const Icon = getIconComponent(tool.icon); return <Icon size={32} style={{ color: category?.color || '#4f46e5' }} />; })()}
             </div>
             <div>
               <h1 className="tool-page-title">{tool.name}</h1>
@@ -172,7 +172,7 @@ export default function ToolPage() {
         <div className="tool-page-seo">
           <section className="tool-info-section">
             <h2>What does this tool do?</h2>
-            <p>{tool.description} This tool processes your data directly in your browser when possible, keeping your files private and secure.</p>
+            <p>{tool.description} This tool processes your data directly in your browser whenever possible, keeping your files private and secure.</p>
           </section>
 
           {tool.inputFormats && tool.inputFormats.length > 0 && (
@@ -189,19 +189,23 @@ export default function ToolPage() {
         {/* Related tools */}
         {relatedTools && relatedTools.length > 0 && (
           <section className="related-tools">
-            <h2 className="section-title" style={{ fontSize: '1.25rem' }}>Related tools</h2>
+            <h2 className="section-title" style={{ fontSize: '1.35rem', marginBottom: '1.25rem' }}>Related tools</h2>
             <div className="related-tools-grid">
               {relatedTools.map(rt => {
                 const Icon = getIconComponent(rt.icon);
+                const cat = categories.find(c => c.id === rt.category);
+                const color = cat?.color || '#4f46e5';
+
                 return (
-                  <Link key={rt.id} to={`/tools/${rt.slug}`} className="card card-interactive tool-card">
-                    <div className="tool-card-icon" style={{ background: `${category?.color || '#6366f1'}18` }}>
-                      <Icon size={18} style={{ color: category?.color }} />
+                  <Link key={rt.id} to={`/tools/${rt.slug}`} className="tool-card">
+                    <div className="tool-card-icon-wrap" style={{ background: `${color}15` }}>
+                      <Icon size={20} style={{ color }} />
                     </div>
-                    <div className="tool-card-info">
-                      <h3 className="tool-card-name">{rt.name}</h3>
+                    <div className="tool-card-body">
+                      <h3 className="tool-card-name" style={{ fontSize: '0.95rem' }}>{rt.name}</h3>
                       <p className="tool-card-desc">{rt.description}</p>
                     </div>
+                    <ChevronRight size={16} className="tool-card-arrow" />
                   </Link>
                 );
               })}

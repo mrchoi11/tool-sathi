@@ -1,6 +1,6 @@
 import { useParams, Link, Navigate } from 'react-router-dom';
-import { ArrowRight, ChevronRight } from 'lucide-react';
-import { getCategoryInfo, getToolsByCategory, categories } from '../data/toolRegistry';
+import { ChevronRight } from 'lucide-react';
+import { getCategoryInfo, getToolsByCategory } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
 import { usePageSeo } from '../hooks/usePageSeo';
 import './AllToolsPage.css';
@@ -11,7 +11,7 @@ export default function CategoryPage() {
 
   usePageSeo(
     category ? `cat-${category.id}` : '',
-    `${category?.name} — Free Online Utilities | ProToolBox`,
+    `${category?.name} — Free Online Utilities | ToolSathi`,
     `${category?.description}. Free, fast, in-browser processing with zero file uploads.`,
     `${category?.name}, free ${category?.id} tools, online utilities`
   );
@@ -33,7 +33,7 @@ export default function CategoryPage() {
         </nav>
 
         <div className="all-tools-header" style={{ marginTop: 'var(--space-md)' }}>
-          <p className="section-label">{category.name}</p>
+          <span className="section-label">{category.name}</span>
           <h1 className="section-title">{category.name}</h1>
           <p className="section-description">{category.description} — {activeTools.length} tool{activeTools.length !== 1 ? 's' : ''} available.</p>
         </div>
@@ -42,15 +42,18 @@ export default function CategoryPage() {
           {activeTools.map(tool => {
             const Icon = getIconComponent(tool.icon);
             return (
-              <Link key={tool.id} to={`/tools/${tool.slug}`} className="card card-interactive tool-card">
-                <div className="tool-card-icon" style={{ background: `${category.color}18` }}>
-                  <Icon size={20} style={{ color: category.color }} />
+              <Link key={tool.id} to={`/tools/${tool.slug}`} className="tool-card">
+                <div className="tool-card-icon-wrap" style={{ background: `${category.color}15` }}>
+                  <Icon size={24} style={{ color: category.color }} />
                 </div>
-                <div className="tool-card-info">
-                  <h3 className="tool-card-name">{tool.name}</h3>
+                <div className="tool-card-body">
+                  <div className="tool-card-head">
+                    <h3 className="tool-card-name">{tool.name}</h3>
+                    {tool.isNew && <span className="badge badge-new">New</span>}
+                  </div>
                   <p className="tool-card-desc">{tool.description}</p>
                 </div>
-                <ArrowRight size={14} className="tool-card-arrow" />
+                <ChevronRight size={18} className="tool-card-arrow" />
               </Link>
             );
           })}

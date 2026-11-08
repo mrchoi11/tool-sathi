@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
-import { Mail, Send, MapPin, MessageCircle, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, Send, MapPin, MessageCircle, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { usePageSeo } from '../hooks/usePageSeo';
 
 export default function ContactPage() {
+  usePageSeo(
+    'page-contact',
+    'Contact Us — ToolSathi Support',
+    'Get in touch with the ToolSathi team. Have a suggestion, feedback, or need help? Send us a message.'
+  );
+
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
@@ -12,21 +20,28 @@ export default function ContactPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('sending');
-    // Simulating a send — in production, hook this up to an API
     setTimeout(() => {
       setStatus('success');
       setForm({ name: '', email: '', subject: '', message: '' });
-    }, 1500);
+    }, 1200);
   };
 
   return (
-    <div className="contact-page" style={{ padding: '3rem 0', minHeight: '80vh' }}>
-      <div className="container" style={{ maxWidth: '900px' }}>
+    <div className="contact-page" style={{ padding: 'var(--space-xl) 0 var(--space-4xl)', minHeight: '80vh', position: 'relative', zIndex: 1 }}>
+      <div className="container" style={{ maxWidth: '960px' }}>
+        <nav className="breadcrumb" aria-label="Breadcrumb">
+          <Link to="/">Home</Link>
+          <ChevronRight size={14} />
+          <span>Contact Us</span>
+        </nav>
+
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <p className="section-label">Get in Touch</p>
-          <h1 style={{ fontSize: '2.25rem', fontWeight: 700, marginBottom: '0.75rem' }}>Contact Us</h1>
-          <p style={{ color: 'var(--text-muted)', maxWidth: '520px', margin: '0 auto', fontSize: '1.05rem' }}>
-            Have a question, suggestion, or want to partner with us? We'd love to hear from you.
+          <span className="section-label">Get in Touch</span>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: 850, color: '#0f172a', letterSpacing: '-0.03em', margin: '0.5rem 0' }}>
+            Contact <span className="gradient-text">ToolSathi</span>
+          </h1>
+          <p style={{ color: '#475569', maxWidth: '540px', margin: '0 auto', fontSize: '1.05rem', lineHeight: 1.6 }}>
+            Have a question, suggestion, or tool request? We'd love to hear from you.
           </p>
         </div>
 
@@ -37,36 +52,45 @@ export default function ContactPage() {
         }} className="contact-grid">
 
           {/* Info sidebar */}
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.10))',
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: '1px solid rgba(99,102,241,0.15)',
+          <div className="card" style={{
+            background: 'rgba(255, 255, 255, 0.7)',
+            padding: '2.25rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
           }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '1.5rem' }}>Contact Information</h2>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Contact Information</h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                <Mail size={20} style={{ color: '#6366f1', flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>Email</div>
-                  <a href="mailto:support@protoolbox.in" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>support@protoolbox.in</a>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(79, 70, 229, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5', flexShrink: 0 }}>
+                    <Mail size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Email Support</div>
+                    <a href="mailto:policyian@gmail.com" style={{ color: '#4f46e5', fontSize: '0.9rem', fontWeight: 500 }}>policyian@gmail.com</a>
+                  </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                <MapPin size={20} style={{ color: '#8b5cf6', flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>Location</div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Remote — Global</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(139, 92, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6', flexShrink: 0 }}>
+                    <MapPin size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Location</div>
+                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Remote — Global</span>
+                  </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                <MessageCircle size={20} style={{ color: '#06b6d4', flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>Response Time</div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Within 24–48 hours</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(6, 182, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0891b2', flexShrink: 0 }}>
+                    <MessageCircle size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Response Time</div>
+                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Within 24–48 hours</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -74,28 +98,26 @@ export default function ContactPage() {
             <div style={{
               marginTop: '2rem',
               padding: '1rem',
-              borderRadius: '0.75rem',
-              background: 'rgba(99,102,241,0.08)',
-              border: '1px solid rgba(99,102,241,0.12)',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(79, 70, 229, 0.06)',
+              border: '1px solid rgba(79, 70, 229, 0.15)',
             }}>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
-                🛡️ We respect your privacy. Your message and contact information will only be used to respond to your inquiry.
+              <p style={{ fontSize: '0.85rem', color: '#475569', lineHeight: 1.55, margin: 0 }}>
+                🛡️ We respect your privacy. Your information will only be used to respond directly to your inquiry.
               </p>
             </div>
           </div>
 
           {/* Contact form */}
-          <div style={{
-            background: 'var(--card-bg)',
-            borderRadius: '1rem',
-            padding: '2rem',
-            border: '1px solid var(--border)',
+          <div className="card" style={{
+            background: 'rgba(255, 255, 255, 0.8)',
+            padding: '2.25rem',
           }}>
             {status === 'success' ? (
               <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
                 <CheckCircle size={48} style={{ color: '#10b981', marginBottom: '1rem' }} />
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.5rem' }}>Message Sent!</h3>
-                <p style={{ color: 'var(--text-muted)' }}>Thank you for reaching out. We'll get back to you within 24-48 hours.</p>
+                <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Message Sent!</h3>
+                <p style={{ color: '#475569' }}>Thank you for reaching out. We'll get back to you within 24-48 hours.</p>
                 <button
                   onClick={() => setStatus('idle')}
                   className="btn btn-primary"
@@ -108,7 +130,7 @@ export default function ContactPage() {
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label htmlFor="contact-name" style={{ display: 'block', fontWeight: 500, marginBottom: '0.4rem', fontSize: '0.9rem' }}>Name</label>
+                    <label htmlFor="contact-name" style={{ display: 'block', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem', fontSize: '0.875rem' }}>Name</label>
                     <input
                       id="contact-name"
                       name="name"
@@ -117,15 +139,11 @@ export default function ContactPage() {
                       value={form.name}
                       onChange={handleChange}
                       placeholder="Your name"
-                      style={{
-                        width: '100%', padding: '0.65rem 0.85rem', borderRadius: '0.5rem',
-                        background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)',
-                        fontSize: '0.9rem', outline: 'none', transition: 'border-color 0.2s',
-                      }}
+                      className="input"
                     />
                   </div>
                   <div>
-                    <label htmlFor="contact-email" style={{ display: 'block', fontWeight: 500, marginBottom: '0.4rem', fontSize: '0.9rem' }}>Email</label>
+                    <label htmlFor="contact-email" style={{ display: 'block', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem', fontSize: '0.875rem' }}>Email</label>
                     <input
                       id="contact-email"
                       name="email"
@@ -133,42 +151,28 @@ export default function ContactPage() {
                       required
                       value={form.email}
                       onChange={handleChange}
-                      placeholder="you@email.com"
-                      style={{
-                        width: '100%', padding: '0.65rem 0.85rem', borderRadius: '0.5rem',
-                        background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)',
-                        fontSize: '0.9rem', outline: 'none', transition: 'border-color 0.2s',
-                      }}
+                      placeholder="you@example.com"
+                      className="input"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="contact-subject" style={{ display: 'block', fontWeight: 500, marginBottom: '0.4rem', fontSize: '0.9rem' }}>Subject</label>
-                  <select
+                  <label htmlFor="contact-subject" style={{ display: 'block', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem', fontSize: '0.875rem' }}>Subject</label>
+                  <input
                     id="contact-subject"
                     name="subject"
+                    type="text"
                     required
                     value={form.subject}
                     onChange={handleChange}
-                    style={{
-                      width: '100%', padding: '0.65rem 0.85rem', borderRadius: '0.5rem',
-                      background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)',
-                      fontSize: '0.9rem', outline: 'none',
-                    }}
-                  >
-                    <option value="">Select a subject...</option>
-                    <option value="general">General Question</option>
-                    <option value="bug">Bug Report</option>
-                    <option value="feature">Feature Request</option>
-                    <option value="business">Business / Partnership</option>
-                    <option value="advertising">Advertising Inquiry</option>
-                    <option value="other">Other</option>
-                  </select>
+                    placeholder="What is this about?"
+                    className="input"
+                  />
                 </div>
 
                 <div>
-                  <label htmlFor="contact-message" style={{ display: 'block', fontWeight: 500, marginBottom: '0.4rem', fontSize: '0.9rem' }}>Message</label>
+                  <label htmlFor="contact-message" style={{ display: 'block', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem', fontSize: '0.875rem' }}>Message</label>
                   <textarea
                     id="contact-message"
                     name="message"
@@ -176,46 +180,25 @@ export default function ContactPage() {
                     rows={5}
                     value={form.message}
                     onChange={handleChange}
-                    placeholder="Tell us what's on your mind..."
-                    style={{
-                      width: '100%', padding: '0.65rem 0.85rem', borderRadius: '0.5rem',
-                      background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)',
-                      fontSize: '0.9rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit',
-                    }}
+                    placeholder="Tell us what you need help with..."
+                    className="input"
+                    style={{ resize: 'vertical' }}
                   />
                 </div>
 
-                {status === 'error' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontSize: '0.85rem' }}>
-                    <AlertCircle size={16} /> Failed to send. Please try again.
-                  </div>
-                )}
-
                 <button
                   type="submit"
-                  className="btn btn-primary"
                   disabled={status === 'sending'}
-                  style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  className="btn btn-primary"
+                  style={{ alignSelf: 'flex-start', padding: '0.75rem 2rem' }}
                 >
-                  {status === 'sending' ? (
-                    <>Sending...</>
-                  ) : (
-                    <><Send size={16} /> Send Message</>
-                  )}
+                  <Send size={16} />
+                  <span>{status === 'sending' ? 'Sending...' : 'Send Message'}</span>
                 </button>
               </form>
             )}
           </div>
         </div>
-
-        {/* Responsive style */}
-        <style>{`
-          @media (max-width: 768px) {
-            .contact-grid {
-              grid-template-columns: 1fr !important;
-            }
-          }
-        `}</style>
       </div>
     </div>
   );

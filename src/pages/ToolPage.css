@@ -1,5 +1,11 @@
+/* ==========================================================================
+   Tool Page Styles — Apple Liquid Glassmorphism (ToolSathi)
+   ========================================================================== */
+
 .tool-page {
   padding: var(--space-xl) 0 var(--space-3xl);
+  position: relative;
+  z-index: 1;
 }
 
 /* Breadcrumb */
@@ -8,23 +14,32 @@
   align-items: center;
   gap: var(--space-sm);
   margin-bottom: var(--space-xl);
-  font-size: 0.8125rem;
+  font-size: 0.835rem;
+  font-weight: 500;
 }
 
 .breadcrumb a {
-  color: var(--text-tertiary);
+  color: #64748b;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .breadcrumb a:hover {
-  color: var(--text-primary);
+  color: #4f46e5;
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.3);
 }
 
 .breadcrumb span {
-  color: var(--text-secondary);
+  color: #0f172a;
+  font-weight: 600;
 }
 
 .breadcrumb svg {
-  color: var(--text-muted);
+  color: #94a3b8;
 }
 
 /* Header */
@@ -43,21 +58,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: var(--radius-lg);
   flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.9);
 }
 
 .tool-page-title {
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 2.25rem;
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: #0f172a;
   margin-bottom: 4px;
 }
 
 .tool-page-desc {
-  color: var(--text-secondary);
-  font-size: 0.9375rem;
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 @media (max-width: 640px) {
@@ -67,7 +87,7 @@
     gap: var(--space-md);
   }
   .tool-page-title {
-    font-size: 1.375rem;
+    font-size: 1.65rem;
   }
 }
 
@@ -82,13 +102,14 @@
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-3xl);
-  color: var(--text-tertiary);
+  color: #64748b;
+  font-weight: 500;
 }
 
 .tool-unavailable {
   padding: var(--space-3xl);
   text-align: center;
-  color: var(--text-secondary);
+  color: #475569;
 }
 
 /* SEO sections */
@@ -99,16 +120,27 @@
   margin-bottom: var(--space-3xl);
 }
 
+.tool-info-section {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.05);
+}
+
 .tool-info-section h2 {
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
   margin-bottom: var(--space-sm);
 }
 
 .tool-info-section p {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  line-height: 1.6;
+  color: #475569;
+  font-size: 0.935rem;
+  line-height: 1.65;
 }
 
 .format-tags {
@@ -118,20 +150,20 @@
 }
 
 .format-tag {
-  padding: 0.25rem 0.625rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-  color: var(--text-secondary);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.785rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: var(--radius-pill);
+  color: #334155;
   font-family: var(--font-mono);
 }
 
 .format-tag-output {
-  background: var(--accent-muted);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: rgba(79, 70, 229, 0.1);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4f46e5;
 }
 
 /* Related tools */
