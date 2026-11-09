@@ -22,7 +22,7 @@ export default function AboutPage() {
         <h1 style={{ fontSize: '2.75rem', fontWeight: 850, margin: 'var(--space-sm) 0', color: '#0f172a', letterSpacing: '-0.03em' }}>
           About <span className="gradient-text">ProToolBox</span>
         </h1>
-        <p style={{ color: '#475569', fontSize: '1.15rem', maxWidth: '640px', margin: '0 auto', lineHeight: 1.65 }}>
+        <p style={{ color: '#1e293b', fontSize: '1.15rem', maxWidth: '640px', margin: '0 auto', lineHeight: 1.65, fontWeight: 550 }}>
           The all-in-one browser utility platform engineered for speed, privacy, and seamless workflows.
         </p>
       </div>

@@ -1,136 +1,163 @@
 import React, { useState } from 'react';
-import { Mail, Send, MapPin, MessageCircle, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { Mail, Send, MapPin, MessageCircle, CheckCircle, AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePageSeo } from '../hooks/usePageSeo';
+import './ContactPage.css';
 
 export default function ContactPage() {
   usePageSeo(
     'page-contact',
     'Contact Us — ProToolBox Support',
-    'Get in touch with the ProToolBox team. Have a suggestion, feedback, or need help? Send us a message.'
+    'Get in touch with the ProToolBox team. Have a question, suggestion, or tool request? Send us a message.'
   );
 
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [feedbackMsg, setFeedbackMsg] = useState<string>('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('sending');
-    setTimeout(() => {
-      setStatus('success');
-      setForm({ name: '', email: '', subject: '', message: '' });
-    }, 1200);
+    setFeedbackMsg('');
+
+    try {
+      const response = await fetch('/api/contact.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data?.success) {
+        setStatus('success');
+        setFeedbackMsg(data.message || 'Your inquiry has been sent to policyian@gmail.com.');
+        setForm({ name: '', email: '', subject: '', message: '' });
+      } else {
+        // Fallback: if server-side mail failed or API returned an error, give user helpful message
+        const err = data?.error || 'Unable to deliver message right now. Please email directly to policyian@gmail.com.';
+        setStatus('error');
+        setFeedbackMsg(err);
+      }
+    } catch {
+      // Network error or local dev environment without PHP
+      setStatus('error');
+      setFeedbackMsg('Could not connect to contact gateway. You can also email us directly at policyian@gmail.com.');
+    }
   };
 
   return (
-    <div className="contact-page" style={{ padding: 'var(--space-xl) 0 var(--space-4xl)', minHeight: '80vh', position: 'relative', zIndex: 1 }}>
-      <div className="container" style={{ maxWidth: '960px' }}>
+    <div className="contact-page">
+      <div className="container" style={{ maxWidth: '980px' }}>
         <nav className="breadcrumb" aria-label="Breadcrumb">
           <Link to="/">Home</Link>
           <ChevronRight size={14} />
           <span>Contact Us</span>
         </nav>
 
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+        <div className="contact-header">
           <span className="section-label">Get in Touch</span>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 850, color: '#0f172a', letterSpacing: '-0.03em', margin: '0.5rem 0' }}>
+          <h1 className="contact-title">
             Contact <span className="gradient-text">ProToolBox</span>
           </h1>
-          <p style={{ color: '#475569', maxWidth: '540px', margin: '0 auto', fontSize: '1.05rem', lineHeight: 1.6 }}>
+          <p className="contact-subtitle">
             Have a question, suggestion, or tool request? We'd love to hear from you.
           </p>
         </div>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.6fr)',
-          gap: '2rem',
-        }} className="contact-grid">
-
+        <div className="contact-grid">
           {/* Info sidebar */}
-          <div className="card" style={{
-            background: 'rgba(255, 255, 255, 0.7)',
-            padding: '2.25rem',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}>
+          <div className="contact-info-card">
             <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '1.5rem' }}>Contact Information</h2>
+              <h2 className="contact-info-title">Contact Information</h2>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(79, 70, 229, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5', flexShrink: 0 }}>
-                    <Mail size={20} />
+              <div className="contact-info-list">
+                <div className="contact-info-item">
+                  <div className="contact-info-icon" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4f46e5' }}>
+                    <Mail size={22} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Email Support</div>
-                    <a href="mailto:policyian@gmail.com" style={{ color: '#4f46e5', fontSize: '0.9rem', fontWeight: 500 }}>policyian@gmail.com</a>
+                    <div className="contact-info-label">Email Support</div>
+                    <a href="mailto:policyian@gmail.com" className="contact-info-value">policyian@gmail.com</a>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(139, 92, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6', flexShrink: 0 }}>
-                    <MapPin size={20} />
+                <div className="contact-info-item">
+                  <div className="contact-info-icon" style={{ background: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' }}>
+                    <MapPin size={22} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Location</div>
-                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Remote — Global</span>
+                    <div className="contact-info-label">Location</div>
+                    <span className="contact-info-text">Remote — Global</span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(6, 182, 212, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0891b2', flexShrink: 0 }}>
-                    <MessageCircle size={20} />
+                <div className="contact-info-item">
+                  <div className="contact-info-icon" style={{ background: 'rgba(6, 182, 212, 0.1)', color: '#0891b2' }}>
+                    <MessageCircle size={22} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>Response Time</div>
-                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Within 24–48 hours</span>
+                    <div className="contact-info-label">Response Time</div>
+                    <span className="contact-info-text">Within 24–48 hours</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div style={{
-              marginTop: '2rem',
-              padding: '1rem',
-              borderRadius: 'var(--radius-md)',
-              background: 'rgba(79, 70, 229, 0.06)',
-              border: '1px solid rgba(79, 70, 229, 0.15)',
-            }}>
-              <p style={{ fontSize: '0.85rem', color: '#475569', lineHeight: 1.55, margin: 0 }}>
-                🛡️ We respect your privacy. Your information will only be used to respond directly to your inquiry.
+            <div className="contact-privacy-box">
+              <p className="contact-privacy-text">
+                🛡️ All inquiries are sent securely to <strong>policyian@gmail.com</strong>. We respect your privacy and never share your details.
               </p>
             </div>
           </div>
 
           {/* Contact form */}
-          <div className="card" style={{
-            background: 'rgba(255, 255, 255, 0.8)',
-            padding: '2.25rem',
-          }}>
+          <div className="contact-form-card">
             {status === 'success' ? (
-              <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-                <CheckCircle size={48} style={{ color: '#10b981', marginBottom: '1rem' }} />
-                <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem' }}>Message Sent!</h3>
-                <p style={{ color: '#475569' }}>Thank you for reaching out. We'll get back to you within 24-48 hours.</p>
+              <div className="contact-success-state">
+                <div className="contact-success-icon">
+                  <CheckCircle size={36} />
+                </div>
+                <h3 className="contact-success-title">Message Sent!</h3>
+                <p className="contact-success-msg">
+                  {feedbackMsg || 'Thank you for reaching out! Your inquiry has been sent to our inbox at policyian@gmail.com.'}
+                </p>
                 <button
-                  onClick={() => setStatus('idle')}
-                  className="btn btn-primary"
-                  style={{ marginTop: '1.5rem' }}
+                  type="button"
+                  onClick={() => { setStatus('idle'); setFeedbackMsg(''); }}
+                  className="contact-submit-btn"
+                  style={{ marginTop: '1.75rem', alignSelf: 'center' }}
                 >
                   Send Another Message
                 </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label htmlFor="contact-name" style={{ display: 'block', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem', fontSize: '0.875rem' }}>Name</label>
+                {status === 'error' && (
+                  <div style={{
+                    padding: '0.85rem 1rem',
+                    borderRadius: '10px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#b91c1c',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <AlertTriangle size={18} color="#dc2626" style={{ flexShrink: 0 }} />
+                    <span>{feedbackMsg}</span>
+                  </div>
+                )}
+
+                <div className="contact-form-row">
+                  <div className="contact-field-group">
+                    <label htmlFor="contact-name" className="contact-label">Name *</label>
                     <input
                       id="contact-name"
                       name="name"
@@ -139,11 +166,11 @@ export default function ContactPage() {
                       value={form.name}
                       onChange={handleChange}
                       placeholder="Your name"
-                      className="input"
+                      className="contact-input"
                     />
                   </div>
-                  <div>
-                    <label htmlFor="contact-email" style={{ display: 'block', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem', fontSize: '0.875rem' }}>Email</label>
+                  <div className="contact-field-group">
+                    <label htmlFor="contact-email" className="contact-label">Email *</label>
                     <input
                       id="contact-email"
                       name="email"
@@ -152,13 +179,13 @@ export default function ContactPage() {
                       value={form.email}
                       onChange={handleChange}
                       placeholder="you@example.com"
-                      className="input"
+                      className="contact-input"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label htmlFor="contact-subject" style={{ display: 'block', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem', fontSize: '0.875rem' }}>Subject</label>
+                <div className="contact-field-group">
+                  <label htmlFor="contact-subject" className="contact-label">Subject *</label>
                   <input
                     id="contact-subject"
                     name="subject"
@@ -167,12 +194,12 @@ export default function ContactPage() {
                     value={form.subject}
                     onChange={handleChange}
                     placeholder="What is this about?"
-                    className="input"
+                    className="contact-input"
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="contact-message" style={{ display: 'block', fontWeight: 600, color: '#0f172a', marginBottom: '0.4rem', fontSize: '0.875rem' }}>Message</label>
+                <div className="contact-field-group">
+                  <label htmlFor="contact-message" className="contact-label">Message *</label>
                   <textarea
                     id="contact-message"
                     name="message"
@@ -181,7 +208,7 @@ export default function ContactPage() {
                     value={form.message}
                     onChange={handleChange}
                     placeholder="Tell us what you need help with..."
-                    className="input"
+                    className="contact-textarea"
                     style={{ resize: 'vertical' }}
                   />
                 </div>
@@ -189,11 +216,19 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={status === 'sending'}
-                  className="btn btn-primary"
-                  style={{ alignSelf: 'flex-start', padding: '0.75rem 2rem' }}
+                  className="contact-submit-btn"
                 >
-                  <Send size={16} />
-                  <span>{status === 'sending' ? 'Sending...' : 'Send Message'}</span>
+                  {status === 'sending' ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Sending to policyian@gmail.com...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      <span>Send Message</span>
+                    </>
+                  )}
                 </button>
               </form>
             )}

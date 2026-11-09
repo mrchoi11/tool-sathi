@@ -6,21 +6,21 @@
 
 :root {
   /* Radiant Ambient Palette */
-  --bg-canvas: #f2f5fd;
-  --bg-gradient: linear-gradient(135deg, #e0f2fe 0%, #ede9fe 35%, #fdf4ff 70%, #e0e7ff 100%);
+  --bg-canvas: #f8faff;
+  --bg-gradient: linear-gradient(135deg, #f0f7ff 0%, #f5f3ff 35%, #faf5ff 70%, #f1f5fd 100%);
   --bg-primary: #f8faff;
-  --bg-secondary: rgba(255, 255, 255, 0.72);
-  --bg-tertiary: rgba(255, 255, 255, 0.55);
-  --bg-elevated: rgba(255, 255, 255, 0.85);
+  --bg-secondary: rgba(255, 255, 255, 0.78);
+  --bg-tertiary: rgba(255, 255, 255, 0.65);
+  --bg-elevated: rgba(255, 255, 255, 0.92);
   --bg-surface: #ffffff;
 
   /* Apple Liquid Glass Tokens */
-  --glass-bg: rgba(255, 255, 255, 0.65);
-  --glass-bg-hover: rgba(255, 255, 255, 0.85);
-  --glass-bg-active: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(255, 255, 255, 0.85);
-  --glass-border-subtle: rgba(255, 255, 255, 0.6);
-  --glass-border-strong: rgba(255, 255, 255, 0.95);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-hover: rgba(255, 255, 255, 0.92);
+  --glass-bg-active: rgba(255, 255, 255, 0.98);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-border-subtle: rgba(255, 255, 255, 0.7);
+  --glass-border-strong: rgba(255, 255, 255, 0.98);
   --glass-border-hover: rgba(99, 102, 241, 0.4);
   --glass-blur: 24px;
   --glass-blur-lg: 32px;
@@ -42,9 +42,9 @@
 
   /* High-Contrast Crisp Typography */
   --text-primary: #0f172a;       /* Deep Slate Navy for headings */
-  --text-secondary: #334155;     /* Slate for body text */
-  --text-tertiary: #64748b;      /* Muted slate for captions */
-  --text-muted: #94a3b8;         /* Light slate for placeholders */
+  --text-secondary: #1e293b;     /* Rich deep slate for body text & descriptions */
+  --text-tertiary: #334155;      /* Slate for captions & subtext */
+  --text-muted: #64748b;         /* Readable muted text */
   --text-inverse: #ffffff;
 
   /* Borders & Dividers */
@@ -218,7 +218,7 @@ input, textarea, select {
 }
 
 /* ==========================================================================
-   Animated 3D Liquid Glass Background
+   Animated 3D Liquid Glass Background (Light, Bright & Non-Intrusive)
    ========================================================================== */
 .liquid-glass-background {
   position: fixed;
@@ -232,61 +232,61 @@ input, textarea, select {
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
-  mix-blend-mode: multiply;
-  filter: blur(40px);
-  opacity: 0.75;
+  mix-blend-mode: normal;
+  filter: blur(80px);
+  opacity: 0.35;
   transition: transform 0.5s ease-out;
 }
 
-/* Orb 1: Top Left Cyan-Blue Liquid Bubble */
+/* Orb 1: Top Left Soft Sky Cyan Liquid Bubble */
 .liquid-orb-1 {
-  width: 540px;
-  height: 540px;
-  top: -120px;
-  left: -120px;
-  background: radial-gradient(circle at 35% 35%, #93c5fd 0%, #60a5fa 45%, #38bdf8 70%, rgba(56, 189, 248, 0) 100%);
+  width: 520px;
+  height: 520px;
+  top: -100px;
+  left: -100px;
+  background: radial-gradient(circle at 35% 35%, rgba(186, 230, 253, 0.75) 0%, rgba(147, 197, 253, 0.4) 45%, rgba(224, 242, 254, 0) 75%);
   animation: liquidFloat1 22s infinite ease-in-out alternate;
 }
 
-/* Orb 2: Top Right Lavender-Purple Glass Drop */
+/* Orb 2: Top Right Soft Lavender-Purple Glass Drop */
 .liquid-orb-2 {
-  width: 580px;
-  height: 580px;
-  top: -100px;
-  right: -100px;
-  background: radial-gradient(circle at 30% 30%, #c4b5fd 0%, #a78bfa 40%, #818cf8 70%, rgba(129, 140, 248, 0) 100%);
+  width: 540px;
+  height: 540px;
+  top: -80px;
+  right: -80px;
+  background: radial-gradient(circle at 30% 30%, rgba(221, 214, 254, 0.7) 0%, rgba(196, 181, 253, 0.35) 45%, rgba(237, 233, 254, 0) 75%);
   animation: liquidFloat2 26s infinite ease-in-out alternate;
 }
 
 /* Orb 3: Mid-Screen Soft Lilac Bubble */
 .liquid-orb-3 {
-  width: 420px;
-  height: 420px;
+  width: 400px;
+  height: 400px;
   top: 45%;
-  right: -80px;
-  background: radial-gradient(circle at 40% 40%, #f0abfc 0%, #e879f9 35%, #c084fc 70%, rgba(192, 132, 252, 0) 100%);
+  right: -60px;
+  background: radial-gradient(circle at 40% 40%, rgba(245, 208, 254, 0.6) 0%, rgba(232, 121, 249, 0.25) 40%, rgba(250, 232, 255, 0) 75%);
   animation: liquidFloat3 24s infinite ease-in-out alternate;
 }
 
-/* Orb 4: Bottom-Left Blue Cyan Organic Liquid */
+/* Orb 4: Bottom-Left Soft Cyan-Blue Liquid */
 .liquid-orb-4 {
-  width: 500px;
-  height: 500px;
-  bottom: -100px;
+  width: 480px;
+  height: 480px;
+  bottom: -80px;
   left: 5%;
-  background: radial-gradient(circle at 35% 35%, #7dd3fc 0%, #38bdf8 45%, #818cf8 80%, rgba(129, 140, 248, 0) 100%);
+  background: radial-gradient(circle at 35% 35%, rgba(186, 230, 253, 0.65) 0%, rgba(199, 210, 254, 0.35) 45%, rgba(224, 242, 254, 0) 75%);
   animation: liquidFloat4 28s infinite ease-in-out alternate;
 }
 
-/* Orb 5: Center Ambient Glow */
+/* Orb 5: Center Ambient White Luminous Glow (Keeps Hero Background Bright & Crisp) */
 .liquid-orb-5 {
-  width: 650px;
-  height: 650px;
-  top: 25%;
-  left: 20%;
-  background: radial-gradient(circle, rgba(199, 210, 254, 0.45) 0%, rgba(224, 231, 255, 0.2) 50%, rgba(255, 255, 255, 0) 75%);
-  filter: blur(60px);
-  opacity: 0.6;
+  width: 700px;
+  height: 700px;
+  top: 20%;
+  left: 15%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(241, 245, 249, 0.35) 55%, rgba(255, 255, 255, 0) 80%);
+  filter: blur(70px);
+  opacity: 0.7;
   animation: liquidFloat1 32s infinite ease-in-out alternate-reverse;
 }
 
@@ -673,17 +673,19 @@ input, textarea, select {
 
 .section-description {
   font-size: 1.05rem;
-  color: var(--text-tertiary);
+  color: #1e293b;
   max-width: 620px;
   line-height: 1.6;
+  font-weight: 550;
 }
 
 /* Gradient Text Highlight */
 .gradient-text {
-  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 45%, #7c3aed 80%, #9333ea 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 45%, #7c3aed 80%, #9333ea 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  font-weight: 850;
 }
 
 /* ==========================================================================

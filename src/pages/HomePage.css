@@ -59,20 +59,21 @@
 }
 
 .hero-title-accent {
-  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 45%, #7c3aed 80%, #a855f7 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 40%, #7c3aed 75%, #9333ea 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   display: inline-block;
+  font-weight: 850;
 }
 
 .hero-subtitle {
   font-size: 1.15rem;
-  color: #334155;
+  color: #0f172a;
   max-width: 660px;
   margin-bottom: 2.5rem;
   line-height: 1.65;
-  font-weight: 450;
+  font-weight: 600;
 }
 
 /* Large Rounded Glass Search Capsule */
@@ -331,8 +332,9 @@
 }
 
 .tool-card-desc {
-  font-size: 0.835rem;
-  color: #64748b;
+  font-size: 0.85rem;
+  color: #334155;
+  font-weight: 550;
   line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -439,8 +441,9 @@
 }
 
 .category-card-desc {
-  font-size: 0.825rem;
-  color: #64748b;
+  font-size: 0.85rem;
+  color: #334155;
+  font-weight: 550;
   line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -540,8 +543,9 @@
 }
 
 .step-desc {
-  font-size: 0.9rem;
-  color: #64748b;
+  font-size: 0.92rem;
+  color: #1e293b;
+  font-weight: 550;
   line-height: 1.55;
 }
 

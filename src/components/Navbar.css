@@ -3,12 +3,12 @@
    ========================================================================== */
 
 .navbar {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 100;
-  padding: 0.85rem 1.25rem;
+  padding: 1rem 1.25rem 0.5rem;
   transition: all var(--duration-normal) var(--ease-apple);
 }
 
@@ -33,7 +33,7 @@
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 
+  box-shadow:
     0 12px 30px -6px rgba(99, 102, 241, 0.1),
     0 2px 6px -1px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
@@ -42,7 +42,7 @@
 
 .navbar-scrolled .navbar-pill {
   background: rgba(255, 255, 255, 0.88);
-  box-shadow: 
+  box-shadow:
     0 14px 34px -4px rgba(99, 102, 241, 0.14),
     0 4px 10px -2px rgba(0, 0, 0, 0.05),
     inset 0 1px 0 #ffffff;
@@ -58,9 +58,9 @@
 }
 
 .navbar-brand-logo {
-  height: 35px;
+  height: 60px;
   width: auto;
-  max-width: 165px;
+  max-width: 220px;
   object-fit: contain;
   display: block;
   transition: transform var(--duration-fast) var(--ease-apple);
@@ -222,7 +222,7 @@
   .navbar-search-text {
     display: none;
   }
-  
+
   .navbar-kbd {
     display: none;
   }
@@ -234,8 +234,8 @@
   }
 
   .navbar-brand-logo {
-    height: 28px;
-    max-width: 125px;
+    height: 40px;
+    max-width: 160px;
   }
 
   .navbar-pill {
@@ -249,10 +249,10 @@
   }
 
   .navbar-links {
-    position: fixed;
-    top: calc(var(--nav-height) + 12px);
-    left: 1rem;
-    right: 1rem;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0.85rem;
+    right: 0.85rem;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
