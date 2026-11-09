@@ -13,20 +13,11 @@ export default function Footer() {
           {/* Brand Column */}
           <div className="footer-brand-col">
             <Link to="/" className="footer-brand" aria-label="ProToolBox Home">
-              <div className="footer-logo">
-                <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-                  <rect width="32" height="32" rx="9" fill="url(#footer-logo-grad)" />
-                  <path d="M10 11h12M10 16h8M10 21h12" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
-                  <defs>
-                    <linearGradient id="footer-logo-grad" x1="0" y1="0" x2="32" y2="32">
-                      <stop stopColor="#3b82f6" />
-                      <stop offset="0.5" stopColor="#6366f1" />
-                      <stop offset="1" stopColor="#8b5cf6" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-              <span className="footer-brand-title">ProToolBox</span>
+              <img
+                src="/ProToolBox Logo.png"
+                alt="ProToolBox"
+                className="footer-brand-logo"
+              />
             </Link>
             <p className="footer-tagline">Smarter Tools. Greater Productivity.</p>
             <p className="footer-subtext">Free in-browser utilities for creators, developers, and everyday tasks.</p>

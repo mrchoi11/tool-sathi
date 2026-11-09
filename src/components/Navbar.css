@@ -57,24 +57,17 @@
   flex-shrink: 0;
 }
 
-.navbar-logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+.navbar-brand-logo {
+  height: 35px;
+  width: auto;
+  max-width: 165px;
+  object-fit: contain;
+  display: block;
   transition: transform var(--duration-fast) var(--ease-apple);
 }
 
-.navbar-brand:hover .navbar-logo {
-  transform: scale(1.06);
-}
-
-.navbar-brand-text {
-  font-size: 1.2rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: #0f172a;
+.navbar-brand:hover .navbar-brand-logo {
+  transform: scale(1.04);
 }
 
 /* Navigation Links */
@@ -238,6 +231,11 @@
 @media (max-width: 768px) {
   .navbar {
     padding: 0.65rem 0.85rem;
+  }
+
+  .navbar-brand-logo {
+    height: 28px;
+    max-width: 125px;
   }
 
   .navbar-pill {

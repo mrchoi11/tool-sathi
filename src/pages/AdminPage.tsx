@@ -315,8 +315,8 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="login-root">
       <div className="login-card">
-        <div className="login-logo">
-          <ShieldCheck size={26} />
+        <div className="login-logo" style={{ background: "transparent", border: "none", boxShadow: "none", width: "auto", height: "auto" }}>
+          <img src="/ProToolBox Logo.png" alt="ProToolBox" style={{ height: "46px", width: "auto", maxWidth: "210px", objectFit: "contain" }} />
         </div>
 
         {/* ─── SCREEN 1: LOGIN ─── */}
@@ -786,7 +786,7 @@ export default function AdminPage() {
       {/* ─── SIDEBAR ─── */}
       <aside className="adm-sidebar">
         <div className="adm-brand">
-          <span className="adm-brand-dot" />
+          <img src="/favicon.png" alt="ProToolBox" style={{ width: "24px", height: "24px", borderRadius: "6px", objectFit: "contain" }} />
           <span>ProToolBox CMS</span>
         </div>
 
