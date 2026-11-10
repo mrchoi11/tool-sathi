@@ -72,6 +72,8 @@ const toolComponents: Record<string, React.LazyExoticComponent<React.ComponentTy
   'heading-structure-analyzer': lazy(() => import('../tools/HeadingStructureAnalyzer')),
   'readability-checker': lazy(() => import('../tools/ReadabilityChecker')),
   'word-counter': lazy(() => import('../tools/WordCounter')),
+  'background-remover': lazy(() => import('../tools/BackgroundRemover')),
+  'html-to-word': lazy(() => import('../tools/HtmlToWord')),
   'character-counter': lazy(() => import('../tools/WordCounter')),
   'case-converter': lazy(() => import('../tools/CaseConverter')),
   'remove-duplicate-lines': lazy(() => import('../tools/RemoveDuplicateLines')),

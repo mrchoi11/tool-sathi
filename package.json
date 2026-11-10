@@ -13,13 +13,17 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "@tiptap/extension-character-count": "^3.32.0",
     "@tiptap/extension-code-block-lowlight": "^3.32.0",
+    "@tiptap/extension-color": "^3.33.1",
     "@tiptap/extension-highlight": "^3.32.0",
     "@tiptap/extension-image": "^3.32.0",
     "@tiptap/extension-link": "^3.32.0",
     "@tiptap/extension-placeholder": "^3.32.0",
+    "@tiptap/extension-table": "^3.33.1",
     "@tiptap/extension-text-align": "^3.32.0",
+    "@tiptap/extension-text-style": "^3.33.1",
     "@tiptap/extension-underline": "^3.32.0",
     "@tiptap/pm": "^3.32.0",
     "@tiptap/react": "^3.32.0",

@@ -1085,6 +1085,45 @@ export const tools: Tool[] = [
     seo: { title: 'Random Number Generator | ProToolBox', description: 'Generate random numbers within any range.' },
     relatedTools: ['password-generator'],
   },
+
+  // ======= NEW TOOLS =======
+  {
+    id: 'background-remover',
+    name: 'Background Remover',
+    description: 'Remove image background instantly in your browser — no uploads, 100% private.',
+    category: 'image',
+    slug: 'background-remover',
+    icon: 'Eraser',
+    inputFormats: ['jpg', 'jpeg', 'png', 'webp'],
+    outputFormats: ['png'],
+    status: 'active',
+    isNew: true,
+    isFeatured: true,
+    keywords: ['background', 'remove', 'transparent', 'png', 'cut', 'eraser', 'ai', 'image'],
+    seo: {
+      title: 'Background Remover — Free AI Image Background Remove | ProToolBox',
+      description: 'Remove image background for free in your browser using AI. No upload to server, 100% private. Download transparent PNG instantly.',
+    },
+    relatedTools: ['image-compressor', 'image-resizer'],
+  },
+  {
+    id: 'html-to-word',
+    name: 'HTML to Word Converter',
+    description: 'Convert HTML to Word (DOCX) or edit rich text in a visual WYSIWYG editor with live HTML sync.',
+    category: 'converter',
+    slug: 'html-to-word',
+    icon: 'FileCode',
+    inputFormats: ['html'],
+    outputFormats: ['docx', 'html'],
+    status: 'active',
+    isNew: true,
+    keywords: ['html', 'word', 'docx', 'convert', 'editor', 'wysiwyg', 'rich text', 'document'],
+    seo: {
+      title: 'HTML to Word Converter — Free WYSIWYG Editor | ProToolBox',
+      description: 'Convert HTML to Word DOCX or use the visual WYSIWYG editor with live HTML sync. Download as DOCX or HTML instantly — no server, 100% free.',
+    },
+    relatedTools: ['markdown-to-html', 'html-to-text'],
+  },
 ];
 
 export function getToolBySlug(slug: string): Tool | undefined {

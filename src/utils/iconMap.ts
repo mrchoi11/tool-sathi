@@ -9,7 +9,7 @@ import {
   Link2, List, BookOpen, Type, CaseSensitive, ListMinus,
   GitCompare, ArrowUpDown, AlignLeft, KeyRound, Fingerprint,
   Palette, Paintbrush, Percent, BadgePercent, Calendar,
-  CalendarRange, Combine
+  CalendarRange, Combine, Eraser
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -24,7 +24,7 @@ const iconMap: Record<string, LucideIcon> = {
   Link2, List, BookOpen, Type, CaseSensitive, ListMinus,
   GitCompare, ArrowUpDown, AlignLeft, KeyRound, Fingerprint,
   Palette, Paintbrush, Percent, BadgePercent, Calendar,
-  CalendarRange, Combine,
+  CalendarRange, Combine, Eraser,
   // Aliases
   RulerIcon: Ruler,
   Dice5: Zap,

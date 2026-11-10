@@ -163,3 +163,4 @@ echo json_encode([
     'message' => 'Thank you! Your inquiry has been sent to our team at ' . $DESTINATION_EMAIL . '. We will respond within 24â€“48 hours.',
     'mailSent' => $mailSent
 ]);
+

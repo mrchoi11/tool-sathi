@@ -2,6 +2,13 @@
   SetEnvIf Request_URI "^/api/.*" no-gzip dont-vary
 </IfModule>
 
+# MIME types for AI model files (WASM/ONNX)
+<IfModule mod_mime.c>
+  AddType application/wasm .wasm
+  AddType application/octet-stream .onnx
+  AddType text/javascript .mjs
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
