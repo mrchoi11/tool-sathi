@@ -217,6 +217,12 @@ input, textarea, select {
   }
 }
 
+@media (max-width: 480px) {
+  .container {
+    padding: 0 0.85rem;
+  }
+}
+
 /* ==========================================================================
    Animated 3D Liquid Glass Background (Light, Bright & Non-Intrusive)
    ========================================================================== */

@@ -48,6 +48,37 @@
   margin: 0 2px;
 }
 
+.htw-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.htw-swap-order-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.htw-swap-order-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
 .htw-mode-tabs {
   display: flex;
   gap: 0.4rem;
@@ -84,6 +115,16 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 520px;
+}
+
+.htw-split--reversed .htw-pane--left {
+  order: 2;
+  border-right: none;
+  border-left: 1px solid rgba(99, 102, 241, 0.14);
+}
+
+.htw-split--reversed .htw-pane--right {
+  order: 1;
 }
 
 /* ── Pane ─────────────────────────────────────────────────── */
@@ -424,6 +465,15 @@
   cursor: pointer;
   transition: all 0.2s ease;
   letter-spacing: 0.01em;
+}
+.htw-action-btn--upload {
+  background: rgba(79, 70, 229, 0.12);
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  color: #4f46e5;
+}
+.htw-action-btn--upload:hover {
+  background: rgba(79, 70, 229, 0.22);
+  transform: translateY(-1px);
 }
 .htw-action-btn--sample {
   background: rgba(79,70,229,0.1);

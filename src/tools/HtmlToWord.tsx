@@ -16,7 +16,8 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, Quote, Link as LinkIcon, Image as ImageIcon,
   Table, Undo, Redo, Download, FileCode, FileText,
-  Trash2, Copy, Check, ChevronDown, Highlighter, Type
+  Trash2, Copy, Check, ChevronDown, Highlighter, Type,
+  Upload, ArrowLeftRight
 } from 'lucide-react';
 import './tools.css';
 import './HtmlToWord.css';
@@ -52,6 +53,7 @@ function ToolSelect({ value, onChange, options, title }: {
 
 // ── Main component ──────────────────────────────────────────────────────────
 export default function HtmlToWord() {
+  const [panesOrder, setPanesOrder] = useState<'word-first' | 'html-first'>('word-first');
   const [mode, setMode] = useState<'visual' | 'html'>('visual');
   const [htmlCode, setHtmlCode] = useState('<p>Start typing or paste your HTML here...</p>');
   const [copied, setCopied] = useState(false);
@@ -65,6 +67,7 @@ export default function HtmlToWord() {
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileUploadInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -130,6 +133,80 @@ export default function HtmlToWord() {
     await navigator.clipboard.writeText(htmlCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // ── File upload ──
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.html') || fileName.endsWith('.htm') || fileName.endsWith('.txt')) {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const content = (ev.target?.result as string) || '';
+        let cleanContent = content;
+        if (fileName.endsWith('.html') || fileName.endsWith('.htm')) {
+          const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+          if (bodyMatch && bodyMatch[1]) {
+            cleanContent = bodyMatch[1];
+          }
+        } else {
+          cleanContent = content.split(/\n\n+/).map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
+        }
+        editor?.commands.setContent(cleanContent);
+        setHtmlCode(cleanContent);
+        const text = cleanContent.replace(/<[^>]*>/g, '');
+        setWordCount(text.trim() ? text.trim().split(/\s+/).length : 0);
+        setCharCount(text.length);
+      };
+      reader.readAsText(file);
+    } else if (fileName.endsWith('.docx')) {
+      const reader = new FileReader();
+      reader.onload = async ev => {
+        try {
+          const arrayBuf = ev.target?.result as ArrayBuffer;
+          const zip = await JSZip.loadAsync(arrayBuf);
+          const htmlFile = zip.file('word/afchunk.htm');
+          if (htmlFile) {
+            const content = await htmlFile.async('string');
+            const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+            const bodyHtml = (bodyMatch && bodyMatch[1]) ? bodyMatch[1] : content;
+            editor?.commands.setContent(bodyHtml);
+            setHtmlCode(bodyHtml);
+          } else {
+            const docXmlFile = zip.file('word/document.xml');
+            if (docXmlFile) {
+              const xmlStr = await docXmlFile.async('string');
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
+              const paragraphs = xmlDoc.getElementsByTagName('w:p');
+              let builtHtml = '';
+              for (let i = 0; i < paragraphs.length; i++) {
+                const texts = paragraphs[i].getElementsByTagName('w:t');
+                let pText = '';
+                for (let j = 0; j < texts.length; j++) {
+                  pText += texts[j].textContent || '';
+                }
+                if (pText.trim()) {
+                  builtHtml += `<p>${pText}</p>`;
+                }
+              }
+              if (!builtHtml) builtHtml = '<p>Loaded Word document.</p>';
+              editor?.commands.setContent(builtHtml);
+              setHtmlCode(builtHtml);
+            }
+          }
+        } catch (docxErr) {
+          console.error('Error parsing docx:', docxErr);
+          alert('Could not read Word file. Please upload an .html or .txt file.');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert('Supported formats: .html, .htm, .docx, .txt');
+    }
+    e.target.value = '';
   };
 
   // ── Clear ──
@@ -245,18 +322,29 @@ export default function HtmlToWord() {
           <FileText size={22} className="htw-header-icon" />
           <span>Word</span>
         </div>
-        <div className="htw-mode-tabs">
-          <button className={`htw-mode-tab${mode === 'visual' ? ' active' : ''}`} onClick={() => handleModeSwitch('visual')}>
-            <FileText size={14} /> Visual Editor
+        <div className="htw-header-controls">
+          <button
+            type="button"
+            className="htw-swap-order-btn"
+            onClick={() => setPanesOrder(p => (p === 'word-first' ? 'html-first' : 'word-first'))}
+            title="Swap Panes: Click to swap Word and HTML priority"
+          >
+            <ArrowLeftRight size={14} />
+            <span>{panesOrder === 'word-first' ? 'Word ➔ HTML' : 'HTML ➔ Word'}</span>
           </button>
-          <button className={`htw-mode-tab${mode === 'html' ? ' active' : ''}`} onClick={() => handleModeSwitch('html')}>
-            <FileCode size={14} /> HTML Code
-          </button>
+          <div className="htw-mode-tabs">
+            <button className={`htw-mode-tab${mode === 'visual' ? ' active' : ''}`} onClick={() => handleModeSwitch('visual')}>
+              <FileText size={14} /> Visual Editor
+            </button>
+            <button className={`htw-mode-tab${mode === 'html' ? ' active' : ''}`} onClick={() => handleModeSwitch('html')}>
+              <FileCode size={14} /> HTML Code
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ── Main split layout ────────────────────────────────── */}
-      <div className="htw-split">
+      <div className={`htw-split ${panesOrder === 'html-first' ? 'htw-split--reversed' : ''}`}>
 
         {/* ══ LEFT — Visual WYSIWYG editor ══ */}
         <div className="htw-pane htw-pane--left">
@@ -395,6 +483,20 @@ export default function HtmlToWord() {
 
       {/* ── Bottom action bar ─────────────────────────────────── */}
       <div className="htw-actions">
+        <input
+          ref={fileUploadInputRef}
+          type="file"
+          accept=".html,.htm,.docx,.txt"
+          style={{ display: 'none' }}
+          onChange={handleFileUpload}
+        />
+        <button
+          className="htw-action-btn htw-action-btn--upload"
+          onClick={() => fileUploadInputRef.current?.click()}
+          title="Upload HTML, DOCX, or TXT file"
+        >
+          <Upload size={14} /> Upload File
+        </button>
         <button className="htw-action-btn htw-action-btn--sample" onClick={loadSample}>
           ✦ Sample
         </button>

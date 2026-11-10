@@ -20,13 +20,32 @@ const navLinks = [
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
+  const [navVisible, setNavVisible] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 15);
+    let lastScrollY = window.scrollY;
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      setScrolled(currentScrollY > 15);
+
+      if (currentScrollY <= 45) {
+        // Near top: always visible
+        setNavVisible(true);
+      } else if (currentScrollY > lastScrollY && currentScrollY - lastScrollY > 6) {
+        // Scrolling down (page going up) -> hide navbar
+        setNavVisible(false);
+        setDropdownOpen(false);
+      } else if (currentScrollY < lastScrollY && lastScrollY - currentScrollY > 4) {
+        // Scrolling up (even slightly) -> show navbar immediately
+        setNavVisible(true);
+      }
+      lastScrollY = currentScrollY;
+    };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -50,7 +69,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`navbar ${scrolled ? 'navbar-scrolled' : ''}`} role="navigation" aria-label="Main navigation">
+      <nav className={`navbar ${scrolled ? 'navbar-scrolled' : ''} ${navVisible ? 'navbar-visible' : 'navbar-hidden'}`} role="navigation" aria-label="Main navigation">
         <div className="navbar-container">
           <div className="navbar-pill glass">
             {/* Logo */}

@@ -3,13 +3,23 @@
    ========================================================================== */
 
 .navbar {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 100;
   padding: 1rem 1.25rem 0.5rem;
-  transition: all var(--duration-normal) var(--ease-apple);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), padding 0.25s ease;
+  will-change: transform;
+}
+
+.navbar-hidden {
+  transform: translateY(-120%);
+  pointer-events: none;
+}
+
+.navbar-visible {
+  transform: translateY(0);
 }
 
 .navbar-scrolled {
@@ -305,5 +315,27 @@
     background: rgba(15, 23, 42, 0.25);
     backdrop-filter: blur(4px);
     z-index: 98;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0.5rem 0.6rem;
+  }
+  .navbar-pill {
+    padding: 0.35rem 0.5rem 0.35rem 0.75rem;
+  }
+  .navbar-brand-logo {
+    height: 34px !important;
+    max-width: 135px !important;
+  }
+  .navbar-search-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+  .navbar-mobile-toggle {
+    width: 32px;
+    height: 32px;
   }
 }
