@@ -1,12 +1,237 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ArrowRight, Upload, Cpu, Download, Shield, ChevronDown, ChevronUp, ChevronRight, Sparkles } from 'lucide-react';
+import {
+  Search, ArrowRight, ChevronDown, ChevronUp,
+  ChevronLeft, ChevronRight, Star, Shield, Zap,
+  CheckCircle2, Rocket
+} from 'lucide-react';
 import { categories, getFeaturedTools, getActiveTools } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
 import { usePageSeo } from '../hooks/usePageSeo';
 import NewsletterSignup from '../components/NewsletterSignup';
 import './HomePage.css';
 
+/* ── Testimonials data (sample – editable placeholder) ── */
+const testimonials = [
+  {
+    name: 'Priya Sharma',
+    role: 'Freelancer',
+    avatar: 'PS',
+    text: '"Super easy to use and saves so much time! ProToolBox has everything I need in one place."',
+    stars: 5,
+    color: '#6366f1',
+  },
+  {
+    name: 'Rohit Mehta',
+    role: 'Developer',
+    avatar: 'RM',
+    text: '"A must-have toolkit for professionals. Fast, reliable, and completely free — incredible value."',
+    stars: 5,
+    color: '#8b5cf6',
+  },
+  {
+    name: 'Anjel Verma',
+    role: 'Marketer',
+    avatar: 'AV',
+    text: '"Clean, fast and incredibly useful. I use the PDF and Image tools daily for my content work."',
+    stars: 5,
+    color: '#06b6d4',
+  },
+  {
+    name: 'Sneha Rao',
+    role: 'Designer',
+    avatar: 'SR',
+    text: '"The background remover and image compressor are game-changers. No other site does it this well."',
+    stars: 5,
+    color: '#ec4899',
+  },
+];
+
+/* ── Generic Carousel hook ── */
+function useCarousel(total: number, perView: number) {
+  const [current, setCurrent] = useState(0);
+  const maxIndex = Math.max(0, total - perView);
+  const prev = () => setCurrent(c => Math.max(0, c - 1));
+  const next = () => setCurrent(c => Math.min(maxIndex, c + 1));
+  return { current, prev, next, maxIndex };
+}
+
+/* ── Tools Carousel ── */
+function ToolsCarousel() {
+  const featured = getFeaturedTools().slice(0, 12);
+  const perView = 4;
+  const { current, prev, next, maxIndex } = useCarousel(featured.length, perView);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const touchStart = useRef(0);
+
+  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStart.current - e.changedTouches[0].clientX;
+    if (diff > 50) next();
+    else if (diff < -50) prev();
+  };
+
+  return (
+    <div className="carousel-wrapper">
+      <button className="carousel-arrow carousel-arrow-left" onClick={prev} disabled={current === 0} aria-label="Previous">
+        <ChevronLeft size={20} />
+      </button>
+
+      <div className="carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div
+          ref={trackRef}
+          className="carousel-track"
+          style={{ transform: `translateX(-${current * (100 / perView)}%)` }}
+        >
+          {featured.map(tool => {
+            const Icon = getIconComponent(tool.icon);
+            const cat = categories.find(c => c.id === tool.category);
+            const color = cat?.color || '#6366f1';
+            return (
+              <div key={tool.id} className="carousel-slide" style={{ flex: `0 0 ${100 / perView}%` }}>
+                <Link to={`/tools/${tool.slug}`} className="tool-carousel-card">
+                  <div className="tool-carousel-icon-wrap" style={{ background: `${color}18` }}>
+                    <Icon size={28} style={{ color }} />
+                  </div>
+                  <div className="tool-carousel-body">
+                    <span className="tool-carousel-name">{tool.name}</span>
+                    <p className="tool-carousel-desc">{tool.description}</p>
+                  </div>
+                  <span className="tool-carousel-cta">Open Tool <ArrowRight size={13} /></span>
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <button className="carousel-arrow carousel-arrow-right" onClick={next} disabled={current >= maxIndex} aria-label="Next">
+        <ChevronRight size={20} />
+      </button>
+
+      {/* Dots */}
+      <div className="carousel-dots">
+        {Array.from({ length: maxIndex + 1 }).map((_, i) => (
+          <button
+            key={i}
+            className={`carousel-dot${i === current ? ' active' : ''}`}
+            onClick={() => { /* no-op, just visual */ }}
+            aria-label={`Slide ${i + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Category Carousel ── */
+function CategoryCarousel() {
+  const activeTools = getActiveTools();
+  const perView = 5;
+  const { current, prev, next, maxIndex } = useCarousel(categories.length, perView);
+  const touchStart = useRef(0);
+
+  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStart.current - e.changedTouches[0].clientX;
+    if (diff > 50) next();
+    else if (diff < -50) prev();
+  };
+
+  return (
+    <div className="carousel-wrapper cat-carousel-wrapper">
+      <button className="carousel-arrow carousel-arrow-left" onClick={prev} disabled={current === 0} aria-label="Previous">
+        <ChevronLeft size={20} />
+      </button>
+
+      <div className="carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div
+          className="carousel-track"
+          style={{ transform: `translateX(-${current * (100 / perView)}%)` }}
+        >
+          {categories.map(cat => {
+            const Icon = getIconComponent(cat.icon);
+            const count = activeTools.filter(t => t.category === cat.id).length;
+            return (
+              <div key={cat.id} className="carousel-slide" style={{ flex: `0 0 ${100 / perView}%` }}>
+                <Link to={`/category/${cat.id}`} className="cat-carousel-card">
+                  <div className="cat-carousel-icon-wrap" style={{ background: `${cat.color}18`, borderColor: `${cat.color}25` }}>
+                    <Icon size={26} style={{ color: cat.color }} />
+                  </div>
+                  <span className="cat-carousel-name">{cat.name}</span>
+                  <span className="cat-carousel-count">{count} tools</span>
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <button className="carousel-arrow carousel-arrow-right" onClick={next} disabled={current >= maxIndex} aria-label="Next">
+        <ChevronRight size={20} />
+      </button>
+    </div>
+  );
+}
+
+/* ── Testimonials Carousel ── */
+function TestimonialsCarousel() {
+  const perView = 3;
+  const { current, prev, next, maxIndex } = useCarousel(testimonials.length, perView);
+  const touchStart = useRef(0);
+
+  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStart.current - e.changedTouches[0].clientX;
+    if (diff > 50) next();
+    else if (diff < -50) prev();
+  };
+
+  return (
+    <div className="carousel-wrapper testimonial-carousel-wrapper">
+      <button className="carousel-arrow carousel-arrow-left" onClick={prev} disabled={current === 0} aria-label="Previous">
+        <ChevronLeft size={20} />
+      </button>
+
+      <div className="carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div
+          className="carousel-track"
+          style={{ transform: `translateX(-${current * (100 / perView)}%)` }}
+        >
+          {testimonials.map((t, i) => (
+            <div key={i} className="carousel-slide" style={{ flex: `0 0 ${100 / perView}%` }}>
+              <div className="testimonial-card">
+                <div className="testimonial-stars">
+                  {Array.from({ length: t.stars }).map((_, si) => (
+                    <Star key={si} size={14} fill="#f59e0b" color="#f59e0b" />
+                  ))}
+                </div>
+                <p className="testimonial-text">{t.text}</p>
+                <div className="testimonial-author">
+                  <div className="testimonial-avatar" style={{ background: `linear-gradient(135deg, ${t.color}, ${t.color}99)` }}>
+                    {t.avatar}
+                  </div>
+                  <div>
+                    <span className="testimonial-name">{t.name}</span>
+                    <span className="testimonial-role">{t.role}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button className="carousel-arrow carousel-arrow-right" onClick={next} disabled={current >= maxIndex} aria-label="Next">
+        <ChevronRight size={20} />
+      </button>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   Main Page
+══════════════════════════════════════════════════════════ */
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
@@ -16,6 +241,7 @@ export default function HomePage() {
     'ProToolBox — Free Online Tools for Video, PDF, Image & More',
     '75+ free browser-based online tools: play videos, merge PDFs, compress images, generate QR codes, convert formats, and more. Fast, private, no file uploads needed.'
   );
+
   const featuredTools = getFeaturedTools();
   const activeTools = getActiveTools();
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
@@ -35,143 +261,268 @@ export default function HomePage() {
     { q: 'Can I use ProToolBox on mobile devices?', a: 'Yes, ProToolBox is fully responsive and designed to work smoothly on mobile phones, tablets, and desktop computers.' },
   ];
 
+  /* ── Tool icon floaters ── */
+  const floaters = [
+    { label: 'PDF', emoji: '📄', delay: '0s',   top: '15%', right: '12%',  size: 56 },
+    { label: 'IMG', emoji: '🖼️', delay: '0.6s',  top: '55%', right: '5%',   size: 50 },
+    { label: 'VID', emoji: '🎬', delay: '1.2s',  top: '30%', right: '48%',  size: 46 },
+    { label: 'QR',  emoji: '📲', delay: '0.3s',  top: '70%', right: '32%',  size: 44 },
+    { label: 'TXT', emoji: '✍️', delay: '0.9s',  top: '8%',  right: '36%',  size: 48 },
+    { label: 'ZIP', emoji: '📦', delay: '1.5s',  top: '80%', right: '14%',  size: 42 },
+  ];
+
   return (
     <div className="home">
-      {/* ===== Hero Section ===== */}
-      <section className="hero">
-        <div className="container hero-content">
-          <div className="hero-badge-wrap animate-fade-in">
-            <span className="hero-badge-pill">
-              <span className="hero-badge-icon">⚡</span>
-              <span className="hero-badge-text">100% Free Tools</span>
-            </span>
+
+      {/* ═══ HERO ═══ */}
+      <section className="hero hero-split">
+        <div className="container hero-split-inner">
+
+          {/* LEFT */}
+          <div className="hero-left animate-fade-in">
+            <div className="hero-badge-wrap">
+              <span className="hero-badge-pill">
+                <span className="hero-badge-icon">⚡</span>
+                <span className="hero-badge-text">All-In-One Tools Hub</span>
+              </span>
+            </div>
+
+            <h1 className="hero-title">
+              Work Smarter,<br />
+              <span className="hero-title-accent">Not Harder</span>
+            </h1>
+
+            <p className="hero-subtitle">
+              Discover powerful, easy-to-use online tools to simplify your work,
+              boost productivity and save time. Free, fast &amp; private.
+            </p>
+
+            <form className="hero-search-form" onSubmit={handleSearch}>
+              <div className="hero-search-inner">
+                <Search size={20} className="hero-search-icon" />
+                <input
+                  type="text"
+                  className="hero-search-input"
+                  placeholder="Search for tools (e.g. PDF, image, SEO…)"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  aria-label="Search for a tool"
+                />
+                <button type="submit" className="hero-search-btn">
+                  <span>Search</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </form>
+
+            <div className="hero-trust-row">
+              <span className="hero-trust-badge"><CheckCircle2 size={14} /> 100% Free</span>
+              <span className="hero-trust-badge"><CheckCircle2 size={14} /> No Signup</span>
+              <span className="hero-trust-badge"><CheckCircle2 size={14} /> Fast &amp; Secure</span>
+            </div>
+
+            <div className="hero-suggestions">
+              <span className="hero-suggestions-label">Popular:</span>
+              {['PDF Merge', 'Image Compressor', 'Video Player', 'QR Code', 'JSON Formatter'].map(s => (
+                <Link key={s} to={`/tools?q=${encodeURIComponent(s)}`} className="hero-suggestion-pill">{s}</Link>
+              ))}
+            </div>
           </div>
 
-          <h1 className="hero-title animate-fade-in">
-            Every tool you need,<br />
-            <span className="hero-title-accent">right in your browser.</span>
-          </h1>
+          {/* RIGHT — floating tool icons visual */}
+          <div className="hero-right animate-fade-in-right">
+            <div className="hero-visual">
+              {/* glass browser frame */}
+              <div className="hero-browser-frame">
+                <div className="hero-browser-bar">
+                  <span className="hero-browser-dot red" />
+                  <span className="hero-browser-dot yellow" />
+                  <span className="hero-browser-dot green" />
+                  <div className="hero-browser-url">protoolbox.in</div>
+                </div>
+                <div className="hero-browser-body">
+                  <div className="hero-browser-grid">
+                    {featuredTools.slice(0, 6).map(tool => {
+                      const Icon = getIconComponent(tool.icon);
+                      const cat = categories.find(c => c.id === tool.category);
+                      const color = cat?.color || '#6366f1';
+                      return (
+                        <div key={tool.id} className="hero-mini-tool-card">
+                          <div className="hero-mini-icon" style={{ background: `${color}20` }}>
+                            <Icon size={18} style={{ color }} />
+                          </div>
+                          <span>{tool.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
 
-          <p className="hero-subtitle animate-fade-in-up">
-            Convert files, edit PDFs, compress images, play videos, generate QR codes,
-            and more — fast, free, and private. No uploads to unknown servers.
-          </p>
+              {/* floating icons */}
+              {floaters.map((f, i) => (
+                <div
+                  key={i}
+                  className="hero-floater"
+                  style={{
+                    top: f.top,
+                    right: f.right,
+                    animationDelay: f.delay,
+                    width: f.size,
+                    height: f.size,
+                    fontSize: f.size * 0.45,
+                  }}
+                >
+                  {f.emoji}
+                </div>
+              ))}
 
-          <form className="hero-search-form animate-fade-in-up" onSubmit={handleSearch}>
-            <div className="hero-search-inner">
-              <Search size={20} className="hero-search-icon" />
-              <input
-                type="text"
-                className="hero-search-input"
-                placeholder="What do you want to do? (e.g. Compress PDF, resize image...)"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                aria-label="Search for a tool"
-              />
-              <button type="submit" className="hero-search-btn">
-                <span>Search</span>
-                <ArrowRight size={16} />
-              </button>
+              {/* orbital ring */}
+              <div className="hero-orbital-ring" />
             </div>
-          </form>
-
-          <div className="hero-suggestions animate-fade-in-up">
-            <span className="hero-suggestions-label">Popular:</span>
-            {['PDF Merge', 'Image Compressor', 'Video Player', 'QR Code', 'JSON Formatter'].map(s => (
-              <Link
-                key={s}
-                to={`/tools?q=${encodeURIComponent(s)}`}
-                className="hero-suggestion-pill"
-              >
-                {s}
-              </Link>
-            ))}
           </div>
         </div>
       </section>
 
-      {/* ===== Popular Tools Section ===== */}
+      {/* ═══ POPULAR TOOLS CAROUSEL ═══ */}
       <section className="section" id="popular-tools">
         <div className="container">
           <div className="section-header">
             <div>
-              <h2 className="section-title">Popular Tools</h2>
-              <p className="section-description">Most used tools by our community</p>
+              <span className="section-eyebrow">⭐ Popular Tools</span>
+              <h2 className="section-title">Explore Our Top Tools</h2>
+              <p className="section-description">Powerful tools at your fingertips.</p>
             </div>
             <Link to="/tools" className="view-all-pill">
               <span>View All Tools</span>
               <ArrowRight size={15} />
             </Link>
           </div>
-
-          <div className="tools-grid">
-            {featuredTools.map(tool => {
-              const Icon = getIconComponent(tool.icon);
-              const categoryObj = categories.find(c => c.id === tool.category);
-              const catColor = categoryObj?.color || '#6366f1';
-
-              return (
-                <Link key={tool.id} to={`/tools/${tool.slug}`} className="tool-card">
-                  <div className="tool-card-icon-wrap" style={{ background: `${catColor}15` }}>
-                    <Icon size={24} style={{ color: catColor }} />
-                  </div>
-                  <div className="tool-card-body">
-                    <div className="tool-card-head">
-                      <h3 className="tool-card-name">{tool.name}</h3>
-                      {tool.isNew && (
-                        <span className="badge badge-new">New</span>
-                      )}
-                    </div>
-                    <p className="tool-card-desc">{tool.description}</p>
-                  </div>
-                  <ChevronRight size={18} className="tool-card-arrow" />
-                </Link>
-              );
-            })}
-          </div>
+          <ToolsCarousel />
         </div>
       </section>
 
-      {/* ===== Browse by Category ===== */}
+      {/* ═══ BROWSE BY CATEGORY ═══ */}
       <section className="section" id="categories">
         <div className="container">
           <div className="section-header">
             <div>
-              <h2 className="section-title">Browse by Category</h2>
-              <p className="section-description">Find the right tool or explore by what you need to do.</p>
+              <span className="section-eyebrow">🗂 Browse by Category</span>
+              <h2 className="section-title">Find the Right Tools<br />for Every Need</h2>
             </div>
+            <Link to="/tools" className="view-all-pill">
+              View All Categories <ArrowRight size={15} />
+            </Link>
+          </div>
+          <CategoryCarousel />
+        </div>
+      </section>
+
+      {/* ═══ WHY CHOOSE ═══ */}
+      <section className="section why-section" id="why">
+        <div className="container why-inner">
+          {/* LEFT text */}
+          <div className="why-left">
+            <span className="section-eyebrow">💡 Why Choose ProToolBox</span>
+            <h2 className="why-title">Powerful. <span className="why-accent">Fast.</span> Free.</h2>
+            <p className="why-subtitle">
+              Everything you need in one place to get more done, effortlessly.
+            </p>
+            <ul className="why-features">
+              <li><CheckCircle2 size={18} className="why-check" /> 100% Free to use</li>
+              <li><CheckCircle2 size={18} className="why-check" /> Lightning Fast Performance</li>
+              <li><CheckCircle2 size={18} className="why-check" /> No Signup Required</li>
+              <li><CheckCircle2 size={18} className="why-check" /> Secure &amp; Private</li>
+            </ul>
+            <Link to="/tools" className="btn btn-primary why-cta">
+              Get Started <ArrowRight size={16} />
+            </Link>
           </div>
 
-          <div className="categories-grid">
-            {categories.map(cat => {
-              const Icon = getIconComponent(cat.icon);
-              const count = activeTools.filter(t => t.category === cat.id).length;
-
-              return (
-                <Link key={cat.id} to={`/category/${cat.id}`} className="category-card">
-                  <div className="category-card-icon-wrap" style={{ background: `${cat.color}15` }}>
-                    <Icon size={24} style={{ color: cat.color }} />
+          {/* RIGHT — laptop mockup */}
+          <div className="why-right">
+            <div className="laptop-mockup">
+              <div className="laptop-screen">
+                <div className="laptop-screen-inner">
+                  {/* mini tools grid preview */}
+                  <div className="laptop-preview-grid">
+                    {activeTools.slice(0, 9).map(tool => {
+                      const Icon = getIconComponent(tool.icon);
+                      const cat = categories.find(c => c.id === tool.category);
+                      const color = cat?.color || '#6366f1';
+                      return (
+                        <div key={tool.id} className="laptop-preview-card">
+                          <Icon size={16} style={{ color }} />
+                          <span>{tool.name.split(' ').slice(0, 2).join(' ')}</span>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="category-card-body">
-                    <h3 className="category-card-name">{cat.name}</h3>
-                    <p className="category-card-desc">{cat.description}</p>
-                    <span className="category-card-count">{count} tool{count !== 1 ? 's' : ''}</span>
-                  </div>
-                  <ChevronRight size={18} className="category-card-arrow" />
-                </Link>
-              );
-            })}
+                </div>
+              </div>
+              <div className="laptop-base" />
+              <div className="laptop-stand" />
+            </div>
+            {/* floating badge cards */}
+            <div className="why-badge why-badge-1">
+              <Zap size={16} />
+              <span>Blazing Fast</span>
+            </div>
+            <div className="why-badge why-badge-2">
+              <Shield size={16} />
+              <span>100% Secure</span>
+            </div>
+            <div className="why-badge why-badge-3">
+              <Rocket size={16} />
+              <span>Boost Productivity</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ===== How It Works ===== */}
+      {/* ═══ TESTIMONIALS ═══ */}
+      <section className="section testimonials-section" id="testimonials">
+        <div className="container">
+          <div className="section-header section-header-center">
+            <span className="section-eyebrow">🌟 Trusted by Millions</span>
+            <h2 className="section-title">What Our Users Say</h2>
+            <p className="section-description" style={{ margin: '0 auto' }}>
+              Join thousands of happy users who love ProToolBox.
+            </p>
+          </div>
+          {/* Note: testimonials below are sample/editable placeholders */}
+          <TestimonialsCarousel />
+        </div>
+      </section>
+
+      {/* ═══ PROMO BANNER ═══ */}
+      <section className="section promo-banner-section">
+        <div className="container">
+          <div className="promo-banner">
+            {/* rocket */}
+            <div className="promo-rocket-wrap" aria-hidden="true">
+              <div className="promo-cloud promo-cloud-1" />
+              <div className="promo-cloud promo-cloud-2" />
+              <span className="promo-rocket-emoji">🚀</span>
+            </div>
+
+            <div className="promo-text">
+              <h2 className="promo-title">Ready to Get Started?</h2>
+              <p className="promo-desc">Explore our tools and make your work easier today.</p>
+            </div>
+
+            <Link to="/tools" className="promo-cta-btn">
+              Browse All Tools <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ HOW IT WORKS ═══ */}
       <section className="section" id="how-it-works">
         <div className="container">
           <div className="section-header section-header-center">
-            <div className="how-it-works-badge">
-              <span className="badge badge-accent">✦ How It Works</span>
-            </div>
+            <span className="section-eyebrow">✦ How It Works</span>
             <h2 className="section-title">Simple, fast, and private</h2>
             <p className="section-description" style={{ margin: '0 auto' }}>
               Most tools work entirely in your browser — no file uploads to external servers required.
@@ -179,70 +530,28 @@ export default function HomePage() {
           </div>
 
           <div className="steps-container">
-            <div className="step-card">
-              <div className="step-number">1</div>
-              <div className="step-icon-wrap">
-                <Upload size={24} />
+            {[
+              { n: '1', icon: '📁', title: 'Upload or paste', desc: 'Drop a file, paste text, or use our tool instantly.' },
+              { n: '2', icon: '⚙️', title: 'Process locally', desc: 'Your data stays on your device for maximum privacy.' },
+              { n: '3', icon: '⬇️', title: 'Download result', desc: 'Get your result in seconds. Clean, fast, and secure.' },
+            ].map((step, i) => (
+              <div key={i} className="step-card-new">
+                <div className="step-emoji">{step.icon}</div>
+                <div className="step-number-badge">{step.n}</div>
+                <h3 className="step-title">{step.title}</h3>
+                <p className="step-desc">{step.desc}</p>
               </div>
-              <h3 className="step-title">Upload or paste</h3>
-              <p className="step-desc">Drop a file, paste text, or use our tool instantly.</p>
-            </div>
-
-            <div className="step-connector" aria-hidden="true">
-              <ArrowRight size={20} />
-            </div>
-
-            <div className="step-card">
-              <div className="step-number">2</div>
-              <div className="step-icon-wrap">
-                <Cpu size={24} />
-              </div>
-              <h3 className="step-title">Process locally</h3>
-              <p className="step-desc">Your data stays on your device for maximum privacy.</p>
-            </div>
-
-            <div className="step-connector" aria-hidden="true">
-              <ArrowRight size={20} />
-            </div>
-
-            <div className="step-card">
-              <div className="step-number">3</div>
-              <div className="step-icon-wrap">
-                <Download size={24} />
-              </div>
-              <h3 className="step-title">Download result</h3>
-              <p className="step-desc">Get your result in seconds. Clean, fast, and secure.</p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ===== Privacy Banner ===== */}
-      <section className="section" id="privacy">
-        <div className="container">
-          <div className="privacy-card glass">
-            <div className="privacy-icon-wrap">
-              <Shield size={32} />
-            </div>
-            <div className="privacy-body">
-              <h2 className="privacy-title">Your files stay with you</h2>
-              <p className="privacy-text">
-                Most conversions, compressions, and edits run in your browser using JavaScript APIs.
-                Files are not uploaded to any external server unless explicitly required for a specific operation.
-              </p>
-              <Link to="/privacy" className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}>
-                Read our Privacy Policy <ArrowRight size={14} />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== FAQ ===== */}
+      {/* ═══ FAQ ═══ */}
       <section className="section" id="faq">
         <div className="container">
           <div className="section-header section-header-center">
-            <h2 className="section-title">Frequently asked questions</h2>
+            <span className="section-eyebrow">❓ FAQ</span>
+            <h2 className="section-title">Frequently Asked Questions</h2>
             <p className="section-description" style={{ margin: '0 auto' }}>
               Everything you need to know about ProToolBox and browser-based tools.
             </p>
@@ -250,7 +559,7 @@ export default function HomePage() {
 
           <div className="faq-list">
             {faqs.map((faq, i) => (
-              <div key={i} className="faq-item">
+              <div key={i} className={`faq-item${faqOpen === i ? ' faq-open' : ''}`}>
                 <button
                   className="faq-question"
                   onClick={() => setFaqOpen(faqOpen === i ? null : i)}
@@ -270,7 +579,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== Stay Updated / Newsletter ===== */}
+      {/* ═══ NEWSLETTER ═══ */}
       <NewsletterSignup />
     </div>
   );
