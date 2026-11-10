@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Upload, Download, RefreshCw, AlertCircle, Sparkles, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, Download, RefreshCw, AlertCircle, Sparkles, Eye, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import './tools.css';
 
 type BgOption = 'transparent' | 'white' | 'black' | 'custom';
@@ -11,6 +11,7 @@ interface RemovalState {
   errorMsg: string;
 }
 
+// Helper to downscale oversized images to save memory and processing time
 function resizeImageIfNeeded(file: File, maxPx = 2000): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -18,180 +19,186 @@ function resizeImageIfNeeded(file: File, maxPx = 2000): Promise<Blob> {
     img.onload = () => {
       URL.revokeObjectURL(url);
       const { naturalWidth: w, naturalHeight: h } = img;
-      if (w <= maxPx && h <= maxPx) { resolve(file); return; }
+      if (w <= maxPx && h <= maxPx) {
+        resolve(file);
+        return;
+      }
       const scale = Math.min(maxPx / w, maxPx / h);
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(w * scale);
       canvas.height = Math.round(h * scale);
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Canvas toBlob failed')), 'image/png');
+      canvas.toBlob(
+        blob => (blob ? resolve(blob) : resolve(file)),
+        'image/png'
+      );
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image for processing.'));
+    };
     img.src = url;
   });
 }
 
-function applyBackgroundColor(
-  resultCanvas: HTMLCanvasElement,
+// Apply chosen background to the transparent image canvas
+function renderWithBackground(
+  transparentImg: HTMLImageElement,
   bgColor: BgOption,
   customColor: string
 ): string {
-  const out = document.createElement('canvas');
-  out.width = resultCanvas.width;
-  out.height = resultCanvas.height;
-  const ctx = out.getContext('2d')!;
+  const canvas = document.createElement('canvas');
+  canvas.width = transparentImg.naturalWidth || transparentImg.width;
+  canvas.height = transparentImg.naturalHeight || transparentImg.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return transparentImg.src;
+
   if (bgColor !== 'transparent') {
     ctx.fillStyle = bgColor === 'custom' ? customColor : bgColor;
-    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
-  ctx.drawImage(resultCanvas, 0, 0);
-  return out.toDataURL('image/png');
+  ctx.drawImage(transparentImg, 0, 0);
+  return canvas.toDataURL('image/png');
 }
 
 export default function BackgroundRemover() {
   const [state, setState] = useState<RemovalState>({
-    status: 'idle', progress: 0, progressMsg: '', errorMsg: ''
+    status: 'idle',
+    progress: 0,
+    progressMsg: '',
+    errorMsg: '',
   });
-  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+
   const [originalFile, setOriginalFile] = useState<File | null>(null);
-  const [resultCanvas, setResultCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  const [resultBlob, setResultBlob] = useState<Blob | null>(null);
+  const [resultImgElement, setResultImgElement] = useState<HTMLImageElement | null>(null);
   const [resultDataUrl, setResultDataUrl] = useState<string | null>(null);
+
   const [isDragging, setIsDragging] = useState(false);
   const [bgOption, setBgOption] = useState<BgOption>('transparent');
   const [customColor, setCustomColor] = useState('#ffffff');
   const [sliderPos, setSliderPos] = useState(50);
-  const [isDraggingSlider, setIsDraggingSlider] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sliderContainerRef = useRef<HTMLDivElement>(null);
-  const pipelineRef = useRef<any>(null);
 
   const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-  // Cleanup URLs on unmount
+  // Clean object URLs on unmount
   useEffect(() => {
     return () => {
       if (originalUrl) URL.revokeObjectURL(originalUrl);
     };
   }, [originalUrl]);
 
-  // Update result preview when bg changes
+  // Re-render when background option changes
   useEffect(() => {
-    if (resultCanvas) {
-      setResultDataUrl(applyBackgroundColor(resultCanvas, bgOption, customColor));
+    if (resultImgElement) {
+      const dataUrl = renderWithBackground(resultImgElement, bgOption, customColor);
+      setResultDataUrl(dataUrl);
     }
-  }, [bgOption, customColor, resultCanvas]);
+  }, [bgOption, customColor, resultImgElement]);
 
   const processFile = useCallback(async (file: File) => {
     if (!SUPPORTED_TYPES.includes(file.type)) {
-      setState({ status: 'error', progress: 0, progressMsg: '', errorMsg: 'Unsupported format. Please upload JPG, PNG, or WEBP.' });
+      setState({
+        status: 'error',
+        progress: 0,
+        progressMsg: '',
+        errorMsg: 'Unsupported file format. Please upload a JPG, PNG, or WEBP image.',
+      });
       return;
     }
+
     if (file.size > 10 * 1024 * 1024) {
-      setState({ status: 'error', progress: 0, progressMsg: '', errorMsg: 'File too large (max 10MB). Please choose a smaller image.' });
+      setState({
+        status: 'error',
+        progress: 0,
+        progressMsg: '',
+        errorMsg: 'File is too large (maximum size is 10 MB). Please choose a smaller image.',
+      });
       return;
-    }
-    if (!('OffscreenCanvas' in window || 'createImageBitmap' in window)) {
-      setState({ status: 'error', progress: 0, progressMsg: '', errorMsg: 'Your browser may not support this tool. Please use Chrome, Edge, or Firefox.' });
     }
 
     if (originalUrl) URL.revokeObjectURL(originalUrl);
     const objUrl = URL.createObjectURL(file);
     setOriginalFile(file);
     setOriginalUrl(objUrl);
-    setResultCanvas(null);
+    setResultBlob(null);
+    setResultImgElement(null);
     setResultDataUrl(null);
     setSliderPos(50);
 
+    setState({
+      status: 'loading-model',
+      progress: 10,
+      progressMsg: 'Preparing on-device AI model...',
+      errorMsg: '',
+    });
+
     try {
-      // Load model if not already loaded
-      if (!pipelineRef.current) {
-        setState({ status: 'loading-model', progress: 5, progressMsg: 'Pehli baar model load ho raha hai, thoda time lag sakta hai...', errorMsg: '' });
-        const { pipeline, env } = await import('@huggingface/transformers');
-        // Use local cache for Hostinger (no CDN needed after first visit)
-        env.allowLocalModels = false;
-        const pipe = await pipeline('image-segmentation', 'Xenova/segformer-b2-clothes', {
-          progress_callback: (p: any) => {
-            if (p.status === 'progress' && p.total) {
-              const pct = Math.round((p.loaded / p.total) * 40);
-              setState(s => ({ ...s, progress: 5 + pct, progressMsg: `Model download: ${Math.round((p.loaded / p.total) * 100)}%` }));
-            }
-          }
-        });
-        pipelineRef.current = pipe;
-      }
+      // Dynamically import @imgly/background-removal to keep initial bundle light
+      const { removeBackground } = await import('@imgly/background-removal');
 
-      setState({ status: 'processing', progress: 50, progressMsg: 'Background remove ho raha hai...', errorMsg: '' });
-
-      // Resize if needed
-      const resized = await resizeImageIfNeeded(file, 2000);
-      const resizedFile = new File([resized], file.name, { type: 'image/png' });
-
-      // Run segmentation — returns array of { label, mask, score }
-      setState(s => ({ ...s, progress: 60, progressMsg: 'AI processing...' }));
-      const result = await pipelineRef.current(URL.createObjectURL(resizedFile));
-
-      setState(s => ({ ...s, progress: 85, progressMsg: 'Result taiyaar ho raha hai...' }));
-
-      // Find background mask (label = 'Background' or use inverse of all foreground)
-      let bgMask: { data: Uint8ClampedArray; width: number; height: number } | null = null;
-      for (const seg of result) {
-        if (seg.label?.toLowerCase() === 'background') {
-          bgMask = seg.mask;
-          break;
-        }
-      }
-
-      // If no explicit background label, invert union of all foreground masks
-      if (!bgMask && result.length > 0) {
-        const first = result[0].mask;
-        const combined = new Uint8ClampedArray(first.data.length).fill(255);
-        for (const seg of result) {
-          for (let i = 0; i < seg.mask.data.length; i++) {
-            if (seg.mask.data[i] > 128) combined[i] = 0;
-          }
-        }
-        bgMask = { data: combined, width: first.width, height: first.height };
-      }
-
-      if (!bgMask) throw new Error('Could not get segmentation mask');
-
-      // Draw result with transparent background
-      const img = new Image();
-      await new Promise<void>((res, rej) => {
-        img.onload = () => res();
-        img.onerror = rej;
-        img.src = URL.createObjectURL(resizedFile);
+      setState({
+        status: 'processing',
+        progress: 30,
+        progressMsg: 'Removing background with AI...',
+        errorMsg: '',
       });
 
-      const canvas = document.createElement('canvas');
-      canvas.width = bgMask.width;
-      canvas.height = bgMask.height;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      // Resize large images first
+      const preparedBlob = await resizeImageIfNeeded(file, 2000);
 
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const maskData = bgMask.data;
+      // Run background removal
+      const outputBlob = await removeBackground(preparedBlob, {
+        progress: (key: string, current: number, total: number) => {
+          if (total > 0) {
+            const pct = Math.min(95, Math.round((current / total) * 100));
+            setState(s => ({
+              ...s,
+              progress: pct,
+              progressMsg: key.includes('fetch')
+                ? `Downloading AI assets (${pct}%)...`
+                : `Processing image (${pct}%)...`,
+            }));
+          }
+        },
+      });
 
-      // Apply mask: set alpha=0 where background (mask=255 means background)
-      for (let i = 0; i < maskData.length; i++) {
-        const alpha = maskData[i] > 128 ? 0 : 255;
-        imgData.data[i * 4 + 3] = alpha;
-      }
-      ctx.putImageData(imgData, 0, 0);
+      // Load into HTMLImageElement for canvas color operations
+      const outputUrl = URL.createObjectURL(outputBlob);
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to render transparent output.'));
+        img.src = outputUrl;
+      });
 
-      setResultCanvas(canvas);
-      setResultDataUrl(applyBackgroundColor(canvas, bgOption, customColor));
-      setState({ status: 'done', progress: 100, progressMsg: '', errorMsg: '' });
+      setResultBlob(outputBlob);
+      setResultImgElement(img);
+      const initialDataUrl = renderWithBackground(img, bgOption, customColor);
+      setResultDataUrl(initialDataUrl);
 
+      setState({
+        status: 'done',
+        progress: 100,
+        progressMsg: '',
+        errorMsg: '',
+      });
     } catch (err: any) {
       console.error('Background removal error:', err);
       setState({
-        status: 'error', progress: 0, progressMsg: '',
-        errorMsg: err.message?.includes('fetch') || err.message?.includes('network')
-          ? 'Model load nahi hua. Internet connection check karein aur dobara try karein.'
-          : `Processing error: ${err.message || 'Unknown error'}`
+        status: 'error',
+        progress: 0,
+        progressMsg: '',
+        errorMsg: err?.message || 'Failed to remove background. Please try again with a different image.',
       });
     }
   }, [bgOption, customColor, originalUrl]);
@@ -207,15 +214,15 @@ export default function BackgroundRemover() {
   }, [handleFiles]);
 
   const handleDownload = () => {
-    if (!resultCanvas) return;
-    const dataUrl = applyBackgroundColor(resultCanvas, bgOption, customColor);
+    if (!resultDataUrl) return;
     const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `bg-removed-${originalFile?.name?.replace(/\.[^.]+$/, '') || 'image'}.png`;
+    a.href = resultDataUrl;
+    const nameWithoutExt = originalFile?.name?.replace(/\.[^.]+$/, '') || 'image';
+    a.download = `${nameWithoutExt}-no-bg.png`;
     a.click();
   };
 
-  // Before/after slider logic
+  // Slider dragging logic
   const handleSliderMove = useCallback((clientX: number) => {
     if (!sliderContainerRef.current) return;
     const rect = sliderContainerRef.current.getBoundingClientRect();
@@ -223,51 +230,65 @@ export default function BackgroundRemover() {
     setSliderPos(pct);
   }, []);
 
-  const handleSliderMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
-    setIsDraggingSlider(true);
     const onMove = (ev: MouseEvent) => handleSliderMove(ev.clientX);
-    const onUp = () => { setIsDraggingSlider(false); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
 
-  const handleSliderTouchStart = (e: React.TouchEvent) => {
-    setIsDraggingSlider(true);
+  const handleTouchStart = (e: React.TouchEvent) => {
     const onMove = (ev: TouchEvent) => handleSliderMove(ev.touches[0].clientX);
-    const onEnd = () => { setIsDraggingSlider(false); window.removeEventListener('touchmove', onMove); window.removeEventListener('touchend', onEnd); };
+    const onEnd = () => {
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
     window.addEventListener('touchmove', onMove);
     window.addEventListener('touchend', onEnd);
   };
 
   const isLoading = state.status === 'loading-model' || state.status === 'processing';
 
-  // Checkerboard for transparency display
+  // Checkerboard pattern for transparent background
   const checkerboardStyle: React.CSSProperties = {
     backgroundImage: `
-      linear-gradient(45deg, #ccc 25%, transparent 25%),
-      linear-gradient(-45deg, #ccc 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, #ccc 75%),
-      linear-gradient(-45deg, transparent 75%, #ccc 75%)
+      linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+      linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+      linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)
     `,
     backgroundSize: '20px 20px',
     backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#ffffff',
   };
 
   return (
     <div className="tool-container">
-
-      {/* Privacy notice */}
-      <div className="tool-notice glass" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-lg)', background: 'rgba(79,70,229,0.07)', border: '1px solid rgba(79,70,229,0.18)' }}>
-        <Sparkles size={16} style={{ color: '#4f46e5', flexShrink: 0 }} />
-        <span style={{ fontSize: '0.875rem', color: '#334155', fontWeight: 500 }}>
-          🔒 Privacy: Aapki image server par upload nahi hoti — sab kuch aapke device ke browser mein hota hai.
-          Pehli baar model download hoga (~40MB), uske baad offline bhi kaam karega.
+      {/* Privacy Notice Banner */}
+      <div
+        className="tool-notice glass"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          padding: '0.85rem 1.35rem',
+          borderRadius: 'var(--radius-lg, 16px)',
+          background: 'rgba(79, 70, 229, 0.08)',
+          border: '1px solid rgba(79, 70, 229, 0.2)',
+        }}
+      >
+        <Sparkles size={18} style={{ color: '#4f46e5', flexShrink: 0 }} />
+        <span style={{ fontSize: '0.88rem', color: '#1e293b', fontWeight: 550, lineHeight: 1.5 }}>
+          <strong>100% Private & In-Browser:</strong> Your images are processed directly on your device.
+          No images are uploaded to any external server. The AI model runs locally using WebAssembly.
         </span>
       </div>
 
-      {/* Upload panel */}
+      {/* Main Card Panel */}
       <div className="tool-card-panel">
         <input
           ref={fileInputRef}
@@ -281,129 +302,333 @@ export default function BackgroundRemover() {
           <div
             className={`tool-dropzone${isDragging ? ' drag-active' : ''}`}
             onClick={() => fileInputRef.current?.click()}
-            onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+            onDragOver={e => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
           >
             <div className="tool-dropzone-icon">
-              <Upload size={28} />
+              <Upload size={30} />
             </div>
-            <p className="tool-dropzone-text">Image yahan drop karein ya click karein</p>
-            <p className="tool-dropzone-hint">JPG, PNG, WEBP — max 10MB</p>
+            <p className="tool-dropzone-text">Drop your image here, or click to browse</p>
+            <p className="tool-dropzone-hint">Supports JPG, PNG, WEBP — up to 10 MB</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-
-            {/* Progress / Status */}
+            {/* Loading / Progress State */}
             {isLoading && (
-              <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                <div className="loading-ring" style={{ margin: '0 auto 1rem' }} />
-                <p style={{ color: '#4f46e5', fontWeight: 600, marginBottom: '0.5rem' }}>{state.progressMsg}</p>
-                <div style={{ background: 'rgba(99,102,241,0.12)', borderRadius: 99, height: 8, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: 'linear-gradient(90deg,#4f46e5,#7c3aed)', borderRadius: 99, width: `${state.progress}%`, transition: 'width 0.4s ease' }} />
-                </div>
-                <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>Aapki image device se bahar nahi ja rahi</p>
-              </div>
-            )}
-
-            {/* Error */}
-            {state.status === 'error' && (
-              <div className="tool-error-box" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 'var(--radius-lg)', padding: '1rem 1.25rem' }}>
-                <AlertCircle size={20} style={{ color: '#ef4444', flexShrink: 0, marginTop: 2 }} />
-                <div>
-                  <p style={{ fontWeight: 600, color: '#dc2626', marginBottom: 4 }}>Error</p>
-                  <p style={{ color: '#7f1d1d', fontSize: '0.9rem' }}>{state.errorMsg}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Before/After slider */}
-            {state.status === 'done' && originalUrl && resultDataUrl && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <p style={{ fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <Eye size={16} /> Before / After — slider drag karein
+              <div style={{ textAlign: 'center', padding: '1.5rem 1rem' }}>
+                <div className="loading-ring" style={{ margin: '0 auto 1.25rem' }} />
+                <p style={{ color: '#4f46e5', fontWeight: 700, fontSize: '1.05rem', marginBottom: '0.65rem' }}>
+                  {state.progressMsg}
                 </p>
                 <div
-                  ref={sliderContainerRef}
-                  style={{ position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden', cursor: 'col-resize', userSelect: 'none', boxShadow: '0 8px 32px rgba(99,102,241,0.14)' }}
-                  onMouseDown={handleSliderMouseDown}
-                  onTouchStart={handleSliderTouchStart}
+                  style={{
+                    background: 'rgba(99, 102, 241, 0.12)',
+                    borderRadius: 99,
+                    height: 10,
+                    maxWidth: 420,
+                    margin: '0 auto',
+                    overflow: 'hidden',
+                  }}
                 >
-                  {/* Result (right/bottom) */}
-                  <div style={{ width: '100%', position: 'relative', ...checkerboardStyle }}>
-                    <img src={resultDataUrl} alt="Background removed" style={{ width: '100%', display: 'block' }} />
-                  </div>
-                  {/* Original (left clip) */}
-                  <div style={{ position: 'absolute', top: 0, left: 0, width: `${sliderPos}%`, height: '100%', overflow: 'hidden' }}>
-                    <img src={originalUrl} alt="Original" style={{ width: `${100 / (sliderPos / 100)}%`, maxWidth: 'none', display: 'block', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  {/* Divider */}
-                  <div style={{ position: 'absolute', top: 0, left: `${sliderPos}%`, transform: 'translateX(-50%)', height: '100%', width: 3, background: '#fff', boxShadow: '0 0 8px rgba(0,0,0,0.3)' }}>
-                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: '#fff', borderRadius: 99, padding: '4px 8px', boxShadow: '0 2px 12px rgba(0,0,0,0.25)', display: 'flex', gap: 4 }}>
-                      <ChevronLeft size={14} /><ChevronRight size={14} />
-                    </div>
-                  </div>
-                  {/* Labels */}
-                  <span style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 99 }}>Original</span>
-                  <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(79,70,229,0.75)', color: '#fff', fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 99 }}>Result</span>
+                  <div
+                    style={{
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+                      borderRadius: 99,
+                      width: `${state.progress}%`,
+                      transition: 'width 0.35s ease',
+                    }}
+                  />
+                </div>
+                <p style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '0.65rem' }}>
+                  First-time initialization downloads on-device AI weights. Subsequent runs are instant.
+                </p>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {state.status === 'error' && (
+              <div
+                className="tool-error-box"
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.28)',
+                  borderRadius: 'var(--radius-lg, 14px)',
+                  padding: '1rem 1.25rem',
+                }}
+              >
+                <AlertCircle size={22} style={{ color: '#ef4444', flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <p style={{ fontWeight: 700, color: '#dc2626', marginBottom: 4, fontSize: '0.95rem' }}>
+                    Processing Error
+                  </p>
+                  <p style={{ color: '#7f1d1d', fontSize: '0.88rem', lineHeight: 1.5 }}>{state.errorMsg}</p>
                 </div>
               </div>
             )}
 
-            {/* Just original preview while processing */}
-            {state.status !== 'done' && originalUrl && (
-              <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', maxHeight: 320 }}>
-                <img src={originalUrl} alt="Uploaded" style={{ width: '100%', maxHeight: 320, objectFit: 'contain', background: '#f8fafc' }} />
+            {/* Before / After Comparison Slider */}
+            {state.status === 'done' && originalUrl && resultDataUrl && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <p
+                  style={{
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.95rem',
+                  }}
+                >
+                  <Eye size={16} style={{ color: '#4f46e5' }} /> Drag the slider to compare original vs result
+                </p>
+
+                <div
+                  ref={sliderContainerRef}
+                  style={{
+                    position: 'relative',
+                    borderRadius: 'var(--radius-lg, 16px)',
+                    overflow: 'hidden',
+                    cursor: 'col-resize',
+                    userSelect: 'none',
+                    boxShadow: '0 12px 36px rgba(99, 102, 241, 0.16)',
+                    maxHeight: 520,
+                  }}
+                  onMouseDown={handleMouseDown}
+                  onTouchStart={handleTouchStart}
+                >
+                  {/* Background-removed result (base layer) */}
+                  <div style={{ width: '100%', position: 'relative', ...checkerboardStyle }}>
+                    <img
+                      src={resultDataUrl}
+                      alt="Background Removed"
+                      style={{ width: '100%', maxHeight: 520, objectFit: 'contain', display: 'block' }}
+                    />
+                  </div>
+
+                  {/* Original image (clipped on left) */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: `${sliderPos}%`,
+                      height: '100%',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <img
+                      src={originalUrl}
+                      alt="Original"
+                      style={{
+                        width: `${100 / (sliderPos / 100)}%`,
+                        maxWidth: 'none',
+                        height: '100%',
+                        objectFit: 'contain',
+                        display: 'block',
+                      }}
+                    />
+                  </div>
+
+                  {/* Vertical divider line */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: `${sliderPos}%`,
+                      transform: 'translateX(-50%)',
+                      height: '100%',
+                      width: 3,
+                      background: '#ffffff',
+                      boxShadow: '0 0 10px rgba(0, 0, 0, 0.35)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        background: '#ffffff',
+                        borderRadius: 99,
+                        padding: '4px 8px',
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        color: '#4f46e5',
+                      }}
+                    >
+                      <ChevronLeft size={14} />
+                      <ChevronRight size={14} />
+                    </div>
+                  </div>
+
+                  {/* Badges */}
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 12,
+                      left: 12,
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      backdropFilter: 'blur(8px)',
+                      color: '#ffffff',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '3px 10px',
+                      borderRadius: 99,
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    Original
+                  </span>
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 12,
+                      right: 12,
+                      background: 'rgba(79, 70, 229, 0.85)',
+                      backdropFilter: 'blur(8px)',
+                      color: '#ffffff',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '3px 10px',
+                      borderRadius: 99,
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    Result
+                  </span>
+                </div>
               </div>
             )}
 
-            {/* Background color picker (only when done) */}
+            {/* Static preview during processing */}
+            {state.status !== 'done' && originalUrl && (
+              <div
+                style={{
+                  borderRadius: 'var(--radius-lg, 16px)',
+                  overflow: 'hidden',
+                  maxHeight: 360,
+                  background: '#f8fafc',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <img
+                  src={originalUrl}
+                  alt="Uploaded preview"
+                  style={{ maxHeight: 360, width: 'auto', objectFit: 'contain' }}
+                />
+              </div>
+            )}
+
+            {/* Background Color Customization */}
             {state.status === 'done' && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
-                <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.9rem' }}>Background:</span>
-                {(['transparent', 'white', 'black', 'custom'] as BgOption[]).map(opt => (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  alignItems: 'center',
+                  padding: '1rem',
+                  borderRadius: 'var(--radius-lg, 14px)',
+                  background: 'rgba(79, 70, 229, 0.05)',
+                  border: '1px solid rgba(99, 102, 241, 0.15)',
+                }}
+              >
+                <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem' }}>
+                  Choose Background:
+                </span>
+                {(
+                  [
+                    { id: 'transparent', label: 'Transparent' },
+                    { id: 'white', label: 'White' },
+                    { id: 'black', label: 'Black' },
+                    { id: 'custom', label: 'Custom' },
+                  ] as { id: BgOption; label: string }[]
+                ).map(opt => (
                   <button
-                    key={opt}
-                    onClick={() => setBgOption(opt)}
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setBgOption(opt.id)}
                     style={{
-                      padding: '0.35rem 0.9rem',
+                      padding: '0.4rem 1rem',
                       borderRadius: 99,
-                      border: bgOption === opt ? '2px solid #4f46e5' : '1px solid rgba(0,0,0,0.15)',
-                      background: opt === 'transparent' ? 'linear-gradient(135deg,#ccc 25%,transparent 25%,-25%,#ccc 75%,transparent 75%)' : opt === 'custom' ? customColor : opt,
-                      color: opt === 'black' ? '#fff' : opt === 'transparent' ? '#334155' : '#1e293b',
-                      fontWeight: 500,
+                      border: bgOption === opt.id ? '2px solid #4f46e5' : '1px solid rgba(0, 0, 0, 0.15)',
+                      background:
+                        opt.id === 'transparent'
+                          ? '#ffffff'
+                          : opt.id === 'white'
+                          ? '#ffffff'
+                          : opt.id === 'black'
+                          ? '#0f172a'
+                          : customColor,
+                      color: opt.id === 'black' ? '#ffffff' : '#1e293b',
+                      fontWeight: 600,
                       fontSize: '0.85rem',
                       cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      boxShadow: bgOption === opt ? '0 0 0 3px rgba(79,70,229,0.2)' : 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      boxShadow: bgOption === opt.id ? '0 0 0 3px rgba(79, 70, 229, 0.22)' : 'none',
+                      transition: 'all 0.15s ease',
                     }}
                   >
-                    {opt === 'transparent' ? '⬜ Transparent' : opt === 'white' ? '⬜ White' : opt === 'black' ? '⬛ Black' : '🎨 Custom'}
+                    {bgOption === opt.id && <Check size={14} />}
+                    {opt.label}
                   </button>
                 ))}
+
                 {bgOption === 'custom' && (
-                  <input type="color" value={customColor} onChange={e => setCustomColor(e.target.value)}
-                    style={{ width: 40, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer', background: 'transparent' }} />
+                  <input
+                    type="color"
+                    value={customColor}
+                    onChange={e => setCustomColor(e.target.value)}
+                    style={{
+                      width: 42,
+                      height: 36,
+                      border: 'none',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      background: 'transparent',
+                    }}
+                    title="Choose custom color"
+                  />
                 )}
               </div>
             )}
 
-            {/* Action buttons */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.25rem' }}>
               <button
                 className="btn btn-secondary"
-                onClick={() => { fileInputRef.current?.click(); }}
+                onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
               >
-                <Upload size={16} /> New Image
+                <Upload size={16} /> Choose Another Image
               </button>
+
               {state.status === 'done' && (
                 <button className="btn btn-primary" onClick={handleDownload}>
                   <Download size={16} /> Download PNG
                 </button>
               )}
+
               {(state.status === 'error' || state.status === 'done') && originalFile && (
-                <button className="btn btn-secondary" onClick={() => { pipelineRef.current && processFile(originalFile); }} disabled={isLoading}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => processFile(originalFile)}
+                  disabled={isLoading}
+                >
                   <RefreshCw size={16} /> Retry
                 </button>
               )}
@@ -412,19 +637,61 @@ export default function BackgroundRemover() {
         )}
       </div>
 
-      {/* How it works */}
-      <div className="tool-card-panel" style={{ background: 'rgba(255,255,255,0.5)' }}>
-        <h3 style={{ fontWeight: 700, color: '#1e293b', marginBottom: '1rem', fontSize: '1.1rem' }}>Kaise kaam karta hai?</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+      {/* How It Works Section */}
+      <div className="tool-card-panel" style={{ background: 'rgba(255, 255, 255, 0.65)' }}>
+        <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '1.25rem', fontSize: '1.2rem' }}>
+          How It Works
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem' }}>
           {[
-            { n: '1', t: 'Image upload karein', d: 'JPG, PNG ya WEBP — max 10MB' },
-            { n: '2', t: 'AI process karta hai', d: 'On-device ML model background detect karta hai' },
-            { n: '3', t: 'Download karein', d: 'Transparent PNG ya koi bhi background color ke saath' },
+            {
+              step: '1',
+              title: 'Upload Your Image',
+              desc: 'Select or drag any JPG, PNG, or WEBP image up to 10 MB.',
+            },
+            {
+              step: '2',
+              title: 'AI Background Removal',
+              desc: 'The on-device WebAssembly model automatically isolates the subject with high precision.',
+            },
+            {
+              step: '3',
+              title: 'Download & Customize',
+              desc: 'Export as transparent PNG or apply custom solid background colors instantly.',
+            },
           ].map(s => (
-            <div key={s.n} style={{ textAlign: 'center', padding: '1rem' }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.5rem', fontSize: '1rem' }}>{s.n}</div>
-              <p style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.9rem' }}>{s.t}</p>
-              <p style={{ color: '#64748b', fontSize: '0.8rem', marginTop: 4 }}>{s.d}</p>
+            <div
+              key={s.step}
+              style={{
+                textAlign: 'left',
+                padding: '1.25rem',
+                borderRadius: 'var(--radius-lg, 16px)',
+                background: 'rgba(255, 255, 255, 0.75)',
+                border: '1px solid rgba(99, 102, 241, 0.12)',
+              }}
+            >
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '0.75rem',
+                  fontSize: '0.95rem',
+                  boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
+                }}
+              >
+                {s.step}
+              </div>
+              <p style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem', marginBottom: '0.35rem' }}>
+                {s.title}
+              </p>
+              <p style={{ color: '#475569', fontSize: '0.85rem', lineHeight: 1.55 }}>{s.desc}</p>
             </div>
           ))}
         </div>
@@ -432,4 +699,3 @@ export default function BackgroundRemover() {
     </div>
   );
 }
-
