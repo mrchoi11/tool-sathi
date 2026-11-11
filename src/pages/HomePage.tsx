@@ -282,8 +282,7 @@ export default function HomePage() {
           <div className="hero-left animate-fade-in">
             <div className="hero-badge-wrap">
               <span className="hero-badge-pill">
-                <span className="hero-badge-icon">⚡</span>
-                <span className="hero-badge-text">All-In-One Tools Hub</span>
+                <span className="hero-badge-text">Free Online Tools</span>
               </span>
             </div>
 
@@ -389,7 +388,6 @@ export default function HomePage() {
         <div className="container">
           <div className="section-header">
             <div>
-              <span className="section-eyebrow">⭐ Popular Tools</span>
               <h2 className="section-title">Explore Our Top Tools</h2>
               <p className="section-description">Powerful tools at your fingertips.</p>
             </div>
@@ -407,8 +405,7 @@ export default function HomePage() {
         <div className="container">
           <div className="section-header">
             <div>
-              <span className="section-eyebrow">🗂 Browse by Category</span>
-              <h2 className="section-title">Find the Right Tools<br />for Every Need</h2>
+              <h2 className="section-title">Browse by Category</h2>
             </div>
             <Link to="/tools" className="view-all-pill">
               View All Categories <ArrowRight size={15} />
@@ -423,7 +420,6 @@ export default function HomePage() {
         <div className="container why-inner">
           {/* LEFT text */}
           <div className="why-left">
-            <span className="section-eyebrow">💡 Why Choose ProToolBox</span>
             <h2 className="why-title">Powerful. <span className="why-accent">Fast.</span> Free.</h2>
             <p className="why-subtitle">
               Everything you need in one place to get more done, effortlessly.
@@ -484,7 +480,6 @@ export default function HomePage() {
       <section className="section testimonials-section" id="testimonials">
         <div className="container">
           <div className="section-header section-header-center">
-            <span className="section-eyebrow">🌟 Trusted by Millions</span>
             <h2 className="section-title">What Our Users Say</h2>
             <p className="section-description" style={{ margin: '0 auto' }}>
               Join thousands of happy users who love ProToolBox.
@@ -522,8 +517,7 @@ export default function HomePage() {
       <section className="section" id="how-it-works">
         <div className="container">
           <div className="section-header section-header-center">
-            <span className="section-eyebrow">✦ How It Works</span>
-            <h2 className="section-title">Simple, fast, and private</h2>
+            <h2 className="section-title">Simple, Fast, and Private</h2>
             <p className="section-description" style={{ margin: '0 auto' }}>
               Most tools work entirely in your browser — no file uploads to external servers required.
             </p>
@@ -550,7 +544,6 @@ export default function HomePage() {
       <section className="section" id="faq">
         <div className="container">
           <div className="section-header section-header-center">
-            <span className="section-eyebrow">❓ FAQ</span>
             <h2 className="section-title">Frequently Asked Questions</h2>
             <p className="section-description" style={{ margin: '0 auto' }}>
               Everything you need to know about ProToolBox and browser-based tools.

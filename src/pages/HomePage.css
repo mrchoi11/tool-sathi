@@ -381,18 +381,13 @@
 
 /* ===== Sections Layout ===== */
 .section {
-  padding: 4.5rem 0;
+  padding: 3rem 0;
   position: relative;
   z-index: 1;
 }
 
 .section-eyebrow {
-  display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #6366f1;
-  letter-spacing: 0.02em;
-  margin-bottom: 0.6rem;
+  display: none;
 }
 
 .section-header {
@@ -694,7 +689,7 @@
    WHY SECTION
    ========================================================================== */
 .why-section {
-  padding: 5rem 0;
+  padding: 3.5rem 0;
 }
 
 .why-inner {
