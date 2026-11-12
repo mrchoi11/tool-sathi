@@ -265,19 +265,20 @@ header .navbar-link[href="/blog"].navbar-link-active {
   height: 38px;
 }
 
-/* ─── a) TOP ROW: Featured Card (Left 1.5fr) + 2 Stacked Cards (Right 1fr) (FIX 1) ── */
+/* ─── a) TOP ROW: Featured Card (Left ~60%) + 2 Compact Cards (Right ~40%) (FIX A) ── */
 .discovery-top-row {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 24px;
-  align-items: start;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 20px;
+  align-items: stretch;
   width: 100%;
 }
 
-/* Large Featured Article Card (FIX 1: Dark min-height 380px, full-bleed thumb) */
+/* Large Featured Article Card (FIX 1 & A: Full height match ~380px) */
 .featured-guide-card {
   position: relative;
   min-height: 380px;
+  height: 100%;
   border-radius: 16px;
   background: #070d18;
   overflow: hidden;
@@ -456,34 +457,150 @@ header .navbar-link[href="/blog"].navbar-link-active {
   border: 1px solid rgba(20, 184, 166, 0.35);
 }
 
-/* Stacked 2 Cards on Right (FIX 1) */
+/* FIX A: 2 Compact Stacked Cards on Right (Height ~178px each, total ~380px) */
 .discovery-top-stacked {
   display: flex;
   flex-direction: column;
-  gap: 1.15rem;
-  justify-content: flex-start;
+  gap: 14px;
+  justify-content: space-between;
 }
 
-.stacked-card-item {
+.top-compact-card {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(20, 184, 166, 0.18);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  min-height: 178px;
+  flex: 1;
+  position: relative;
+  transition: transform 0.35s var(--ease-apple), box-shadow 0.35s var(--ease-apple), border-color 0.35s var(--ease-apple);
+  cursor: default;
+}
+
+.top-compact-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(20, 184, 166, 0.4);
+  box-shadow: 0 10px 24px -4px rgba(20, 184, 166, 0.18);
+}
+
+.top-compact-card--rotated {
+  transform: rotate(1.4deg);
+}
+
+.top-compact-card--rotated:hover {
+  transform: rotate(0deg) translateY(-4px);
+}
+
+.top-compact-thumb {
+  width: 140px;
+  min-width: 140px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  background: #070d18;
+  display: block;
+}
+
+.top-compact-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s var(--ease-apple);
+}
+
+.top-compact-card:hover .top-compact-thumb img {
+  transform: scale(1.05);
+}
+
+.top-compact-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 0.62rem;
+  font-weight: 750;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  border: 1px solid;
+  letter-spacing: 0.04em;
+  z-index: 2;
+}
+
+.top-compact-body {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px 4px 0;
 }
 
-.node-card--rotated {
-  transform: rotate(1.5deg);
-  transition: transform 0.35s var(--ease-apple), box-shadow 0.35s var(--ease-apple);
+.top-compact-meta {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: #64748B;
+  margin-bottom: 6px;
 }
 
-.node-card--rotated:hover {
-  transform: rotate(0deg) translateY(-5px);
+.top-compact-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0F172A;
+  line-height: 1.35;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* ─── c) CARDS BELOW: 3-Col Left Grid + Right Stacked/Showcase (FIX 3 & 4) ── */
+.top-compact-title a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--duration-fast);
+}
+
+.top-compact-title a:hover {
+  color: #14B8A6;
+}
+
+.top-compact-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.76rem;
+  font-weight: 750;
+  color: #14B8A6;
+  text-decoration: none;
+  margin-top: auto;
+  transition: gap var(--duration-fast);
+}
+
+.top-compact-read:hover {
+  gap: 6px;
+}
+
+/* ─── c) CARDS BELOW: 3-Col Left + 50px Spine Gutter + Right Showcase (FIX B, C, 4) ── */
 .discovery-clusters-row {
   display: grid;
-  grid-template-columns: 1.85fr 1fr;
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.45fr) 50px minmax(0, 1fr);
+  gap: 0;
   align-items: start;
+  position: relative;
+  z-index: 2;
+}
+
+.wire-spine-gutter {
+  width: 50px;
+  min-width: 50px;
+  height: 100%;
+  pointer-events: none;
 }
 
 /* Left 3-Column Regular Grid */
@@ -520,12 +637,18 @@ header .navbar-link[href="/blog"].navbar-link-active {
 
 .grid-3col {
   display: grid;
-  grid-template-columns: repeat(3, minmax(235px, 1fr));
+  grid-template-columns: repeat(3, minmax(210px, 1fr));
   row-gap: 28px;
-  column-gap: 18px;
+  column-gap: 16px;
 }
 
-/* Right Cluster: Stacked Piles + Highlighted Card */
+/* FIX C: Hide date in compact 3-col grid so date never cuts off */
+.grid-3col .meta-date,
+.grid-3col .meta-sep:last-of-type {
+  display: none;
+}
+
+/* Right Cluster: Stacked Piles (min 240px) + Highlighted Card */
 .cluster-right-showcase {
   display: flex;
   flex-direction: column;
@@ -535,8 +658,8 @@ header .navbar-link[href="/blog"].navbar-link-active {
 
 .grid-2col-media {
   display: grid;
-  grid-template-columns: repeat(2, minmax(170px, 1fr));
-  gap: 1.15rem;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 18px;
 }
 
 /* ─── Stacked Pile Effect (FIX 4: 2 layers behind, fan out on hover) ────── */
@@ -1169,7 +1292,8 @@ header .navbar-link[href="/blog"].navbar-link-active {
   display: flex;
   flex-direction: column;
   gap: 1.35rem;
-  z-index: 2;
+  z-index: 5;
+  margin-right: 28px;
 }
 
 .sidebar-card {
@@ -1180,6 +1304,21 @@ header .navbar-link[href="/blog"].navbar-link-active {
   border: 1px solid rgba(20, 184, 166, 0.18);
   box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
   padding: 1.15rem 1.15rem 1.25rem;
+}
+
+/* FIX C: Sidebar Recent Posts Height Limit (No overlap) */
+.sidebar-stream-card {
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.sidebar-stream-card::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-stream-card::-webkit-scrollbar-thumb {
+  background: rgba(20, 184, 166, 0.25);
+  border-radius: 4px;
 }
 
 .sidebar-section-title {

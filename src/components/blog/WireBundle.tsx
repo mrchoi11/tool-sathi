@@ -3,6 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 interface WireBundleProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   featuredRef: React.RefObject<HTMLDivElement | null>;
+  gutterRef: React.RefObject<HTMLDivElement | null>;
   leftClusterRef: React.RefObject<HTMLDivElement | null>;
   rightClusterRef: React.RefObject<HTMLDivElement | null>;
   paginationRef: React.RefObject<HTMLDivElement | null>;
@@ -20,6 +21,7 @@ interface Coordinates {
 export default function WireBundle({
   containerRef,
   featuredRef,
+  gutterRef,
   leftClusterRef,
   rightClusterRef,
   paginationRef,
@@ -28,10 +30,10 @@ export default function WireBundle({
   const [coords, setCoords] = useState<Coordinates>({
     width: 1200,
     height: 1450,
-    trunkStart: { x: 580, y: 410 },
-    trunkEnd: { x: 570, y: 1380 },
-    leftTarget: { x: 340, y: 530 },
-    rightTarget: { x: 800, y: 540 },
+    trunkStart: { x: 580, y: 400 },
+    trunkEnd: { x: 580, y: 1380 },
+    leftTarget: { x: 380, y: 495 },
+    rightTarget: { x: 740, y: 515 },
   });
 
   useEffect(() => {
@@ -41,18 +43,21 @@ export default function WireBundle({
       const cWidth = Math.max(cRect.width, 900);
       const cHeight = Math.max(cRect.height, containerRef.current.scrollHeight || 1200);
 
-      // Default trunk start: between featured card and stacked cards
+      // Default trunk start & end: based on gutter channel center if available
       let startX = cWidth * 0.56;
-      let startY = 410;
+      let startY = 390;
 
       if (featuredRef.current) {
         const fRect = featuredRef.current.getBoundingClientRect();
         startY = fRect.bottom - cRect.top + 16;
-        startX = fRect.right - cRect.left + 12;
       }
 
-      // Default trunk end: above pagination
-      let endX = startX - 20;
+      if (gutterRef.current) {
+        const gRect = gutterRef.current.getBoundingClientRect();
+        startX = gRect.left + gRect.width / 2 - cRect.left;
+      }
+
+      let endX = startX;
       let endY = cHeight - 90;
 
       if (paginationRef.current) {
@@ -61,9 +66,9 @@ export default function WireBundle({
         endX = pRect.left + pRect.width / 2 - cRect.left;
       }
 
-      // Left cluster target: curves to top of left cluster
-      let leftX = cWidth * 0.38;
-      let leftY = startY + 95;
+      // Left cluster target: curves into top of left cluster
+      let leftX = startX - 160;
+      let leftY = startY + 80;
 
       if (leftClusterRef.current) {
         const lRect = leftClusterRef.current.getBoundingClientRect();
@@ -71,9 +76,9 @@ export default function WireBundle({
         leftY = lRect.top - cRect.top + 8;
       }
 
-      // Right cluster target: curves to top of right cluster
-      let rightX = cWidth * 0.74;
-      let rightY = startY + 115;
+      // Right cluster target: curves into top of right cluster
+      let rightX = startX + 160;
+      let rightY = startY + 95;
 
       if (rightClusterRef.current) {
         const rRect = rightClusterRef.current.getBoundingClientRect();
@@ -91,7 +96,6 @@ export default function WireBundle({
       });
     }
 
-    // Run compute immediately and on animation frames/intervals to sync with layout
     computePoints();
     const timer1 = setTimeout(computePoints, 80);
     const timer2 = setTimeout(computePoints, 350);
@@ -102,6 +106,7 @@ export default function WireBundle({
 
     if (containerRef.current) observer.observe(containerRef.current);
     if (featuredRef.current) observer.observe(featuredRef.current);
+    if (gutterRef.current) observer.observe(gutterRef.current);
     if (leftClusterRef.current) observer.observe(leftClusterRef.current);
     if (rightClusterRef.current) observer.observe(rightClusterRef.current);
     if (paginationRef.current) observer.observe(paginationRef.current);
@@ -114,23 +119,23 @@ export default function WireBundle({
       observer.disconnect();
       window.removeEventListener('resize', computePoints);
     };
-  }, [containerRef, featuredRef, leftClusterRef, rightClusterRef, paginationRef]);
+  }, [containerRef, featuredRef, gutterRef, leftClusterRef, rightClusterRef, paginationRef]);
 
   // 6 continuous cubic-bezier strands (NO dotted/dashed base lines!)
   const strands = useMemo(() => {
     return [
-      { id: 0, offset: -14, amp: 16, phase: 0.0, opacity: 0.65, width: 1.8, color: '#14B8A6', hasPulse: false, duration: 7 },
-      { id: 1, offset: -8,  amp: 18, phase: 0.6, opacity: 0.85, width: 2.2, color: '#22D3EE', hasPulse: true,  duration: 6.2 },
-      { id: 2, offset: -2,  amp: 15, phase: 1.2, opacity: 0.70, width: 2.0, color: '#14B8A6', hasPulse: false, duration: 8 },
-      { id: 3, offset: 4,   amp: 20, phase: 1.8, opacity: 0.90, width: 2.4, color: '#5EEAD4', hasPulse: true,  duration: 5.8 },
-      { id: 4, offset: 10,  amp: 16, phase: 2.4, opacity: 0.65, width: 1.8, color: '#22D3EE', hasPulse: false, duration: 7.5 },
-      { id: 5, offset: 16,  amp: 22, phase: 3.0, opacity: 0.80, width: 2.0, color: '#14B8A6', hasPulse: true,  duration: 6.5 },
+      { id: 0, offset: -12, amp: 14, phase: 0.0, opacity: 0.65, width: 1.8, color: '#14B8A6', hasPulse: false, duration: 7 },
+      { id: 1, offset: -6,  amp: 16, phase: 0.6, opacity: 0.85, width: 2.2, color: '#22D3EE', hasPulse: true,  duration: 6.2 },
+      { id: 2, offset: -1,  amp: 13, phase: 1.2, opacity: 0.70, width: 2.0, color: '#14B8A6', hasPulse: false, duration: 8 },
+      { id: 3, offset: 4,   amp: 17, phase: 1.8, opacity: 0.90, width: 2.4, color: '#5EEAD4', hasPulse: true,  duration: 5.8 },
+      { id: 4, offset: 9,   amp: 14, phase: 2.4, opacity: 0.65, width: 1.8, color: '#22D3EE', hasPulse: false, duration: 7.5 },
+      { id: 5, offset: 14,  amp: 18, phase: 3.0, opacity: 0.80, width: 2.0, color: '#14B8A6', hasPulse: true,  duration: 6.5 },
     ];
   }, []);
 
   const { width, height, trunkStart, trunkEnd, leftTarget, rightTarget } = coords;
 
-  // Build segmented smooth S-curve path for the main bundle
+  // Build segmented smooth S-curve path for the main bundle down the gutter channel
   function buildTrunkPath(offset: number, amp: number, phase: number) {
     const totalDist = trunkEnd.y - trunkStart.y;
     if (totalDist <= 0) return '';
@@ -184,7 +189,7 @@ export default function WireBundle({
   }
 
   // Branch junction point on trunk
-  const junctionY = trunkStart.y + Math.max(60, (trunkEnd.y - trunkStart.y) * 0.16);
+  const junctionY = trunkStart.y + Math.max(50, (trunkEnd.y - trunkStart.y) * 0.14);
   const junctionPoint = { x: trunkStart.x, y: junctionY };
 
   return (
@@ -197,7 +202,6 @@ export default function WireBundle({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          {/* Subtle luminescence glow filter */}
           <filter id="wireGlowTeal" x="-30%" y="-30%" width="160%" height="160%">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feMerge>
@@ -213,7 +217,7 @@ export default function WireBundle({
           </linearGradient>
         </defs>
 
-        {/* ─── 1. CENTRAL BUNDLE STRANDS (5-6 Solid Continuous Wires) ─ */}
+        {/* ─── 1. CENTRAL BUNDLE STRANDS (5-6 Solid Continuous Wires in Gutter) ─ */}
         {strands.map((strand) => {
           const pathD = buildTrunkPath(strand.offset, strand.amp, strand.phase);
           return (
@@ -228,7 +232,7 @@ export default function WireBundle({
                 fill="none"
               />
 
-              {/* Flowing light pulse overlay (ONLY here dash is allowed per spec) */}
+              {/* Flowing light pulse overlay */}
               {strand.hasPulse && (
                 <path
                   d={pathD}
@@ -324,22 +328,22 @@ export default function WireBundle({
           <circle r="2.5" fill="#ffffff" />
         </g>
 
-        {/* ─── 4. RIGHT-EDGE WIRE BUNDLE WITH NODES (Sidebar Edge) ─── */}
+        {/* ─── 4. RIGHT-EDGE WIRE BUNDLE (Outside Sidebar in Right Margin) ─── */}
         <g className="wire-right-edge-bundle">
-          {[-5, 0, 5].map((offset, i) => (
+          {[-4, 0, 4].map((offset, i) => (
             <path
               key={`edge-${i}`}
-              d={`M ${width - 16 + offset} 110 C ${width - 10 + offset} 390, ${width - 24 + offset} 720, ${width - 14 + offset} ${height - 80}`}
+              d={`M ${width - 8 + offset} 110 C ${width - 4 + offset} 390, ${width - 14 + offset} 720, ${width - 6 + offset} ${height - 80}`}
               stroke={['#14B8A6', '#22D3EE', '#5EEAD4'][i]}
               strokeWidth={i === 1 ? 1.8 : 1.3}
               strokeOpacity={0.65}
               fill="none"
             />
           ))}
-          {/* Small Node Dots along right edge */}
-          <circle cx={width - 16} cy="240" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
-          <circle cx={width - 16} cy="540" r="5" fill="#ffffff" stroke="#22D3EE" strokeWidth="1.8" />
-          <circle cx={width - 16} cy="820" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
+          {/* Small Node Dots along right margin */}
+          <circle cx={width - 8} cy="240" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
+          <circle cx={width - 8} cy="540" r="5" fill="#ffffff" stroke="#22D3EE" strokeWidth="1.8" />
+          <circle cx={width - 8} cy="820" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
         </g>
       </svg>
 
