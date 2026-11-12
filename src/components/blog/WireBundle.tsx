@@ -24,52 +24,66 @@ export default function WireBundle({
   rightClusterRef,
   paginationRef,
 }: WireBundleProps) {
-  const [coords, setCoords] = useState<Coordinates | null>(null);
+  // Initialize with sensible defaults so SVG is immediately visible before ref measurement
+  const [coords, setCoords] = useState<Coordinates>({
+    width: 1200,
+    height: 1450,
+    trunkStart: { x: 580, y: 410 },
+    trunkEnd: { x: 570, y: 1380 },
+    leftTarget: { x: 340, y: 530 },
+    rightTarget: { x: 800, y: 540 },
+  });
 
   useEffect(() => {
     function computePoints() {
       if (!containerRef.current) return;
       const cRect = containerRef.current.getBoundingClientRect();
+      const cWidth = Math.max(cRect.width, 900);
+      const cHeight = Math.max(cRect.height, containerRef.current.scrollHeight || 1200);
 
-      // Trunk start: right below featured row or default ~400px down
-      let startX = cRect.width * 0.52;
-      let startY = 380;
+      // Default trunk start: between featured card and stacked cards
+      let startX = cWidth * 0.56;
+      let startY = 410;
+
       if (featuredRef.current) {
         const fRect = featuredRef.current.getBoundingClientRect();
-        startY = fRect.bottom - cRect.top + 20;
-        startX = fRect.right - cRect.left - 40;
+        startY = fRect.bottom - cRect.top + 16;
+        startX = fRect.right - cRect.left + 12;
       }
 
-      // Trunk end: right above pagination or bottom
-      let endX = startX;
-      let endY = cRect.height - 80;
+      // Default trunk end: above pagination
+      let endX = startX - 20;
+      let endY = cHeight - 90;
+
       if (paginationRef.current) {
         const pRect = paginationRef.current.getBoundingClientRect();
-        endY = pRect.top - cRect.top - 15;
+        endY = pRect.top - cRect.top - 12;
         endX = pRect.left + pRect.width / 2 - cRect.left;
       }
 
-      // Left cluster target
-      let leftX = cRect.width * 0.25;
-      let leftY = startY + 120;
+      // Left cluster target: curves to top of left cluster
+      let leftX = cWidth * 0.38;
+      let leftY = startY + 95;
+
       if (leftClusterRef.current) {
         const lRect = leftClusterRef.current.getBoundingClientRect();
-        leftX = lRect.right - cRect.left - 20;
-        leftY = lRect.top - cRect.top + 30;
+        leftX = lRect.left + lRect.width * 0.72 - cRect.left;
+        leftY = lRect.top - cRect.top + 8;
       }
 
-      // Right cluster target
-      let rightX = cRect.width * 0.72;
-      let rightY = startY + 140;
+      // Right cluster target: curves to top of right cluster
+      let rightX = cWidth * 0.74;
+      let rightY = startY + 115;
+
       if (rightClusterRef.current) {
         const rRect = rightClusterRef.current.getBoundingClientRect();
-        rightX = rRect.left - cRect.left + 20;
-        rightY = rRect.top - cRect.top + 30;
+        rightX = rRect.left + rRect.width * 0.32 - cRect.left;
+        rightY = rRect.top - cRect.top + 8;
       }
 
       setCoords({
-        width: Math.max(cRect.width, 300),
-        height: Math.max(cRect.height, 600),
+        width: cWidth,
+        height: cHeight,
         trunkStart: { x: startX, y: startY },
         trunkEnd: { x: endX, y: endY },
         leftTarget: { x: leftX, y: leftY },
@@ -77,9 +91,11 @@ export default function WireBundle({
       });
     }
 
+    // Run compute immediately and on animation frames/intervals to sync with layout
     computePoints();
+    const timer1 = setTimeout(computePoints, 80);
+    const timer2 = setTimeout(computePoints, 350);
 
-    // Recompute on resize or element layout shifts
     const observer = new ResizeObserver(() => {
       computePoints();
     });
@@ -93,27 +109,24 @@ export default function WireBundle({
     window.addEventListener('resize', computePoints);
 
     return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
       observer.disconnect();
       window.removeEventListener('resize', computePoints);
     };
   }, [containerRef, featuredRef, leftClusterRef, rightClusterRef, paginationRef]);
 
-  // Generate 6 continuous cubic-bezier strands (NO dotted/dashed base lines!)
+  // 6 continuous cubic-bezier strands (NO dotted/dashed base lines!)
   const strands = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => ({
-      id: i,
-      offset: (i - 2.5) * 5.5,
-      amp: 14 + i * 3.5,
-      phase: i * 0.65,
-      opacity: 0.35 + i * 0.11,
-      width: i === 2 ? 2.2 : i === 4 ? 1.6 : 1.2,
-      color: ['#14B8A6', '#22D3EE', '#5EEAD4'][i % 3],
-      hasPulse: i === 1 || i === 3 || i === 4,
-      duration: 6.5 + i * 0.8,
-    }));
+    return [
+      { id: 0, offset: -14, amp: 16, phase: 0.0, opacity: 0.65, width: 1.8, color: '#14B8A6', hasPulse: false, duration: 7 },
+      { id: 1, offset: -8,  amp: 18, phase: 0.6, opacity: 0.85, width: 2.2, color: '#22D3EE', hasPulse: true,  duration: 6.2 },
+      { id: 2, offset: -2,  amp: 15, phase: 1.2, opacity: 0.70, width: 2.0, color: '#14B8A6', hasPulse: false, duration: 8 },
+      { id: 3, offset: 4,   amp: 20, phase: 1.8, opacity: 0.90, width: 2.4, color: '#5EEAD4', hasPulse: true,  duration: 5.8 },
+      { id: 4, offset: 10,  amp: 16, phase: 2.4, opacity: 0.65, width: 1.8, color: '#22D3EE', hasPulse: false, duration: 7.5 },
+      { id: 5, offset: 16,  amp: 22, phase: 3.0, opacity: 0.80, width: 2.0, color: '#14B8A6', hasPulse: true,  duration: 6.5 },
+    ];
   }, []);
-
-  if (!coords) return null;
 
   const { width, height, trunkStart, trunkEnd, leftTarget, rightTarget } = coords;
 
@@ -121,7 +134,7 @@ export default function WireBundle({
   function buildTrunkPath(offset: number, amp: number, phase: number) {
     const totalDist = trunkEnd.y - trunkStart.y;
     if (totalDist <= 0) return '';
-    const numSegments = Math.max(2, Math.floor(totalDist / 200));
+    const numSegments = Math.max(2, Math.floor(totalDist / 220));
     const segHeight = totalDist / numSegments;
 
     let d = `M ${trunkStart.x + offset} ${trunkStart.y}`;
@@ -135,8 +148,8 @@ export default function WireBundle({
       const waveOffset = amp * direction;
 
       const cp1x = currX + waveOffset;
-      const cp1y = currY + segHeight * 0.38;
-      const cp2x = targetX - waveOffset * 0.6;
+      const cp1y = currY + segHeight * 0.36;
+      const cp2x = targetX - waveOffset * 0.5;
       const cp2y = currY + segHeight * 0.72;
 
       d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetX} ${nextY}`;
@@ -155,23 +168,23 @@ export default function WireBundle({
     isLeft: boolean
   ) {
     const sx = from.x + offset;
-    const sy = from.y + 40 + Math.abs(offset) * 2;
+    const sy = from.y + 24 + Math.abs(offset) * 1.5;
     const tx = to.x;
     const ty = to.y + offset;
 
     const midY = (sy + ty) / 2;
-    const curvePull = isLeft ? -Math.abs(sx - tx) * 0.55 : Math.abs(sx - tx) * 0.55;
+    const curvePull = isLeft ? -Math.abs(sx - tx) * 0.5 : Math.abs(sx - tx) * 0.5;
 
-    const cp1x = sx + curvePull * 0.4;
-    const cp1y = sy + (midY - sy) * 0.5;
-    const cp2x = tx - curvePull * 0.3;
-    const cp2y = ty - 25;
+    const cp1x = sx + curvePull * 0.35;
+    const cp1y = sy + (midY - sy) * 0.45;
+    const cp2x = tx - curvePull * 0.25;
+    const cp2y = ty - 28;
 
     return `M ${sx} ${sy} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tx} ${ty}`;
   }
 
   // Branch junction point on trunk
-  const junctionY = trunkStart.y + Math.min(100, (trunkEnd.y - trunkStart.y) * 0.22);
+  const junctionY = trunkStart.y + Math.max(60, (trunkEnd.y - trunkStart.y) * 0.16);
   const junctionPoint = { x: trunkStart.x, y: junctionY };
 
   return (
@@ -179,30 +192,24 @@ export default function WireBundle({
       <svg
         className="wire-bundle-svg"
         viewBox={`0 0 ${width} ${height}`}
+        style={{ width: `${width}px`, height: `${height}px` }}
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
           {/* Subtle luminescence glow filter */}
-          <filter id="wireGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <filter id="wireGlowTeal" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
 
-          {/* Gradient for strands */}
-          <linearGradient id="wireTealGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#22D3EE" stopOpacity="0.9" />
-            <stop offset="40%" stopColor="#14B8A6" stopOpacity="1" />
-            <stop offset="80%" stopColor="#5EEAD4" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#14B8A6" stopOpacity="0.85" />
-          </linearGradient>
-
           <linearGradient id="wirePulseGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-            <stop offset="100%" stopColor="#22D3EE" stopOpacity="0.8" />
+            <stop offset="60%" stopColor="#5EEAD4" stopOpacity="0.9" />
+            <stop offset="100%" stopColor="#22D3EE" stopOpacity="0.7" />
           </linearGradient>
         </defs>
 
@@ -226,12 +233,12 @@ export default function WireBundle({
                 <path
                   d={pathD}
                   stroke="url(#wirePulseGrad)"
-                  strokeWidth={strand.width + 0.6}
-                  strokeDasharray="40 420"
+                  strokeWidth={strand.width + 0.8}
+                  strokeDasharray="45 480"
                   fill="none"
                   className="wire-flowing-pulse"
                   style={{ animationDuration: `${strand.duration}s` }}
-                  filter="url(#wireGlow)"
+                  filter="url(#wireGlowTeal)"
                 />
               )}
             </g>
@@ -239,16 +246,16 @@ export default function WireBundle({
         })}
 
         {/* ─── 2. BRANCHES (Curved Bezier mini-bundles to card groups) ─ */}
-        {/* Left Branch (3 strands to Left Cluster) */}
+        {/* Left Branch (3 strands to Left 3-Col Cluster) */}
         {strands.slice(0, 3).map((strand, idx) => {
-          const branchD = buildBranchPath(junctionPoint, leftTarget, strand.offset * 0.8, true);
+          const branchD = buildBranchPath(junctionPoint, leftTarget, strand.offset * 0.9, true);
           return (
             <g key={`branch-l-${idx}`}>
               <path
                 d={branchD}
                 stroke={strand.color}
                 strokeWidth={strand.width}
-                strokeOpacity={strand.opacity * 0.9}
+                strokeOpacity={strand.opacity}
                 strokeLinecap="round"
                 fill="none"
               />
@@ -256,27 +263,27 @@ export default function WireBundle({
                 <path
                   d={branchD}
                   stroke="#ffffff"
-                  strokeWidth={strand.width + 0.5}
-                  strokeDasharray="30 350"
+                  strokeWidth={strand.width + 0.6}
+                  strokeDasharray="35 380"
                   fill="none"
                   className="wire-flowing-pulse"
-                  style={{ animationDuration: '5.8s' }}
+                  style={{ animationDuration: '5.5s' }}
                 />
               )}
             </g>
           );
         })}
 
-        {/* Right Branch (3 strands to Right Cluster) */}
+        {/* Right Branch (3 strands to Right Showcase Cluster) */}
         {strands.slice(3, 6).map((strand, idx) => {
-          const branchD = buildBranchPath(junctionPoint, rightTarget, strand.offset * 0.8, false);
+          const branchD = buildBranchPath(junctionPoint, rightTarget, strand.offset * 0.9, false);
           return (
             <g key={`branch-r-${idx}`}>
               <path
                 d={branchD}
                 stroke={strand.color}
                 strokeWidth={strand.width}
-                strokeOpacity={strand.opacity * 0.9}
+                strokeOpacity={strand.opacity}
                 strokeLinecap="round"
                 fill="none"
               />
@@ -284,11 +291,11 @@ export default function WireBundle({
                 <path
                   d={branchD}
                   stroke="#ffffff"
-                  strokeWidth={strand.width + 0.5}
-                  strokeDasharray="30 350"
+                  strokeWidth={strand.width + 0.6}
+                  strokeDasharray="35 380"
                   fill="none"
                   className="wire-flowing-pulse"
-                  style={{ animationDuration: '6.2s' }}
+                  style={{ animationDuration: '6s' }}
                 />
               )}
             </g>
@@ -296,41 +303,43 @@ export default function WireBundle({
         })}
 
         {/* ─── 3. NODES ON BUNDLE (28px White Circles with Teal Border) ─ */}
-        {/* Top Junction Node */}
-        <g transform={`translate(${junctionPoint.x}, ${junctionPoint.y + 12})`}>
-          <circle r="14" fill="#ffffff" stroke="#14B8A6" strokeWidth="2" filter="url(#wireGlow)" />
+        {/* Top Junction Node (28px = r 14) */}
+        <g transform={`translate(${junctionPoint.x}, ${junctionPoint.y + 14})`}>
+          <circle r="14" fill="#ffffff" stroke="#14B8A6" strokeWidth="2.2" filter="url(#wireGlowTeal)" />
           <circle r="6" fill="#14B8A6" />
-          <circle r="3" fill="#ffffff" />
+          <circle r="2.5" fill="#ffffff" />
         </g>
 
-        {/* Mid-Spine Node */}
-        <g transform={`translate(${trunkStart.x + (trunkEnd.x - trunkStart.x) * 0.55}, ${junctionPoint.y + 240})`}>
-          <circle r="12" fill="#ffffff" stroke="#22D3EE" strokeWidth="1.8" />
-          <circle r="5" fill="#22D3EE" />
+        {/* Mid-Spine Node (28px = r 14) */}
+        <g transform={`translate(${trunkStart.x + (trunkEnd.x - trunkStart.x) * 0.52}, ${junctionPoint.y + 260})`}>
+          <circle r="14" fill="#ffffff" stroke="#22D3EE" strokeWidth="2.2" filter="url(#wireGlowTeal)" />
+          <circle r="6" fill="#22D3EE" />
+          <circle r="2.5" fill="#ffffff" />
         </g>
 
-        {/* Lower Junction Node */}
-        <g transform={`translate(${trunkStart.x + (trunkEnd.x - trunkStart.x) * 0.85}, ${trunkEnd.y - 60})`}>
-          <circle r="13" fill="#ffffff" stroke="#14B8A6" strokeWidth="2" />
-          <circle r="5.5" fill="#14B8A6" />
+        {/* Lower Junction Node (28px = r 14) */}
+        <g transform={`translate(${trunkStart.x + (trunkEnd.x - trunkStart.x) * 0.86}, ${trunkEnd.y - 40})`}>
+          <circle r="14" fill="#ffffff" stroke="#14B8A6" strokeWidth="2.2" filter="url(#wireGlowTeal)" />
+          <circle r="6" fill="#14B8A6" />
+          <circle r="2.5" fill="#ffffff" />
         </g>
 
         {/* ─── 4. RIGHT-EDGE WIRE BUNDLE WITH NODES (Sidebar Edge) ─── */}
         <g className="wire-right-edge-bundle">
-          {[-4, 0, 4].map((offset, i) => (
+          {[-5, 0, 5].map((offset, i) => (
             <path
               key={`edge-${i}`}
-              d={`M ${width - 18 + offset} 120 C ${width - 14 + offset} 380, ${width - 22 + offset} 680, ${width - 16 + offset} ${height - 100}`}
+              d={`M ${width - 16 + offset} 110 C ${width - 10 + offset} 390, ${width - 24 + offset} 720, ${width - 14 + offset} ${height - 80}`}
               stroke={['#14B8A6', '#22D3EE', '#5EEAD4'][i]}
-              strokeWidth={i === 1 ? 1.5 : 1}
-              strokeOpacity={0.45}
+              strokeWidth={i === 1 ? 1.8 : 1.3}
+              strokeOpacity={0.65}
               fill="none"
             />
           ))}
           {/* Small Node Dots along right edge */}
-          <circle cx={width - 18} cy="260" r="4.5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.5" />
-          <circle cx={width - 18} cy="520" r="4.5" fill="#ffffff" stroke="#22D3EE" strokeWidth="1.5" />
-          <circle cx={width - 18} cy="780" r="4.5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.5" />
+          <circle cx={width - 16} cy="240" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
+          <circle cx={width - 16} cy="540" r="5" fill="#ffffff" stroke="#22D3EE" strokeWidth="1.8" />
+          <circle cx={width - 16} cy="820" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
         </g>
       </svg>
 

@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Calendar, Clock, ArrowRight, BookOpen, ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { Search, Calendar, Clock, ArrowRight, BookOpen, ChevronLeft, ChevronRight, Play, Shield } from 'lucide-react';
 import { getPublishedPosts } from '../data/blogRegistry';
 import type { BlogPost } from '../data/blogRegistry';
 import { usePageSeo } from '../hooks/usePageSeo';
 import WireBundle from '../components/blog/WireBundle';
 import './BlogPage.css';
 
-/* ─── 3D Perspective Tilt Hook (Preserved Exactly) ──────────────────────── */
-function useTilt(strength = 8) {
+/* ─── 3D Perspective Tilt Hook ──────────────────────────────────────────── */
+function useTilt(strength = 7) {
   const ref = useRef<HTMLDivElement>(null);
 
   const onMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -17,7 +17,7 @@ function useTilt(strength = 8) {
     const r = el.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width - 0.5) * 2;
     const y = ((e.clientY - r.top) / r.height - 0.5) * 2;
-    el.style.transform = `perspective(800px) rotateY(${x * strength}deg) rotateX(${-y * strength}deg) translateY(-6px) scale(1.015)`;
+    el.style.transform = `perspective(800px) rotateY(${x * strength}deg) rotateX(${-y * strength}deg) translateY(-5px) scale(1.01)`;
     el.style.transition = 'transform 0.08s linear';
   }, [strength]);
 
@@ -25,31 +25,10 @@ function useTilt(strength = 8) {
     const el = ref.current;
     if (!el) return;
     el.style.transform = '';
-    el.style.transition = 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1)';
+    el.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
   }, []);
 
   return { ref, onMouseMove, onMouseLeave };
-}
-
-/* ─── Intersection Observer Reveal Hook (Preserved Exactly) ─────────────── */
-function useReveal() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.classList.add('revealed');
-          obs.unobserve(el);
-        }
-      },
-      { threshold: 0.08 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return ref;
 }
 
 /* Category Pill Tint Styles (Reference specification) */
@@ -61,7 +40,7 @@ const CAT_STYLES: Record<string, { bg: string; color: string; border: string }> 
   Productivity: { bg: 'rgba(245, 158, 11, 0.14)', color: '#d97706', border: 'rgba(245, 158, 11, 0.25)' },
 };
 
-/* ─── Corner Sine-Wave Mesh Pattern (12-14 lines slow wave) ───────────── */
+/* ─── Corner Sine-Wave Mesh Pattern (Teal & Cyan wave strands) ──────────── */
 function CornerWaveMesh() {
   return (
     <div className="corner-mesh-container" aria-hidden="true">
@@ -93,6 +72,25 @@ function CornerWaveMesh() {
   );
 }
 
+/* ─── Branded Abstract Cover Placeholder (FIX 5: No broken images!) ─────── */
+function BrandedCoverPlaceholder({ category, title }: { category: string; title: string }) {
+  return (
+    <div className="branded-img-placeholder" aria-label={title}>
+      <div className="placeholder-blueprint-grid" />
+      <div className="placeholder-content">
+        <div className="placeholder-icon-ring">
+          {category === 'PDF' ? (
+            <Shield size={20} color="#14B8A6" />
+          ) : (
+            <BookOpen size={20} color="#14B8A6" />
+          )}
+        </div>
+        <span className="placeholder-pill">{category} Hub</span>
+      </div>
+    </div>
+  );
+}
+
 /* ─── TeraBox Player Mockup Card ────────────────────────────────────────── */
 function TeraBoxPlayerCard({
   post,
@@ -103,22 +101,18 @@ function TeraBoxPlayerCard({
   delay?: number;
   isStacked?: boolean;
 }) {
-  const revealRef = useReveal();
-  const tilt = useTilt(7);
+  const tilt = useTilt(6);
   const catStyle = CAT_STYLES[post.category] || CAT_STYLES.Video;
 
   return (
     <div
-      ref={(node) => {
-        (revealRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-        (tilt.ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-      }}
+      ref={tilt.ref}
       className={`node-card node-card--media ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
       style={{ animationDelay: `${delay}ms` }}
       onMouseMove={tilt.onMouseMove}
       onMouseLeave={tilt.onMouseLeave}
     >
-      {/* Stacked Pile Under-Layers */}
+      {/* Stacked Pile Under-Layers (FIX 4) */}
       {isStacked && (
         <div className="card-stack-shadows" aria-hidden="true">
           <div className="stack-card-layer stack-card-layer--under-1" />
@@ -126,61 +120,63 @@ function TeraBoxPlayerCard({
         </div>
       )}
 
-      <Link to={`/blog/${post.slug}`} className="player-mockup-screen" aria-label={`Open ${post.title}`}>
-        <div className="player-screen-bar">
-          <div className="player-brand-tag">
-            <span className="player-brand-dot">▶</span>
-            <span>TERABOX PLAYER</span>
+      <div className="node-card__inner">
+        <Link to={`/blog/${post.slug}`} className="player-mockup-screen" aria-label={`Open ${post.title}`}>
+          <div className="player-screen-bar">
+            <div className="player-brand-tag">
+              <span className="player-brand-dot">▶</span>
+              <span>TERABOX PLAYER</span>
+            </div>
+            <span className="player-res-tag">HD 1080P</span>
           </div>
-          <span className="player-res-tag">HD 1080P</span>
-        </div>
 
-        <div className="player-center-action">
-          <div className="player-ring-pulse" />
-          <div className="player-play-disc">
-            <Play size={16} fill="#ffffff" stroke="none" />
+          <div className="player-center-action">
+            <div className="player-ring-pulse" />
+            <div className="player-play-disc">
+              <Play size={16} fill="#ffffff" stroke="none" />
+            </div>
+          </div>
+
+          <div className="player-bottom-hud">
+            <div className="player-scrubber-track">
+              <div className="player-scrubber-fill" style={{ width: '48%' }} />
+            </div>
+            <div className="player-hud-row">
+              <span>04:18 / 14:20</span>
+              <span>Cloud Stream</span>
+            </div>
+          </div>
+        </Link>
+
+        <div className="node-card__body">
+          <div className="node-card__meta-line">
+            <span
+              className="node-card__cat-pill"
+              style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+            >
+              {post.category}
+            </span>
+            <span className="meta-sep">·</span>
+            <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
+            <span className="meta-sep">·</span>
+            <span className="meta-date"><Calendar size={11} /> {post.publishedAt}</span>
+          </div>
+
+          <h4 className="node-card__title">
+            <Link to={`/blog/${post.slug}`}>{post.title}</Link>
+          </h4>
+
+          <p className="node-card__excerpt">{post.excerpt}</p>
+
+          <div className="node-card__footer">
+            <Link to={`/blog/${post.slug}`} className="node-card__read">
+              Read <ArrowRight size={12} className="read-arrow" />
+            </Link>
           </div>
         </div>
 
-        <div className="player-bottom-hud">
-          <div className="player-scrubber-track">
-            <div className="player-scrubber-fill" style={{ width: '48%' }} />
-          </div>
-          <div className="player-hud-row">
-            <span>04:18 / 14:20</span>
-            <span>Cloud Stream</span>
-          </div>
-        </div>
-      </Link>
-
-      <div className="node-card__body">
-        <div className="node-card__meta-line">
-          <span
-            className="node-card__cat-pill"
-            style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
-          >
-            {post.category}
-          </span>
-          <span className="meta-sep">·</span>
-          <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
-          <span className="meta-sep">·</span>
-          <span className="meta-date"><Calendar size={11} /> {post.publishedAt}</span>
-        </div>
-
-        <h4 className="node-card__title">
-          <Link to={`/blog/${post.slug}`}>{post.title}</Link>
-        </h4>
-
-        <p className="node-card__excerpt">{post.excerpt}</p>
-
-        <div className="node-card__footer">
-          <Link to={`/blog/${post.slug}`} className="node-card__read">
-            Read <ArrowRight size={12} className="read-arrow" />
-          </Link>
-        </div>
+        <div className="node-card__glow" />
       </div>
-
-      <div className="node-card__glow" />
     </div>
   );
 }
@@ -197,16 +193,12 @@ function CompactEditorialCard({
   staggerY?: number;
   isStacked?: boolean;
 }) {
-  const revealRef = useReveal();
   const tilt = useTilt(5);
   const catStyle = CAT_STYLES[post.category] || CAT_STYLES.Tech;
 
   return (
     <div
-      ref={(node) => {
-        (revealRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-        (tilt.ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-      }}
+      ref={tilt.ref}
       className={`node-card node-card--editorial ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
       style={{
         animationDelay: `${delay}ms`,
@@ -215,7 +207,7 @@ function CompactEditorialCard({
       onMouseMove={tilt.onMouseMove}
       onMouseLeave={tilt.onMouseLeave}
     >
-      {/* Stacked Pile Under-Layers */}
+      {/* Stacked Pile Under-Layers (FIX 4) */}
       {isStacked && (
         <div className="card-stack-shadows" aria-hidden="true">
           <div className="stack-card-layer stack-card-layer--under-1" />
@@ -223,115 +215,123 @@ function CompactEditorialCard({
         </div>
       )}
 
-      <div className="node-card__body">
-        <div className="node-card__meta-line">
-          <span
-            className="node-card__cat-pill"
-            style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
-          >
-            {post.category}
-          </span>
-          <span className="meta-sep">·</span>
-          <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
-          <span className="meta-sep">·</span>
-          <span className="meta-date"><Calendar size={11} /> {post.publishedAt}</span>
+      <div className="node-card__inner">
+        <div className="node-card__body">
+          <div className="node-card__meta-line">
+            <span
+              className="node-card__cat-pill"
+              style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+            >
+              {post.category}
+            </span>
+            <span className="meta-sep">·</span>
+            <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
+            <span className="meta-sep">·</span>
+            <span className="meta-date"><Calendar size={11} /> {post.publishedAt}</span>
+          </div>
+
+          <h4 className="node-card__title node-card__title--editorial">
+            <Link to={`/blog/${post.slug}`}>{post.title}</Link>
+          </h4>
+
+          <p className="node-card__excerpt node-card__excerpt--editorial">{post.excerpt}</p>
+
+          <div className="node-card__footer editorial-footer">
+            <Link to={`/blog/${post.slug}`} className="node-card__read">
+              Read <ArrowRight size={11} className="read-arrow" />
+            </Link>
+          </div>
         </div>
 
-        <h4 className="node-card__title node-card__title--editorial">
-          <Link to={`/blog/${post.slug}`}>{post.title}</Link>
-        </h4>
-
-        <p className="node-card__excerpt node-card__excerpt--editorial">{post.excerpt}</p>
-
-        <div className="node-card__footer editorial-footer">
-          <Link to={`/blog/${post.slug}`} className="node-card__read">
-            Read <ArrowRight size={11} className="read-arrow" />
-          </Link>
-        </div>
+        <div className="node-card__glow" />
       </div>
-
-      <div className="node-card__glow" />
     </div>
   );
 }
 
-/* ─── Standard Thumbnail Card (for Right Discovery Cluster) ───────────── */
+/* ─── Standard Thumbnail Card (for Discovery Clusters) ────────────────── */
 function StandardThumbCard({
   post,
   delay = 0,
   isRotated = false,
   hasGlowBorder = false,
+  isStacked = false,
 }: {
   post: BlogPost;
   delay?: number;
   isRotated?: boolean;
   hasGlowBorder?: boolean;
+  isStacked?: boolean;
 }) {
-  const revealRef = useReveal();
-  const tilt = useTilt(6);
+  const tilt = useTilt(5);
   const catStyle = CAT_STYLES[post.category] || CAT_STYLES.PDF;
+  const [imgFailed, setImgFailed] = useState(!post.coverImage || post.coverImage.trim() === '');
 
   return (
     <div
-      ref={(node) => {
-        (revealRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-        (tilt.ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-      }}
-      className={`node-card node-card--thumb ${isRotated ? 'node-card--rotated' : ''} ${hasGlowBorder ? 'node-card--glow-highlight' : ''} reveal-node`}
+      ref={tilt.ref}
+      className={`node-card node-card--thumb ${isRotated ? 'node-card--rotated' : ''} ${hasGlowBorder ? 'node-card--glow-highlight' : ''} ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
       style={{ animationDelay: `${delay}ms` }}
       onMouseMove={tilt.onMouseMove}
       onMouseLeave={tilt.onMouseLeave}
     >
-      <Link to={`/blog/${post.slug}`} className="node-card__img-link">
-        <img
-          src={post.coverImage}
-          alt={post.title}
-          loading="lazy"
-          onError={(e) => {
-            // Branded teal-gradient placeholder fallback
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.parentElement?.classList.add('img-fallback-active');
-          }}
-        />
-        <div className="img-fallback-placeholder">
-          <span>{post.category} Guide</span>
+      {/* Stacked Pile Under-Layers (FIX 4) */}
+      {isStacked && (
+        <div className="card-stack-shadows" aria-hidden="true">
+          <div className="stack-card-layer stack-card-layer--under-1" />
+          <div className="stack-card-layer stack-card-layer--under-2" />
         </div>
-        <span
-          className="node-card__cat-badge"
-          style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
-        >
-          {post.category}
-        </span>
-      </Link>
+      )}
 
-      <div className="node-card__body">
-        <div className="node-card__meta-line">
-          <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
-          <span className="meta-sep">·</span>
-          <span className="meta-date"><Calendar size={11} /> {post.publishedAt}</span>
+      <div className="node-card__inner">
+        <Link to={`/blog/${post.slug}`} className="node-card__img-link">
+          {!imgFailed && post.coverImage ? (
+            <img
+              src={post.coverImage}
+              alt={post.title}
+              loading="lazy"
+              onError={() => setImgFailed(true)}
+            />
+          ) : (
+            <BrandedCoverPlaceholder category={post.category} title={post.title} />
+          )}
+          <span
+            className="node-card__cat-badge"
+            style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+          >
+            {post.category}
+          </span>
+        </Link>
+
+        <div className="node-card__body">
+          <div className="node-card__meta-line">
+            <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
+            <span className="meta-sep">·</span>
+            <span className="meta-date"><Calendar size={11} /> {post.publishedAt}</span>
+          </div>
+
+          <h4 className="node-card__title">
+            <Link to={`/blog/${post.slug}`}>{post.title}</Link>
+          </h4>
+
+          <p className="node-card__excerpt">{post.excerpt}</p>
+
+          <div className="node-card__footer">
+            <Link to={`/blog/${post.slug}`} className="node-card__read">
+              Read <ArrowRight size={12} className="read-arrow" />
+            </Link>
+          </div>
         </div>
 
-        <h4 className="node-card__title">
-          <Link to={`/blog/${post.slug}`}>{post.title}</Link>
-        </h4>
-
-        <p className="node-card__excerpt">{post.excerpt}</p>
-
-        <div className="node-card__footer">
-          <Link to={`/blog/${post.slug}`} className="node-card__read">
-            Read <ArrowRight size={12} className="read-arrow" />
-          </Link>
-        </div>
+        <div className="node-card__glow" />
       </div>
-
-      <div className="node-card__glow" />
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
    MAIN BLOG PAGE COMPONENT
-═══════════════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════════════ */
 export default function BlogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -427,32 +427,43 @@ export default function BlogPage() {
   const isFiltering = !!(debouncedSearch || selectedCategory !== 'All');
 
   /* Featured dark card tilt */
-  const featuredTilt = useTilt(6);
-  const featuredReveal = useReveal();
+  const featuredTilt = useTilt(5);
 
-  /* Distribute posts for Editorial Layout */
-  const featuredPost = allPosts.length > 0 ? allPosts[0] : null;
-  const topStackedPost1 = allPosts.length > 1 ? allPosts[1] : null;
-  const topStackedPost2 = allPosts.length > 2 ? allPosts[2] : null;
+  /* FIX 1: Distinct Featured Flagship Post & Natural Discovery Allocation */
+  const featuredPost = useMemo(() => {
+    // Flagship guide matching Reference Image 1 "BUILDING HIGH-PERFORMANCE VIDEO APPS"
+    const flagship = allPosts.find((p) => p.slug === 'building-high-performance-video-apps');
+    if (flagship) return flagship;
+    return allPosts.length > 0 ? allPosts[0] : null;
+  }, [allPosts]);
 
-  // Left Cluster 3x3 (up to 9 posts with staggered offsets)
+  const otherPosts = useMemo(() => {
+    if (!featuredPost) return allPosts;
+    return allPosts.filter((p) => p.id !== featuredPost.id);
+  }, [allPosts, featuredPost]);
+
+  // Top stacked right cards (2 cards)
+  const topStackedPost1 = otherPosts.length > 0 ? otherPosts[0] : null;
+  const topStackedPost2 = otherPosts.length > 1 ? otherPosts[1] : null;
+
+  // Left Cluster 3x3 (up to 9 posts)
   const leftClusterPosts = useMemo(() => {
-    const pool = allPosts.slice(3);
+    const pool = otherPosts.slice(2);
     const padded = [...pool];
-    while (padded.length < 9 && allPosts.length > 0) {
-      padded.push(...allPosts);
+    while (padded.length < 9 && otherPosts.length > 0) {
+      padded.push(...otherPosts);
     }
     return padded.slice(0, 9);
-  }, [allPosts]);
+  }, [otherPosts]);
 
   // Right Discovery Cluster (4 posts)
   const rightClusterPosts = useMemo(() => {
-    const pool = allPosts.slice(4);
+    const pool = otherPosts.slice(4);
     if (pool.length < 4) {
-      return allPosts.slice(0, 4);
+      return otherPosts.slice(0, 4);
     }
     return pool.slice(0, 4);
-  }, [allPosts]);
+  }, [otherPosts]);
 
   // Sidebar Categories with count
   const sidebarCategories = useMemo(
@@ -522,8 +533,8 @@ export default function BlogPage() {
 
         {/* ─── MAIN GRID (Left Content ~76%, Right Sticky Sidebar ~24%) ─── */}
         <div className="blog-editorial-layout" ref={containerRef}>
-          {/* Central Wire Bundle SVG Layer */}
-          {!isFiltering && (
+          {/* Central Wire Bundle SVG Layer (FIX 2: Clearly visible continuous strands) */}
+          {!loadingPosts && !isFiltering && (
             <WireBundle
               containerRef={containerRef}
               featuredRef={featuredRef}
@@ -571,10 +582,10 @@ export default function BlogPage() {
                 ) : (
                   <div className="flat-grid">
                     {filteredPosts.map((post, i) =>
-                      post.category === 'Video' ? (
-                        <TeraBoxPlayerCard key={post.id} post={post} delay={i * 50} />
+                      post.slug.includes('terabox-video-player') ? (
+                        <TeraBoxPlayerCard key={post.id} post={post} delay={i * 45} />
                       ) : (
-                        <StandardThumbCard key={post.id} post={post} delay={i * 50} />
+                        <StandardThumbCard key={post.id} post={post} delay={i * 45} />
                       )
                     )}
                   </div>
@@ -583,20 +594,26 @@ export default function BlogPage() {
             ) : (
               /* Reference Image 1 Editorial Discovery Layout */
               <div className="discovery-tree-flow">
-                {/* ─── a) TOP ROW: Featured Card (Left ~60%) + 2 Stacked Cards (Right ~40%) ─ */}
+                {/* ─── a) TOP ROW: Featured Card (Left 1.5fr) + 2 Stacked Cards (Right 1fr) (FIX 1) ─ */}
                 <div className="discovery-top-row">
-                  {/* Left: Large Featured Article Card */}
+                  {/* Left: Large Dark Featured Article Card (min-height 380px, full-bleed thumb) */}
                   {featuredPost && (
                     <div
                       ref={(node) => {
-                        (featuredReveal as React.MutableRefObject<HTMLDivElement | null>).current = node;
-                        (featuredTilt.ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
                         (featuredRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                        (featuredTilt.ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
                       }}
                       className="featured-guide-card reveal-node"
                       onMouseMove={featuredTilt.onMouseMove}
                       onMouseLeave={featuredTilt.onMouseLeave}
                     >
+                      {/* Full-bleed thumbnail with dark gradient overlay (FIX 1) */}
+                      <img
+                        src={featuredPost.coverImage || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80'}
+                        alt={featuredPost.title}
+                        className="featured-guide-bg-img"
+                      />
+                      <div className="featured-guide-overlay" />
                       <div className="featured-guide-glow" aria-hidden="true" />
                       <div className="featured-guide-blueprint" aria-hidden="true" />
 
@@ -613,6 +630,10 @@ export default function BlogPage() {
                         <p className="featured-guide-excerpt">{featuredPost.excerpt}</p>
 
                         <div className="featured-guide-footer">
+                          <Link to={`/blog/${featuredPost.slug}`} className="featured-guide-cta">
+                            Deep Dive <ArrowRight size={13} className="cta-arrow" />
+                          </Link>
+
                           <div className="featured-guide-meta">
                             <span className="featured-cat-tag">{featuredPost.category}</span>
                             <span>
@@ -622,25 +643,21 @@ export default function BlogPage() {
                               <Calendar size={12} /> {featuredPost.publishedAt}
                             </span>
                           </div>
-
-                          <Link to={`/blog/${featuredPost.slug}`} className="featured-guide-cta">
-                            Deep Dive <ArrowRight size={13} className="cta-arrow" />
-                          </Link>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Right: 2 Stacked Cards with ~1.5deg rotation */}
+                  {/* Right: 2 Stacked Cards (Thumbnail + chip + title, 1 card ~1.5deg rotated) */}
                   <div className="discovery-top-stacked">
                     {topStackedPost1 && (
                       <div className="stacked-card-item">
-                        <StandardThumbCard post={topStackedPost1} delay={90} isRotated={true} />
+                        <StandardThumbCard post={topStackedPost1} delay={80} isRotated={true} />
                       </div>
                     )}
                     {topStackedPost2 && (
                       <div className="stacked-card-item">
-                        <CompactEditorialCard post={topStackedPost2} delay={150} />
+                        <StandardThumbCard post={topStackedPost2} delay={140} />
                       </div>
                     )}
                   </div>
@@ -649,9 +666,9 @@ export default function BlogPage() {
                 {/* ─── Spacer for Wire Bundle branches ─────────────── */}
                 <div className="wire-branches-spacer" />
 
-                {/* ─── c) CARDS BELOW: 3-Col Left Grid + Right Stacked/Showcase ─ */}
+                {/* ─── c) CARDS BELOW: 3-Col Left Grid + Right Stacked/Showcase (FIX 3 & 4) ─ */}
                 <div className="discovery-clusters-row">
-                  {/* Left: 3-Column Regular Grid (3 rows) with staggered translateY */}
+                  {/* Left: 3-Column Regular Grid (3 rows) with proper gap & no overlap */}
                   <div className="cluster-left-3col" ref={leftClusterRef}>
                     <div className="cluster-header-pill">
                       <span className="cluster-dot" style={{ background: '#14B8A6' }} />
@@ -664,29 +681,38 @@ export default function BlogPage() {
                         <CompactEditorialCard
                           key={`l1-${post.id}-${idx}`}
                           post={post}
-                          delay={idx * 60}
-                          staggerY={idx === 1 ? -16 : idx === 2 ? 14 : 0}
+                          delay={idx * 50}
+                          staggerY={idx === 1 ? -10 : idx === 2 ? 10 : 0}
                           isStacked={idx === 2}
                         />
                       ))}
 
-                      {/* Row 2: TeraBox Player cards */}
-                      {leftClusterPosts.slice(3, 6).map((post, idx) => (
-                        <TeraBoxPlayerCard
-                          key={`l2-${post.id}-${idx}`}
-                          post={post}
-                          delay={160 + idx * 60}
-                          isStacked={idx === 0}
-                        />
-                      ))}
+                      {/* Row 2: Media / Player / Visual Cards */}
+                      {leftClusterPosts.slice(3, 6).map((post, idx) =>
+                        post.category === 'Video' ? (
+                          <TeraBoxPlayerCard
+                            key={`l2-${post.id}-${idx}`}
+                            post={post}
+                            delay={140 + idx * 50}
+                            isStacked={idx === 0}
+                          />
+                        ) : (
+                          <StandardThumbCard
+                            key={`l2-${post.id}-${idx}`}
+                            post={post}
+                            delay={140 + idx * 50}
+                            isStacked={idx === 0}
+                          />
+                        )
+                      )}
 
                       {/* Row 3: Staggered compact cards */}
                       {leftClusterPosts.slice(6, 9).map((post, idx) => (
                         <CompactEditorialCard
                           key={`l3-${post.id}-${idx}`}
                           post={post}
-                          delay={320 + idx * 60}
-                          staggerY={idx === 0 ? 12 : idx === 2 ? -10 : 0}
+                          delay={280 + idx * 50}
+                          staggerY={idx === 0 ? 10 : idx === 2 ? -8 : 0}
                           isStacked={idx === 1}
                         />
                       ))}
@@ -705,7 +731,7 @@ export default function BlogPage() {
                         <TeraBoxPlayerCard
                           key={`r1-${post.id}-${idx}`}
                           post={post}
-                          delay={120 + idx * 70}
+                          delay={100 + idx * 60}
                           isStacked={true}
                         />
                       ))}
@@ -713,8 +739,9 @@ export default function BlogPage() {
                         <StandardThumbCard
                           key={`r2-${post.id}-${idx}`}
                           post={post}
-                          delay={260 + idx * 70}
+                          delay={220 + idx * 60}
                           hasGlowBorder={idx === 0}
+                          isStacked={idx === 1}
                         />
                       ))}
                     </div>
