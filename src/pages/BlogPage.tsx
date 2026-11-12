@@ -169,6 +169,7 @@ function TeraBoxPlayerCard({
     <div
       ref={tilt.ref}
       className={`node-card node-card--media ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
+      data-category={post.category}
       style={{
         animationDelay: `${delay}ms`,
         transform: staggerY ? `translateY(${staggerY}px)` : undefined,
@@ -261,6 +262,7 @@ function StandardThumbCard({
     <div
       ref={tilt.ref}
       className={`node-card node-card--thumb ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
+      data-category={post.category}
       style={{
         animationDelay: `${delay}ms`,
         transform: staggerY ? `translateY(${staggerY}px)` : undefined,
@@ -343,8 +345,9 @@ export default function BlogPage() {
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
 
-  // Ref for Left Column Content Wrapper (for decorative WireBundle SVG)
+  // Refs for WireBundle — left column wrapper + card grid
   const mainAreaRef = useRef<HTMLDivElement>(null);
+  const cardGridRef = useRef<HTMLDivElement>(null);
 
   usePageSeo(
     'page-blog',
@@ -442,14 +445,37 @@ export default function BlogPage() {
   const topStackedPost2 = otherPosts.length > 1 ? otherPosts[1] : null;
 
   // Single 3-Column Grid Cards (9 posts below top row)
+  // Ensure the 5 key categories (Video, PDF, Tech, Productivity, SEO) are distinctively present
   const gridPosts = useMemo(() => {
-    const pool = otherPosts.slice(2);
-    const list = [...pool];
-    while (list.length < 9 && otherPosts.length > 0) {
-      list.push(...otherPosts);
+    const topIds = new Set([featuredPost?.id, topStackedPost1?.id, topStackedPost2?.id].filter(Boolean));
+    const available = otherPosts.filter((p) => !topIds.has(p.id));
+
+    // Desired order for clear category distribution:
+    // Row 1: Video (Col 1), PDF (Col 2), Tech (Col 3)
+    // Row 2: Productivity (Col 1), SEO (Col 2), Video (Col 3)
+    // Row 3: Video (Col 1), Video (Col 2), Video (Col 3)
+    const videoPosts = available.filter((p) => p.category === 'Video');
+    const pdfPost = available.find((p) => p.category === 'PDF') || allPosts.find((p) => p.category === 'PDF');
+    const techPost = available.find((p) => p.category === 'Tech') || allPosts.find((p) => p.category === 'Tech');
+    const prodPost = available.find((p) => p.category === 'Productivity') || allPosts.find((p) => p.category === 'Productivity');
+    const seoPost = available.find((p) => p.category === 'SEO') || allPosts.find((p) => p.category === 'SEO');
+
+    const result: BlogPost[] = [];
+    if (videoPosts[0]) result.push(videoPosts[0]);
+    if (pdfPost) result.push(pdfPost);
+    if (techPost) result.push(techPost);
+    if (prodPost) result.push(prodPost);
+    if (seoPost) result.push(seoPost);
+    if (videoPosts[1]) result.push(videoPosts[1]);
+    if (videoPosts[2]) result.push(videoPosts[2]);
+    if (videoPosts[3]) result.push(videoPosts[3]);
+    if (videoPosts[4]) result.push(videoPosts[4]);
+
+    while (result.length < 9 && available.length > 0) {
+      result.push(available[result.length % available.length]);
     }
-    return list.slice(0, 9);
-  }, [otherPosts]);
+    return result.slice(0, 9);
+  }, [allPosts, featuredPost, topStackedPost1, topStackedPost2, otherPosts]);
 
   // Sidebar Categories with count
   const sidebarCategories = useMemo(
@@ -521,9 +547,8 @@ export default function BlogPage() {
         <div className="blog-editorial-layout">
           {/* Left Column = Everything (Top Row + Wires + 3-Col Cards + Pagination) */}
           <main className="blog-main-area" ref={mainAreaRef}>
-            {/* FIX 3: Absolutely Positioned Decorative Wire SVG behind cards */}
             {!loadingPosts && !isFiltering && (
-              <WireBundle containerRef={mainAreaRef} />
+              <WireBundle containerRef={mainAreaRef} cardGridRef={cardGridRef} />
             )}
 
             {loadingPosts ? (
@@ -639,7 +664,7 @@ export default function BlogPage() {
                 </div>
 
                 {/* ─── b) CARDS GRID: EXACTLY 3 COLUMNS, NO 4th/5th COLUMN (FIX 1 & 2) ─ */}
-                <div className="discovery-cards-grid">
+                <div className="discovery-cards-grid" ref={cardGridRef}>
                   {gridPosts.map((post, idx) => {
                     const isStacked = idx === 1 || idx === 6; // Stacked piles strictly on 2nd and 7th card
                     const isAlternate = idx % 3 === 1; // Center column staggered slightly (10px)
