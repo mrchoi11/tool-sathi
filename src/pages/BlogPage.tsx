@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Calendar, Clock, ArrowRight, BookOpen, ChevronLeft, ChevronRight, Play, Shield } from 'lucide-react';
+import { Search, Clock, ArrowRight, BookOpen, ChevronLeft, ChevronRight, Play, Shield } from 'lucide-react';
 import { getPublishedPosts } from '../data/blogRegistry';
 import type { BlogPost } from '../data/blogRegistry';
 import { usePageSeo } from '../hooks/usePageSeo';
@@ -17,7 +17,7 @@ function useTilt(strength = 7) {
     const r = el.getBoundingClientRect();
     const x = ((e.clientX - r.left) / r.width - 0.5) * 2;
     const y = ((e.clientY - r.top) / r.height - 0.5) * 2;
-    el.style.transform = `perspective(800px) rotateY(${x * strength}deg) rotateX(${-y * strength}deg) translateY(-5px) scale(1.01)`;
+    el.style.transform = `perspective(800px) rotateY(${x * strength}deg) rotateX(${-y * strength}deg) translateY(-4px) scale(1.008)`;
     el.style.transition = 'transform 0.08s linear';
   }, [strength]);
 
@@ -99,7 +99,7 @@ function BrandedCoverPlaceholder({
   );
 }
 
-/* ─── FIX A: Top Row Compact Stacked Card (Height ~175px, No Excerpt) ──── */
+/* ─── Top Row Compact Stacked Card (Height ~178px, No Excerpt) ──────────── */
 function TopRowCompactCard({
   post,
   delay = 0,
@@ -150,28 +150,33 @@ function TopRowCompactCard({
   );
 }
 
-/* ─── TeraBox Player Mockup Card ────────────────────────────────────────── */
+/* ─── TeraBox Player Mockup Card (3-Column Grid) ────────────────────────── */
 function TeraBoxPlayerCard({
   post,
   delay = 0,
+  staggerY = 0,
   isStacked = false,
 }: {
   post: BlogPost;
   delay?: number;
+  staggerY?: number;
   isStacked?: boolean;
 }) {
-  const tilt = useTilt(6);
+  const tilt = useTilt(5);
   const catStyle = CAT_STYLES[post.category] || CAT_STYLES.Video;
 
   return (
     <div
       ref={tilt.ref}
       className={`node-card node-card--media ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
-      style={{ animationDelay: `${delay}ms` }}
+      style={{
+        animationDelay: `${delay}ms`,
+        transform: staggerY ? `translateY(${staggerY}px)` : undefined,
+      }}
       onMouseMove={tilt.onMouseMove}
       onMouseLeave={tilt.onMouseLeave}
     >
-      {/* Stacked Pile Under-Layers */}
+      {/* Stacked Pile Under-Layers (FIX 2: Subtle translate(6px,6px) and (12px,12px)) */}
       {isStacked && (
         <div className="card-stack-shadows" aria-hidden="true">
           <div className="stack-card-layer stack-card-layer--under-1" />
@@ -223,8 +228,6 @@ function TeraBoxPlayerCard({
             <Link to={`/blog/${post.slug}`}>{post.title}</Link>
           </h4>
 
-          <p className="node-card__excerpt">{post.excerpt}</p>
-
           <div className="node-card__footer">
             <Link to={`/blog/${post.slug}`} className="node-card__read">
               Read <ArrowRight size={12} className="read-arrow" />
@@ -238,8 +241,8 @@ function TeraBoxPlayerCard({
   );
 }
 
-/* ─── Compact Editorial Card (for 3-Col Left Cluster) ─────────────────── */
-function CompactEditorialCard({
+/* ─── Standard Thumbnail Card (3-Column Grid) ──────────────────────────── */
+function StandardThumbCard({
   post,
   delay = 0,
   staggerY = 0,
@@ -251,12 +254,13 @@ function CompactEditorialCard({
   isStacked?: boolean;
 }) {
   const tilt = useTilt(5);
-  const catStyle = CAT_STYLES[post.category] || CAT_STYLES.Tech;
+  const catStyle = CAT_STYLES[post.category] || CAT_STYLES.PDF;
+  const [imgFailed, setImgFailed] = useState(!post.coverImage || post.coverImage.trim() === '');
 
   return (
     <div
       ref={tilt.ref}
-      className={`node-card node-card--editorial ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
+      className={`node-card node-card--thumb ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
       style={{
         animationDelay: `${delay}ms`,
         transform: staggerY ? `translateY(${staggerY}px)` : undefined,
@@ -264,73 +268,7 @@ function CompactEditorialCard({
       onMouseMove={tilt.onMouseMove}
       onMouseLeave={tilt.onMouseLeave}
     >
-      {/* Stacked Pile Under-Layers */}
-      {isStacked && (
-        <div className="card-stack-shadows" aria-hidden="true">
-          <div className="stack-card-layer stack-card-layer--under-1" />
-          <div className="stack-card-layer stack-card-layer--under-2" />
-        </div>
-      )}
-
-      <div className="node-card__inner">
-        <div className="node-card__body">
-          <div className="node-card__meta-line">
-            <span
-              className="node-card__cat-pill"
-              style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
-            >
-              {post.category}
-            </span>
-            <span className="meta-sep">·</span>
-            <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
-          </div>
-
-          <h4 className="node-card__title node-card__title--editorial">
-            <Link to={`/blog/${post.slug}`}>{post.title}</Link>
-          </h4>
-
-          <p className="node-card__excerpt node-card__excerpt--editorial">{post.excerpt}</p>
-
-          <div className="node-card__footer editorial-footer">
-            <Link to={`/blog/${post.slug}`} className="node-card__read">
-              Read <ArrowRight size={11} className="read-arrow" />
-            </Link>
-          </div>
-        </div>
-
-        <div className="node-card__glow" />
-      </div>
-    </div>
-  );
-}
-
-/* ─── Standard Thumbnail Card (for Discovery Clusters) ────────────────── */
-function StandardThumbCard({
-  post,
-  delay = 0,
-  isRotated = false,
-  hasGlowBorder = false,
-  isStacked = false,
-}: {
-  post: BlogPost;
-  delay?: number;
-  isRotated?: boolean;
-  hasGlowBorder?: boolean;
-  isStacked?: boolean;
-}) {
-  const tilt = useTilt(5);
-  const catStyle = CAT_STYLES[post.category] || CAT_STYLES.PDF;
-  const [imgFailed, setImgFailed] = useState(!post.coverImage || post.coverImage.trim() === '');
-
-  return (
-    <div
-      ref={tilt.ref}
-      className={`node-card node-card--thumb ${isRotated ? 'node-card--rotated' : ''} ${hasGlowBorder ? 'node-card--glow-highlight' : ''} ${isStacked ? 'node-card--stacked' : ''} reveal-node`}
-      style={{ animationDelay: `${delay}ms` }}
-      onMouseMove={tilt.onMouseMove}
-      onMouseLeave={tilt.onMouseLeave}
-    >
-      {/* Stacked Pile Under-Layers */}
+      {/* Stacked Pile Under-Layers (FIX 2: Subtle translate(6px,6px) and (12px,12px)) */}
       {isStacked && (
         <div className="card-stack-shadows" aria-hidden="true">
           <div className="stack-card-layer stack-card-layer--under-1" />
@@ -360,14 +298,19 @@ function StandardThumbCard({
 
         <div className="node-card__body">
           <div className="node-card__meta-line">
+            <span
+              className="node-card__cat-pill"
+              style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+            >
+              {post.category}
+            </span>
+            <span className="meta-sep">·</span>
             <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
           </div>
 
           <h4 className="node-card__title">
             <Link to={`/blog/${post.slug}`}>{post.title}</Link>
           </h4>
-
-          <p className="node-card__excerpt">{post.excerpt}</p>
 
           <div className="node-card__footer">
             <Link to={`/blog/${post.slug}`} className="node-card__read">
@@ -389,7 +332,7 @@ export default function BlogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeCategoryFromUrl = searchParams.get('category') || 'All';
-  // FIX D: Strictly default to page 1 if not present in URL
+  // Strictly default to page 1 if not present in URL
   const rawPage = parseInt(searchParams.get('page') || '1', 10);
   const activePageFromUrl = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
 
@@ -400,13 +343,8 @@ export default function BlogPage() {
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
 
-  // Refs for dynamic wire bundle calculation
-  const containerRef = useRef<HTMLDivElement>(null);
-  const featuredRef = useRef<HTMLDivElement>(null);
-  const gutterRef = useRef<HTMLDivElement>(null);
-  const leftClusterRef = useRef<HTMLDivElement>(null);
-  const rightClusterRef = useRef<HTMLDivElement>(null);
-  const paginationRef = useRef<HTMLDivElement>(null);
+  // Ref for Left Column Content Wrapper (for decorative WireBundle SVG)
+  const mainAreaRef = useRef<HTMLDivElement>(null);
 
   usePageSeo(
     'page-blog',
@@ -414,7 +352,7 @@ export default function BlogPage() {
     'Read our expert articles and tutorials on cloud video streaming, client-side PDF architectures, web performance, and modern online developer tools.'
   );
 
-  // Sync with URL params (FIX D: Always fallback to page 1)
+  // Sync with URL params
   useEffect(() => {
     setSelectedCategory(activeCategoryFromUrl);
   }, [activeCategoryFromUrl]);
@@ -487,7 +425,7 @@ export default function BlogPage() {
   /* Featured dark card tilt */
   const featuredTilt = useTilt(5);
 
-  /* FIX 1: Distinct Featured Flagship Post & Discovery Allocation */
+  /* Distinct Featured Flagship Post & Discovery Allocation */
   const featuredPost = useMemo(() => {
     const flagship = allPosts.find((p) => p.slug === 'building-high-performance-video-apps');
     if (flagship) return flagship;
@@ -503,23 +441,14 @@ export default function BlogPage() {
   const topStackedPost1 = otherPosts.length > 0 ? otherPosts[0] : null;
   const topStackedPost2 = otherPosts.length > 1 ? otherPosts[1] : null;
 
-  // Left Cluster 3x3 (up to 9 posts)
-  const leftClusterPosts = useMemo(() => {
+  // Single 3-Column Grid Cards (9 posts below top row)
+  const gridPosts = useMemo(() => {
     const pool = otherPosts.slice(2);
-    const padded = [...pool];
-    while (padded.length < 9 && otherPosts.length > 0) {
-      padded.push(...otherPosts);
+    const list = [...pool];
+    while (list.length < 9 && otherPosts.length > 0) {
+      list.push(...otherPosts);
     }
-    return padded.slice(0, 9);
-  }, [otherPosts]);
-
-  // Right Discovery Cluster (4 posts)
-  const rightClusterPosts = useMemo(() => {
-    const pool = otherPosts.slice(4);
-    if (pool.length < 4) {
-      return otherPosts.slice(0, 4);
-    }
-    return pool.slice(0, 4);
+    return list.slice(0, 9);
   }, [otherPosts]);
 
   // Sidebar Categories with count
@@ -588,22 +517,15 @@ export default function BlogPage() {
           </div>
         </section>
 
-        {/* ─── MAIN GRID (Left Content ~76%, Right Sticky Sidebar ~24%) ─── */}
-        <div className="blog-editorial-layout" ref={containerRef}>
-          {/* Central Wire Bundle SVG Layer (FIX B: Center Spine in 50px gutter) */}
-          {!loadingPosts && !isFiltering && (
-            <WireBundle
-              containerRef={containerRef}
-              featuredRef={featuredRef}
-              gutterRef={gutterRef}
-              leftClusterRef={leftClusterRef}
-              rightClusterRef={rightClusterRef}
-              paginationRef={paginationRef}
-            />
-          )}
+        {/* ─── MAIN GRID: Left Content Column (minmax(0, 1fr)) + Right Sidebar (300px) (FIX 1) ─── */}
+        <div className="blog-editorial-layout">
+          {/* Left Column = Everything (Top Row + Wires + 3-Col Cards + Pagination) */}
+          <main className="blog-main-area" ref={mainAreaRef}>
+            {/* FIX 3: Absolutely Positioned Decorative Wire SVG behind cards */}
+            {!loadingPosts && !isFiltering && (
+              <WireBundle containerRef={mainAreaRef} />
+            )}
 
-          {/* Left Content Area (~76%) */}
-          <main className="blog-main-area">
             {loadingPosts ? (
               <div className="skeleton-grid">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -650,17 +572,14 @@ export default function BlogPage() {
                 )}
               </div>
             ) : (
-              /* Reference Image 1 Editorial Discovery Layout */
+              /* Reference Image 1 Editorial Discovery Flow */
               <div className="discovery-tree-flow">
-                {/* ─── a) TOP ROW: Featured Card (Left ~60%) + 2 Compact Cards (Right ~40%) (FIX A) ─ */}
+                {/* ─── a) TOP ROW: Featured Card (Left) + 2 Compact Cards (Right) (PRESERVED EXACTLY) ─ */}
                 <div className="discovery-top-row">
                   {/* Left: Large Dark Featured Article Card */}
                   {featuredPost && (
                     <div
-                      ref={(node) => {
-                        (featuredRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-                        (featuredTilt.ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-                      }}
+                      ref={featuredTilt.ref}
                       className="featured-guide-card reveal-node"
                       onMouseMove={featuredTilt.onMouseMove}
                       onMouseLeave={featuredTilt.onMouseLeave}
@@ -696,16 +615,13 @@ export default function BlogPage() {
                             <span>
                               <Clock size={12} /> {featuredPost.readTime}
                             </span>
-                            <span>
-                              <Calendar size={12} /> {featuredPost.publishedAt}
-                            </span>
                           </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Right: 2 Compact Stacked Cards fitting within ~380px row height (FIX A) */}
+                  {/* Right: 2 Compact Stacked Cards (~178px height, matching featured card height) */}
                   <div className="discovery-top-stacked">
                     {topStackedPost1 && (
                       <TopRowCompactCard post={topStackedPost1} delay={80} isRotated={true} />
@@ -716,96 +632,41 @@ export default function BlogPage() {
                   </div>
                 </div>
 
-                {/* ─── Spacer for Wire Bundle branches ─────────────── */}
-                <div className="wire-branches-spacer" />
-
-                {/* ─── c) CARDS BELOW: 3-Col Left + 50px Gutter + Right Showcase (FIX B & C) ─ */}
-                <div className="discovery-clusters-row">
-                  {/* Left: 3-Column Regular Grid (3 rows) */}
-                  <div className="cluster-left-3col" ref={leftClusterRef}>
-                    <div className="cluster-header-pill">
-                      <span className="cluster-dot" style={{ background: '#14B8A6' }} />
-                      <span>Video &amp; Architecture Nodes</span>
-                    </div>
-
-                    <div className="grid-3col">
-                      {/* Row 1: Staggered compact cards */}
-                      {leftClusterPosts.slice(0, 3).map((post, idx) => (
-                        <CompactEditorialCard
-                          key={`l1-${post.id}-${idx}`}
-                          post={post}
-                          delay={idx * 50}
-                          staggerY={idx === 1 ? -10 : idx === 2 ? 10 : 0}
-                          isStacked={idx === 2}
-                        />
-                      ))}
-
-                      {/* Row 2: Media / Player / Visual Cards */}
-                      {leftClusterPosts.slice(3, 6).map((post, idx) =>
-                        post.category === 'Video' ? (
-                          <TeraBoxPlayerCard
-                            key={`l2-${post.id}-${idx}`}
-                            post={post}
-                            delay={140 + idx * 50}
-                            isStacked={idx === 0}
-                          />
-                        ) : (
-                          <StandardThumbCard
-                            key={`l2-${post.id}-${idx}`}
-                            post={post}
-                            delay={140 + idx * 50}
-                            isStacked={idx === 0}
-                          />
-                        )
-                      )}
-
-                      {/* Row 3: Staggered compact cards */}
-                      {leftClusterPosts.slice(6, 9).map((post, idx) => (
-                        <CompactEditorialCard
-                          key={`l3-${post.id}-${idx}`}
-                          post={post}
-                          delay={280 + idx * 50}
-                          staggerY={idx === 0 ? 10 : idx === 2 ? -8 : 0}
-                          isStacked={idx === 1}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* FIX B: Empty 50px Spine Gutter Channel where Wires Wave Freely */}
-                  <div className="wire-spine-gutter" ref={gutterRef} aria-hidden="true" />
-
-                  {/* Right: Stacked-pile cards (min 240px) + highlighted teal glow card */}
-                  <div className="cluster-right-showcase" ref={rightClusterRef}>
-                    <div className="cluster-header-pill">
-                      <span className="cluster-dot" style={{ background: '#22D3EE' }} />
-                      <span>PDF &amp; Cloud Tools</span>
-                    </div>
-
-                    <div className="grid-2col-media">
-                      {rightClusterPosts.slice(0, 2).map((post, idx) => (
-                        <TeraBoxPlayerCard
-                          key={`r1-${post.id}-${idx}`}
-                          post={post}
-                          delay={100 + idx * 60}
-                          isStacked={true}
-                        />
-                      ))}
-                      {rightClusterPosts.slice(2, 4).map((post, idx) => (
-                        <StandardThumbCard
-                          key={`r2-${post.id}-${idx}`}
-                          post={post}
-                          delay={220 + idx * 60}
-                          hasGlowBorder={idx === 0}
-                          isStacked={idx === 1}
-                        />
-                      ))}
-                    </div>
-                  </div>
+                {/* Section Header Pill */}
+                <div className="cluster-header-pill">
+                  <span className="cluster-dot" style={{ background: '#14B8A6' }} />
+                  <span>Video, PDF &amp; Architecture Nodes</span>
                 </div>
 
-                {/* ─── f) PAGINATION (Radial Arc Style - Default strictly Page 1) (FIX D) ─ */}
-                <div className="timeline-pagination-section" ref={paginationRef}>
+                {/* ─── b) CARDS GRID: EXACTLY 3 COLUMNS, NO 4th/5th COLUMN (FIX 1 & 2) ─ */}
+                <div className="discovery-cards-grid">
+                  {gridPosts.map((post, idx) => {
+                    const isStacked = idx === 1 || idx === 6; // Stacked piles strictly on 2nd and 7th card
+                    const isAlternate = idx % 3 === 1; // Center column staggered slightly (10px)
+                    const isVideoPlayer = post.category === 'Video' && (post.slug.includes('terabox-video-player') || idx === 3);
+
+                    return isVideoPlayer ? (
+                      <TeraBoxPlayerCard
+                        key={`grid-${post.id}-${idx}`}
+                        post={post}
+                        delay={idx * 35}
+                        staggerY={isAlternate ? 10 : 0}
+                        isStacked={isStacked}
+                      />
+                    ) : (
+                      <StandardThumbCard
+                        key={`grid-${post.id}-${idx}`}
+                        post={post}
+                        delay={idx * 35}
+                        staggerY={isAlternate ? 10 : 0}
+                        isStacked={isStacked}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* ─── c) PAGINATION (Radial Arc Style - Default strictly Page 1) ─ */}
+                <div className="timeline-pagination-section">
                   <nav className="radial-pagination" aria-label="Blog pagination">
                     <button
                       type="button"
@@ -843,7 +704,7 @@ export default function BlogPage() {
             )}
           </main>
 
-          {/* ─── RIGHT SIDEBAR (~24% Width, Sticky top: 96px) ─────────── */}
+          {/* ─── RIGHT SIDEBAR (300px Width, Sticky top: 96px, Scrollable) (FIX 1) ─── */}
           <aside className="blog-editorial-sidebar">
             {/* 1. Explore All Categories Card */}
             <div className="sidebar-card sidebar-categories-card">
@@ -885,7 +746,7 @@ export default function BlogPage() {
               </div>
             </div>
 
-            {/* 2. Recent Posts Mini-Timeline Stream (FIX C: Limited height, no overlap) */}
+            {/* 2. Recent Posts Mini-Timeline Stream */}
             {allPosts.length > 0 && (
               <div className="sidebar-card sidebar-stream-card">
                 <h3 className="sidebar-section-title">Recent Posts</h3>
