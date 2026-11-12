@@ -4,7 +4,7 @@ import { Search, Clock, ArrowRight, BookOpen, ChevronLeft, ChevronRight, Play, S
 import { getPublishedPosts } from '../data/blogRegistry';
 import type { BlogPost } from '../data/blogRegistry';
 import { usePageSeo } from '../hooks/usePageSeo';
-import WireBundle from '../components/blog/WireBundle';
+import WireBundle, { resolveCategoryStyle } from '../components/blog/WireBundle';
 import './BlogPage.css';
 
 /* ─── 3D Perspective Tilt Hook ──────────────────────────────────────────── */
@@ -30,15 +30,6 @@ function useTilt(strength = 7) {
 
   return { ref, onMouseMove, onMouseLeave };
 }
-
-/* Category Pill Tint Styles (Reference specification) */
-const CAT_STYLES: Record<string, { bg: string; color: string; border: string }> = {
-  Video: { bg: 'rgba(139, 92, 246, 0.12)', color: '#7c3aed', border: 'rgba(139, 92, 246, 0.25)' },
-  PDF: { bg: 'rgba(59, 130, 246, 0.12)', color: '#2563eb', border: 'rgba(59, 130, 246, 0.25)' },
-  Tech: { bg: 'rgba(34, 211, 238, 0.14)', color: '#0891b2', border: 'rgba(34, 211, 238, 0.3)' },
-  SEO: { bg: 'rgba(16, 185, 129, 0.12)', color: '#059669', border: 'rgba(16, 185, 129, 0.25)' },
-  Productivity: { bg: 'rgba(245, 158, 11, 0.14)', color: '#d97706', border: 'rgba(245, 158, 11, 0.25)' },
-};
 
 /* ─── Corner Sine-Wave Mesh Pattern (Teal & Cyan wave strands) ──────────── */
 function CornerWaveMesh() {
@@ -72,7 +63,7 @@ function CornerWaveMesh() {
   );
 }
 
-/* ─── Branded Abstract Cover Placeholder (FIX 5: No broken images!) ─────── */
+/* ─── Branded Abstract Cover Placeholder (No broken images!) ────────────── */
 function BrandedCoverPlaceholder({
   category,
   title,
@@ -87,7 +78,7 @@ function BrandedCoverPlaceholder({
       <div className="placeholder-blueprint-grid" />
       <div className="placeholder-content">
         <div className="placeholder-icon-ring">
-          {category === 'PDF' ? (
+          {category.toLowerCase().includes('pdf') ? (
             <Shield size={isCompact ? 16 : 20} color="#14B8A6" />
           ) : (
             <BookOpen size={isCompact ? 16 : 20} color="#14B8A6" />
@@ -99,7 +90,7 @@ function BrandedCoverPlaceholder({
   );
 }
 
-/* ─── Top Row Compact Stacked Card (Height ~178px, No Excerpt) ──────────── */
+/* ─── Top Row Compact Stacked Card (Aspect Ratio 1200 / 630, No Crop) ────── */
 function TopRowCompactCard({
   post,
   delay = 0,
@@ -110,7 +101,7 @@ function TopRowCompactCard({
   isRotated?: boolean;
 }) {
   const tilt = useTilt(4);
-  const catStyle = CAT_STYLES[post.category] || CAT_STYLES.Tech;
+  const catStyle = resolveCategoryStyle(post.category);
   const [imgFailed, setImgFailed] = useState(!post.coverImage || post.coverImage.trim() === '');
 
   return (
@@ -123,15 +114,25 @@ function TopRowCompactCard({
     >
       <Link to={`/blog/${post.slug}`} className="top-compact-thumb" aria-label={post.title}>
         {!imgFailed && post.coverImage ? (
-          <img src={post.coverImage} alt={post.title} loading="lazy" onError={() => setImgFailed(true)} />
+          <>
+            <div className="top-compact-backdrop" style={{ backgroundImage: `url(${post.coverImage})` }} aria-hidden="true" />
+            <img
+              src={post.coverImage}
+              alt={post.title}
+              width="1200"
+              height="630"
+              loading="lazy"
+              onError={() => setImgFailed(true)}
+            />
+          </>
         ) : (
           <BrandedCoverPlaceholder category={post.category} title={post.title} isCompact={true} />
         )}
         <span
           className="top-compact-badge"
-          style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+          style={{ background: catStyle.bg, color: catStyle.text, borderColor: catStyle.border }}
         >
-          {post.category}
+          {catStyle.label || post.category}
         </span>
       </Link>
 
@@ -150,7 +151,7 @@ function TopRowCompactCard({
   );
 }
 
-/* ─── TeraBox Player Mockup Card (3-Column Grid) ────────────────────────── */
+/* ─── TeraBox Player Mockup Card (Aspect Ratio 1200 / 630, 3-Column Grid) ─── */
 function TeraBoxPlayerCard({
   post,
   delay = 0,
@@ -163,7 +164,7 @@ function TeraBoxPlayerCard({
   isStacked?: boolean;
 }) {
   const tilt = useTilt(5);
-  const catStyle = CAT_STYLES[post.category] || CAT_STYLES.Video;
+  const catStyle = resolveCategoryStyle(post.category);
 
   return (
     <div
@@ -177,7 +178,7 @@ function TeraBoxPlayerCard({
       onMouseMove={tilt.onMouseMove}
       onMouseLeave={tilt.onMouseLeave}
     >
-      {/* Stacked Pile Under-Layers (FIX 2: Subtle translate(6px,6px) and (12px,12px)) */}
+      {/* Stacked Pile Under-Layers */}
       {isStacked && (
         <div className="card-stack-shadows" aria-hidden="true">
           <div className="stack-card-layer stack-card-layer--under-1" />
@@ -217,9 +218,9 @@ function TeraBoxPlayerCard({
           <div className="node-card__meta-line">
             <span
               className="node-card__cat-pill"
-              style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+              style={{ background: catStyle.bg, color: catStyle.text, borderColor: catStyle.border }}
             >
-              {post.category}
+              {catStyle.label || post.category}
             </span>
             <span className="meta-sep">·</span>
             <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
@@ -242,7 +243,7 @@ function TeraBoxPlayerCard({
   );
 }
 
-/* ─── Standard Thumbnail Card (3-Column Grid) ──────────────────────────── */
+/* ─── Standard Thumbnail Card (Aspect Ratio 1200 / 630, Contain & No Crop) ─ */
 function StandardThumbCard({
   post,
   delay = 0,
@@ -255,7 +256,7 @@ function StandardThumbCard({
   isStacked?: boolean;
 }) {
   const tilt = useTilt(5);
-  const catStyle = CAT_STYLES[post.category] || CAT_STYLES.PDF;
+  const catStyle = resolveCategoryStyle(post.category);
   const [imgFailed, setImgFailed] = useState(!post.coverImage || post.coverImage.trim() === '');
 
   return (
@@ -270,7 +271,7 @@ function StandardThumbCard({
       onMouseMove={tilt.onMouseMove}
       onMouseLeave={tilt.onMouseLeave}
     >
-      {/* Stacked Pile Under-Layers (FIX 2: Subtle translate(6px,6px) and (12px,12px)) */}
+      {/* Stacked Pile Under-Layers */}
       {isStacked && (
         <div className="card-stack-shadows" aria-hidden="true">
           <div className="stack-card-layer stack-card-layer--under-1" />
@@ -281,20 +282,25 @@ function StandardThumbCard({
       <div className="node-card__inner">
         <Link to={`/blog/${post.slug}`} className="node-card__img-link">
           {!imgFailed && post.coverImage ? (
-            <img
-              src={post.coverImage}
-              alt={post.title}
-              loading="lazy"
-              onError={() => setImgFailed(true)}
-            />
+            <>
+              <div className="node-card__backdrop" style={{ backgroundImage: `url(${post.coverImage})` }} aria-hidden="true" />
+              <img
+                src={post.coverImage}
+                alt={post.title}
+                width="1200"
+                height="630"
+                loading="lazy"
+                onError={() => setImgFailed(true)}
+              />
+            </>
           ) : (
             <BrandedCoverPlaceholder category={post.category} title={post.title} />
           )}
           <span
             className="node-card__cat-badge"
-            style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+            style={{ background: catStyle.bg, color: catStyle.text, borderColor: catStyle.border }}
           >
-            {post.category}
+            {catStyle.label || post.category}
           </span>
         </Link>
 
@@ -302,9 +308,9 @@ function StandardThumbCard({
           <div className="node-card__meta-line">
             <span
               className="node-card__cat-pill"
-              style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+              style={{ background: catStyle.bg, color: catStyle.text, borderColor: catStyle.border }}
             >
-              {post.category}
+              {catStyle.label || post.category}
             </span>
             <span className="meta-sep">·</span>
             <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
@@ -334,7 +340,6 @@ export default function BlogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeCategoryFromUrl = searchParams.get('category') || 'All';
-  // Strictly default to page 1 if not present in URL
   const rawPage = parseInt(searchParams.get('page') || '1', 10);
   const activePageFromUrl = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
 
@@ -403,92 +408,131 @@ export default function BlogPage() {
       else p.set('page', String(targetPage));
       return p;
     });
-    window.scrollTo({ top: 380, behavior: 'smooth' });
+
+    const el = document.querySelector('.blog-editorial-layout');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 380, behavior: 'smooth' });
+    }
   };
 
-  const categories = useMemo(() => {
-    const cats = new Set(allPosts.map((p) => p.category));
+  // Dynamic Categories Set from published posts
+  const dynamicCategories = useMemo(() => {
+    const cats = new Set<string>();
+    allPosts.forEach((p) => {
+      if (p.category && p.status === 'published') {
+        cats.add(p.category.trim());
+      }
+    });
     return ['All', ...Array.from(cats)];
   }, [allPosts]);
 
-  const filteredPosts = useMemo(() => {
+  // Sidebar Categories with real post counts
+  const sidebarCategories = useMemo(() => {
+    const counts = new Map<string, number>();
+    allPosts.filter((p) => p.status === 'published').forEach((p) => {
+      const cat = p.category?.trim() || 'General';
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+
+    return Array.from(counts.entries()).map(([cat, count]) => ({
+      name: cat.endsWith('Tools') ? cat : `${cat} Tools`,
+      rawCat: cat,
+      count,
+    }));
+  }, [allPosts]);
+
+  const isFiltering = !!(debouncedSearch.trim() || selectedCategory !== 'All');
+
+  /* Featured dark card tilt */
+  const featuredTilt = useTilt(5);
+
+  /* ─── 1. Featured Flagship Article & Top 2 Selection ─────────────────── */
+  const featuredPost = useMemo(() => {
+    // 1. Post explicitly marked as featured in Firestore / registry
+    const explicit = allPosts.find((p) => p.featured && p.status === 'published');
+    if (explicit) return explicit;
+    // 2. Fallback to latest published article
+    return allPosts.length > 0 ? allPosts[0] : null;
+  }, [allPosts]);
+
+  const topStackedPosts = useMemo(() => {
+    if (!featuredPost) return [];
+    const nonFeatured = allPosts.filter((p) => p.id !== featuredPost.id && p.status === 'published');
+
+    // Check if any posts have topHighlight === true
+    const highlighted = nonFeatured.filter((p) => p.topHighlight);
+    if (highlighted.length >= 2) {
+      return highlighted.slice(0, 2);
+    }
+    if (highlighted.length === 1) {
+      const filler = nonFeatured.find((p) => p.id !== highlighted[0].id);
+      return filler ? [highlighted[0], filler] : [highlighted[0]];
+    }
+    // Fallback: latest 2 non-featured
+    return nonFeatured.slice(0, 2);
+  }, [allPosts, featuredPost]);
+
+  const topStackedPost1 = topStackedPosts.length > 0 ? topStackedPosts[0] : null;
+  const topStackedPost2 = topStackedPosts.length > 1 ? topStackedPosts[1] : null;
+
+  /* ─── 2. Search & Category Filter Pool ───────────────────────────────── */
+  const filteredPool = useMemo(() => {
     return allPosts.filter((post) => {
+      if (post.status !== 'published') return false;
       const matchSearch =
         debouncedSearch === '' ||
         post.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         post.excerpt.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         post.tags.some((t) => t.toLowerCase().includes(debouncedSearch.toLowerCase()));
-      const matchCat = selectedCategory === 'All' || post.category === selectedCategory;
+      const matchCat = selectedCategory === 'All' || post.category.toLowerCase() === selectedCategory.toLowerCase();
       return matchSearch && matchCat;
     });
   }, [allPosts, debouncedSearch, selectedCategory]);
 
-  const isFiltering = !!(debouncedSearch || selectedCategory !== 'All');
-
-  /* Featured dark card tilt */
-  const featuredTilt = useTilt(5);
-
-  /* Distinct Featured Flagship Post & Discovery Allocation */
-  const featuredPost = useMemo(() => {
-    const flagship = allPosts.find((p) => p.slug === 'building-high-performance-video-apps');
-    if (flagship) return flagship;
-    return allPosts.length > 0 ? allPosts[0] : null;
-  }, [allPosts]);
-
-  const otherPosts = useMemo(() => {
-    if (!featuredPost) return allPosts;
-    return allPosts.filter((p) => p.id !== featuredPost.id);
-  }, [allPosts, featuredPost]);
-
-  // Top stacked right cards (2 cards)
-  const topStackedPost1 = otherPosts.length > 0 ? otherPosts[0] : null;
-  const topStackedPost2 = otherPosts.length > 1 ? otherPosts[1] : null;
-
-  // Single 3-Column Grid Cards (9 posts below top row)
-  // Ensure the 5 key categories (Video, PDF, Tech, Productivity, SEO) are distinctively present
-  const gridPosts = useMemo(() => {
-    const topIds = new Set([featuredPost?.id, topStackedPost1?.id, topStackedPost2?.id].filter(Boolean));
-    const available = otherPosts.filter((p) => !topIds.has(p.id));
-
-    // Desired order for clear category distribution:
-    // Row 1: Video (Col 1), PDF (Col 2), Tech (Col 3)
-    // Row 2: Productivity (Col 1), SEO (Col 2), Video (Col 3)
-    // Row 3: Video (Col 1), Video (Col 2), Video (Col 3)
-    const videoPosts = available.filter((p) => p.category === 'Video');
-    const pdfPost = available.find((p) => p.category === 'PDF') || allPosts.find((p) => p.category === 'PDF');
-    const techPost = available.find((p) => p.category === 'Tech') || allPosts.find((p) => p.category === 'Tech');
-    const prodPost = available.find((p) => p.category === 'Productivity') || allPosts.find((p) => p.category === 'Productivity');
-    const seoPost = available.find((p) => p.category === 'SEO') || allPosts.find((p) => p.category === 'SEO');
-
-    const result: BlogPost[] = [];
-    if (videoPosts[0]) result.push(videoPosts[0]);
-    if (pdfPost) result.push(pdfPost);
-    if (techPost) result.push(techPost);
-    if (prodPost) result.push(prodPost);
-    if (seoPost) result.push(seoPost);
-    if (videoPosts[1]) result.push(videoPosts[1]);
-    if (videoPosts[2]) result.push(videoPosts[2]);
-    if (videoPosts[3]) result.push(videoPosts[3]);
-    if (videoPosts[4]) result.push(videoPosts[4]);
-
-    while (result.length < 9 && available.length > 0) {
-      result.push(available[result.length % available.length]);
+  /* ─── 3. Pagination Rule: (Total - 3) / 9 on Page 1, Pure 9 on Page 2+ ─ */
+  const paginatedBasePosts = useMemo(() => {
+    if (isFiltering) {
+      // When searching/filtering, all matching posts are in the grid
+      return filteredPool;
     }
-    return result.slice(0, 9);
-  }, [allPosts, featuredPost, topStackedPost1, topStackedPost2, otherPosts]);
+    // Exclude the 3 top row posts from page 1 onwards
+    const topIds = new Set([featuredPost?.id, topStackedPost1?.id, topStackedPost2?.id].filter(Boolean));
+    return allPosts.filter((p) => p.status === 'published' && !topIds.has(p.id));
+  }, [isFiltering, filteredPool, allPosts, featuredPost, topStackedPost1, topStackedPost2]);
 
-  // Sidebar Categories with count
-  const sidebarCategories = useMemo(
-    () => [
-      { name: 'Video Tools', cat: 'Video', count: allPosts.filter((p) => p.category === 'Video').length + 4 },
-      { name: 'PDF Tools', cat: 'PDF', count: allPosts.filter((p) => p.category === 'PDF').length + 2 },
-      { name: 'Video Processing', cat: 'Video', count: 5 },
-      { name: 'Image Tools', cat: 'Tech', count: allPosts.filter((p) => p.category === 'Tech').length + 3 },
-      { name: 'Productivity', cat: 'Productivity', count: allPosts.filter((p) => p.category === 'Productivity').length },
-      { name: 'SEO Tools', cat: 'SEO', count: allPosts.filter((p) => p.category === 'SEO').length },
-    ],
-    [allPosts]
-  );
+  const totalPages = Math.max(1, Math.ceil(paginatedBasePosts.length / 9));
+
+  // Reset to page 1 if current page is out of range
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // 9 cards for the current active page
+  const currentGridPosts = useMemo(() => {
+    const startIndex = (currentPage - 1) * 9;
+    return paginatedBasePosts.slice(startIndex, startIndex + 9);
+  }, [paginatedBasePosts, currentPage]);
+
+  // Dynamic Pagination Items with Ellipsis (1 ... 4 5 6 ... 12)
+  const paginationItems = useMemo(() => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, '...', totalPages];
+    }
+    if (currentPage >= totalPages - 2) {
+      return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+  }, [totalPages, currentPage]);
+
+  // Show top row strictly when not filtering and on Page 1
+  const showTopRow = !isFiltering && currentPage === 1 && !!featuredPost;
 
   return (
     <div className="blog-page">
@@ -496,7 +540,7 @@ export default function BlogPage() {
       <CornerWaveMesh />
 
       <div className="container blog-container">
-        {/* ─── HERO SECTION (H1 strictly 2-line "ProToolBox Insights & Tutorials") ─ */}
+        {/* ─── HERO SECTION ────────────────────────────────────────────── */}
         <section className="blog-hero">
           <h1 className="blog-title">
             ProToolBox <br className="hero-br" />
@@ -520,34 +564,36 @@ export default function BlogPage() {
             />
           </div>
 
-          {/* 2 Quick Circular Toggle Icons (All, Video) */}
+          {/* Dynamic Category Filter Pills */}
           <div className="hero-quick-toggles" role="tablist">
-            <button
-              type="button"
-              className={`hero-toggle-btn${selectedCategory === 'All' ? ' active' : ''}`}
-              onClick={() => handleCategoryChange('All')}
-              aria-label="Filter All"
-            >
-              <span className="toggle-dot" />
-              <span>All</span>
-            </button>
-            <button
-              type="button"
-              className={`hero-toggle-btn${selectedCategory === 'Video' ? ' active' : ''}`}
-              onClick={() => handleCategoryChange('Video')}
-              aria-label="Filter Video"
-            >
-              <span className="toggle-dot toggle-dot--video" />
-              <span>Video</span>
-            </button>
+            {dynamicCategories.slice(0, 5).map((cat) => {
+              const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
+              const style = resolveCategoryStyle(cat);
+              return (
+                <button
+                  key={`hero-pill-${cat}`}
+                  type="button"
+                  className={`hero-toggle-btn${isActive ? ' active' : ''}`}
+                  onClick={() => handleCategoryChange(cat)}
+                  aria-label={`Filter ${cat}`}
+                >
+                  <span
+                    className="toggle-dot"
+                    style={{ background: cat === 'All' ? '#14B8A6' : style.border }}
+                  />
+                  <span>{cat}</span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        {/* ─── MAIN GRID: Left Content Column (minmax(0, 1fr)) + Right Sidebar (300px) (FIX 1) ─── */}
+        {/* ─── MAIN EDITORIAL LAYOUT (Desktop 3-Col+Sidebar, Tablet 2-Col, Mobile 1-Col) ─── */}
         <div className="blog-editorial-layout">
-          {/* Left Column = Everything (Top Row + Wires + 3-Col Cards + Pagination) */}
+          {/* Left Column = Main Content (Top Row + Wires + 3-Col Cards + Pagination) */}
           <main className="blog-main-area" ref={mainAreaRef}>
-            {!loadingPosts && !isFiltering && (
+            {/* Dynamic Wire Bundle SVG (recomputes on cards / page / filter change) */}
+            {!loadingPosts && currentGridPosts.length > 0 && (
               <WireBundle containerRef={mainAreaRef} cardGridRef={cardGridRef} />
             )}
 
@@ -557,63 +603,58 @@ export default function BlogPage() {
                   <div key={i} className="skeleton-card" />
                 ))}
               </div>
-            ) : isFiltering ? (
-              /* Filtered / Search State: Flat Responsive Grid */
-              <div className="filtered-results-wrap">
-                <div className="filtered-header">
-                  <h3>
-                    Showing {filteredPosts.length} article{filteredPosts.length === 1 ? '' : 's'}
-                    {selectedCategory !== 'All' ? ` in ${selectedCategory}` : ''}
-                    {debouncedSearch ? ` matching "${debouncedSearch}"` : ''}
-                  </h3>
-                  <button
-                    type="button"
-                    className="clear-filter-btn"
-                    onClick={() => {
-                      setSearchQuery('');
-                      handleCategoryChange('All');
-                    }}
-                  >
-                    Clear Filters
-                  </button>
-                </div>
-
-                {filteredPosts.length === 0 ? (
-                  <div className="blog-empty">
-                    <BookOpen size={44} />
-                    <h3>No articles found</h3>
-                    <p>Try searching with another keyword or pick another category.</p>
-                  </div>
-                ) : (
-                  <div className="flat-grid">
-                    {filteredPosts.map((post, i) =>
-                      post.slug.includes('terabox-video-player') ? (
-                        <TeraBoxPlayerCard key={post.id} post={post} delay={i * 45} />
-                      ) : (
-                        <StandardThumbCard key={post.id} post={post} delay={i * 45} />
-                      )
-                    )}
-                  </div>
-                )}
+            ) : currentGridPosts.length === 0 ? (
+              /* Empty Search / Filter State */
+              <div className="blog-empty" style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <BookOpen size={48} color="#14B8A6" style={{ margin: '0 auto 16px' }} />
+                <h3 style={{ fontSize: '1.3rem', color: '#0F172A', marginBottom: 8 }}>No articles found</h3>
+                <p style={{ color: '#64748B', maxWidth: 420, margin: '0 auto 20px' }}>
+                  {debouncedSearch
+                    ? `No articles match "${debouncedSearch}". Try another keyword.`
+                    : `No articles in ${selectedCategory} category yet.`}
+                </p>
+                <button
+                  type="button"
+                  className="featured-guide-cta"
+                  onClick={() => {
+                    setSearchQuery('');
+                    handleCategoryChange('All');
+                  }}
+                >
+                  Clear Filters
+                </button>
               </div>
             ) : (
-              /* Reference Image 1 Editorial Discovery Flow */
               <div className="discovery-tree-flow">
-                {/* ─── a) TOP ROW: Featured Card (Left) + 2 Compact Cards (Right) (PRESERVED EXACTLY) ─ */}
-                <div className="discovery-top-row">
-                  {/* Left: Large Dark Featured Article Card */}
-                  {featuredPost && (
+                {/* ─── a) TOP ROW: Featured Card (Left) + 2 Compact Cards (Right) (Page 1 Only) ─ */}
+                {showTopRow && featuredPost && (
+                  <div className="discovery-top-row">
+                    {/* Left: Large Dark Featured Article Card with Uncropped Contain Image */}
                     <div
                       ref={featuredTilt.ref}
                       className="featured-guide-card reveal-node"
                       onMouseMove={featuredTilt.onMouseMove}
                       onMouseLeave={featuredTilt.onMouseLeave}
                     >
-                      <img
-                        src={featuredPost.coverImage || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80'}
-                        alt={featuredPost.title}
-                        className="featured-guide-bg-img"
+                      {/* Uncropped contain cover with blurred backdrop fill */}
+                      <div
+                        className="featured-backdrop-layer"
+                        style={{
+                          backgroundImage: `url(${featuredPost.coverImage || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80'})`,
+                        }}
+                        aria-hidden="true"
                       />
+                      <div className="featured-contain-wrapper">
+                        <img
+                          src={featuredPost.coverImage || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80'}
+                          alt={featuredPost.title}
+                          className="featured-contain-img"
+                          width="1200"
+                          height="630"
+                          loading="lazy"
+                        />
+                      </div>
+
                       <div className="featured-guide-overlay" />
                       <div className="featured-guide-glow" aria-hidden="true" />
                       <div className="featured-guide-blueprint" aria-hidden="true" />
@@ -621,7 +662,7 @@ export default function BlogPage() {
                       <div className="featured-guide-content">
                         <div className="featured-guide-badge">
                           <span className="featured-badge-dot" />
-                          FEATURED
+                          FEATURED HERO
                         </div>
 
                         <h2 className="featured-guide-title">
@@ -644,37 +685,43 @@ export default function BlogPage() {
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* Right: 2 Compact Stacked Cards (~178px height, matching featured card height) */}
-                  <div className="discovery-top-stacked">
-                    {topStackedPost1 && (
-                      <TopRowCompactCard post={topStackedPost1} delay={80} isRotated={true} />
-                    )}
-                    {topStackedPost2 && (
-                      <TopRowCompactCard post={topStackedPost2} delay={140} />
-                    )}
+                    {/* Right: 2 Compact Stacked Cards (~178px height, matching featured card height) */}
+                    <div className="discovery-top-stacked">
+                      {topStackedPost1 && (
+                        <TopRowCompactCard post={topStackedPost1} delay={80} isRotated={true} />
+                      )}
+                      {topStackedPost2 && (
+                        <TopRowCompactCard post={topStackedPost2} delay={140} />
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Section Header Pill */}
                 <div className="cluster-header-pill">
                   <span className="cluster-dot" style={{ background: '#14B8A6' }} />
-                  <span>Video, PDF &amp; Architecture Nodes</span>
+                  <span>
+                    {isFiltering
+                      ? `Articles in ${selectedCategory} (${paginatedBasePosts.length})`
+                      : currentPage > 1
+                      ? `Page ${currentPage} of ${totalPages} · Article Nodes`
+                      : 'Video, PDF & Architecture Nodes'}
+                  </span>
                 </div>
 
-                {/* ─── b) CARDS GRID: EXACTLY 3 COLUMNS, NO 4th/5th COLUMN (FIX 1 & 2) ─ */}
+                {/* ─── b) CARDS GRID: 3 COLUMNS, DYNAMIC WIRES & CARDS ──────── */}
                 <div className="discovery-cards-grid" ref={cardGridRef}>
-                  {gridPosts.map((post, idx) => {
-                    const isStacked = idx === 1 || idx === 6; // Stacked piles strictly on 2nd and 7th card
-                    const isAlternate = idx % 3 === 1; // Center column staggered slightly (10px)
-                    const isVideoPlayer = post.category === 'Video' && (post.slug.includes('terabox-video-player') || idx === 3);
+                  {currentGridPosts.map((post, idx) => {
+                    const isStacked = idx === 1 || idx === 6;
+                    const isAlternate = idx % 3 === 1;
+                    const isVideoPlayer = post.category.toLowerCase().includes('video') && (post.slug.includes('terabox-video-player') || idx === 0);
 
                     return isVideoPlayer ? (
                       <TeraBoxPlayerCard
                         key={`grid-${post.id}-${idx}`}
                         post={post}
-                        delay={idx * 35}
+                        delay={idx * 30}
                         staggerY={isAlternate ? 10 : 0}
                         isStacked={isStacked}
                       />
@@ -682,7 +729,7 @@ export default function BlogPage() {
                       <StandardThumbCard
                         key={`grid-${post.id}-${idx}`}
                         post={post}
-                        delay={idx * 35}
+                        delay={idx * 30}
                         staggerY={isAlternate ? 10 : 0}
                         isStacked={isStacked}
                       />
@@ -690,46 +737,54 @@ export default function BlogPage() {
                   })}
                 </div>
 
-                {/* ─── c) PAGINATION (Radial Arc Style - Default strictly Page 1) ─ */}
-                <div className="timeline-pagination-section">
-                  <nav className="radial-pagination" aria-label="Blog pagination">
-                    <button
-                      type="button"
-                      className="page-arc-arrow"
-                      onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                      disabled={currentPage <= 1}
-                      aria-label="Previous page"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-
-                    {[1, 2, 3].map((pageNo) => (
+                {/* ─── c) DYNAMIC RADIAL PAGINATION (1 ... 4 5 6 ... N) ─────── */}
+                {totalPages > 1 && (
+                  <div className="timeline-pagination-section">
+                    <nav className="radial-pagination" aria-label="Blog pagination">
                       <button
-                        key={pageNo}
                         type="button"
-                        className={`page-arc-btn page-arc-btn--${pageNo}${currentPage === pageNo ? ' page-arc-btn--active' : ''}`}
-                        onClick={() => handlePageChange(pageNo)}
+                        className="page-arc-arrow"
+                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                        disabled={currentPage <= 1}
+                        aria-label="Previous page"
                       >
-                        {pageNo}
+                        <ChevronLeft size={16} />
                       </button>
-                    ))}
 
-                    <button
-                      type="button"
-                      className="page-arc-arrow"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage >= 3}
-                      aria-label="Next page"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </nav>
-                </div>
+                      {paginationItems.map((item, idx) =>
+                        item === '...' ? (
+                          <span key={`ellipsis-${idx}`} className="page-arc-ellipsis">
+                            •••
+                          </span>
+                        ) : (
+                          <button
+                            key={`page-${item}`}
+                            type="button"
+                            className={`page-arc-btn page-arc-btn--${item}${currentPage === item ? ' page-arc-btn--active' : ''}`}
+                            onClick={() => handlePageChange(Number(item))}
+                          >
+                            {item}
+                          </button>
+                        )
+                      )}
+
+                      <button
+                        type="button"
+                        className="page-arc-arrow"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= totalPages}
+                        aria-label="Next page"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </nav>
+                  </div>
+                )}
               </div>
             )}
           </main>
 
-          {/* ─── RIGHT SIDEBAR (300px Width, Sticky top: 96px, Scrollable) (FIX 1) ─── */}
+          {/* ─── RIGHT SIDEBAR (300px, Sticky on Desktop, Below on Tablet/Mobile) ─── */}
           <aside className="blog-editorial-sidebar">
             {/* 1. Explore All Categories Card */}
             <div className="sidebar-card sidebar-categories-card">
@@ -740,13 +795,13 @@ export default function BlogPage() {
 
                 <ul className="sidebar-cat-list">
                   {sidebarCategories.map((cat) => {
-                    const isActive = selectedCategory === cat.cat;
+                    const isActive = selectedCategory.toLowerCase() === cat.rawCat.toLowerCase();
                     return (
                       <li key={cat.name} className="sidebar-cat-item">
                         <button
                           type="button"
                           className={`sidebar-cat-btn${isActive ? ' active' : ''}`}
-                          onClick={() => handleCategoryChange(cat.cat)}
+                          onClick={() => handleCategoryChange(cat.rawCat)}
                         >
                           <span className="sidebar-cat-node-dot" />
                           <span className="sidebar-cat-label">{cat.name}</span>
@@ -780,16 +835,16 @@ export default function BlogPage() {
                   <div className="sidebar-mini-wire" aria-hidden="true" />
 
                   <div className="sidebar-stream-list">
-                    {allPosts.slice(0, 5).map((post) => {
-                      const catStyle = CAT_STYLES[post.category] || CAT_STYLES.Tech;
+                    {allPosts.filter((p) => p.status === 'published').slice(0, 5).map((post) => {
+                      const catStyle = resolveCategoryStyle(post.category);
                       return (
                         <Link key={`feed-${post.id}`} to={`/blog/${post.slug}`} className="stream-item">
                           <div className="stream-badge-row">
                             <span
                               className="stream-badge"
-                              style={{ background: catStyle.bg, color: catStyle.color, borderColor: catStyle.border }}
+                              style={{ background: catStyle.bg, color: catStyle.text, borderColor: catStyle.border }}
                             >
-                              {post.category}
+                              {catStyle.label || post.category}
                             </span>
                             <span className="stream-meta">
                               <Clock size={10} /> {post.readTime}

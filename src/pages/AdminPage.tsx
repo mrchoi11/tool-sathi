@@ -8,10 +8,11 @@ import {
   Clock, Hash, AlignLeft, Bold, Italic, List, Heading2,
   Underline as UnderlineIcon, Code, Quote, Undo2, Redo2,
   Strikethrough, AlignCenter, AlignRight, ListOrdered,
-  Minus, Sparkles
+  Minus, Sparkles, Star
 } from "lucide-react";
 import {
   getAllPosts, savePost, deletePost, uploadCoverImage, seedDefaults,
+  setFeaturedPost, toggleTopHighlight
 } from "../data/blogRegistry";
 import type { BlogPost } from "../data/blogRegistry";
 import {
@@ -562,6 +563,34 @@ export default function AdminPage() {
   // Post form state
   const [form, setForm] = useState<Partial<BlogPost>>(emptyPost());
   const [tagInput, setTagInput] = useState("");
+  const [imageRatioWarning, setImageRatioWarning] = useState<string | null>(null);
+
+  // Toggle Featured Post (One active featured post at a time)
+  const handleToggleFeatured = async (postId: string) => {
+    try {
+      await setFeaturedPost(postId);
+      setPosts((prev) =>
+        prev.map((p) => ({
+          ...p,
+          featured: p.id === postId,
+        }))
+      );
+    } catch (err: any) {
+      alert("Error setting featured post: " + err.message);
+    }
+  };
+
+  // Toggle Top Row Highlight (Max 2)
+  const handleToggleTopHighlight = async (post: BlogPost) => {
+    try {
+      const newVal = await toggleTopHighlight(post.id, !!post.topHighlight);
+      setPosts((prev) =>
+        prev.map((p) => (p.id === post.id ? { ...p, topHighlight: newVal } : p))
+      );
+    } catch (err: any) {
+      alert(err.message || "Error updating highlight");
+    }
+  };
 
   const editor = useEditor({
     extensions: [
@@ -657,6 +686,8 @@ export default function AdminPage() {
         publishedAt: form.publishedAt || new Date().toISOString().split("T")[0],
         readTime: form.readTime || "3 min read",
         views: form.views || 0,
+        featured: !!form.featured,
+        topHighlight: !!form.topHighlight,
         metaTitle: form.metaTitle,
         metaDescription: form.metaDescription,
         canonicalUrl: form.canonicalUrl,
@@ -665,6 +696,9 @@ export default function AdminPage() {
       };
 
       await savePost(postToSave);
+      if (postToSave.featured) {
+        await setFeaturedPost(postToSave.id);
+      }
       await loadPosts();
       setTab("posts");
       setEditingPost(null);
@@ -686,11 +720,28 @@ export default function AdminPage() {
     }
   };
 
-  // Upload Cover Image
+  // Upload Cover Image with Aspect Ratio Check
   const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Check aspect ratio (target 1200 / 630 ≈ 1.905)
     try {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        const ratio = img.width / img.height;
+        URL.revokeObjectURL(objectUrl);
+        if (ratio < 1.6 || ratio > 2.2) {
+          setImageRatioWarning(
+            `Image ratio is ${ratio.toFixed(2)}:1 (${img.width}x${img.height}px). Recommended size is 1200x630 px (1.91:1) for optimal uncropped card display.`
+          );
+        } else {
+          setImageRatioWarning(null);
+        }
+      };
+      img.src = objectUrl;
+
       const dataUrl = await uploadCoverImage(file, form.id || "temp");
       setForm((prev) => ({ ...prev, coverImage: dataUrl }));
     } catch (err: any) {
@@ -902,28 +953,46 @@ export default function AdminPage() {
               <table className="adm-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 44, textAlign: "center" }}>Hero</th>
                     <th>Title &amp; URL</th>
                     <th>Category</th>
                     <th>Status</th>
+                    <th>Top Row</th>
                     <th>Published Date</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={5} style={{ textAlign: "center", padding: 32 }}>Loading articles...</td></tr>
+                    <tr><td colSpan={7} style={{ textAlign: "center", padding: 32 }}>Loading articles...</td></tr>
                   ) : posts.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: "center", padding: 48, color: "var(--adm-text2)" }}>
+                      <td colSpan={7} style={{ textAlign: "center", padding: 48, color: "var(--adm-text2)" }}>
                         No articles published yet. Click "New Article" to create one.
                       </td>
                     </tr>
                   ) : (
                     posts.map((post) => (
                       <tr key={post.id}>
+                        <td style={{ textAlign: "center" }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleFeatured(post.id)}
+                            className="tbar-btn"
+                            title={post.featured ? "Featured Hero Article (Click to change)" : "Set as Featured Hero Article"}
+                            style={{ color: post.featured ? "#f59e0b" : "var(--adm-muted)", border: post.featured ? "1px solid rgba(245,158,11,0.4)" : "none", background: post.featured ? "rgba(245,158,11,0.12)" : "transparent" }}
+                          >
+                            <Star size={15} fill={post.featured ? "#f59e0b" : "none"} />
+                          </button>
+                        </td>
                         <td>
-                          <div style={{ fontWeight: 600, color: "var(--adm-text)", marginBottom: 3 }}>
+                          <div style={{ fontWeight: 600, color: "var(--adm-text)", marginBottom: 3, display: "flex", alignItems: "center", gap: 6 }}>
                             {post.title}
+                            {post.featured && (
+                              <span style={{ fontSize: "0.68rem", background: "rgba(245,158,11,0.15)", color: "#f59e0b", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>
+                                FEATURED HERO
+                              </span>
+                            )}
                           </div>
                           <div style={{ fontSize: "0.78rem", color: "var(--adm-muted)" }}>
                             /blog/{post.slug}
@@ -938,6 +1007,25 @@ export default function AdminPage() {
                           <span className={`post-status-badge ${post.status === "published" ? "status-published" : "status-draft"}`}>
                             {post.status}
                           </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTopHighlight(post)}
+                            style={{
+                              background: post.topHighlight ? "rgba(20,184,166,0.14)" : "transparent",
+                              border: `1px solid ${post.topHighlight ? "#14B8A6" : "var(--adm-border2)"}`,
+                              color: post.topHighlight ? "#14B8A6" : "var(--adm-muted)",
+                              fontSize: "0.72rem",
+                              fontWeight: 650,
+                              padding: "3px 8px",
+                              borderRadius: 4,
+                              cursor: "pointer",
+                            }}
+                            title="Toggle display in top row right compact cards"
+                          >
+                            {post.topHighlight ? "★ Highlighted" : "+ Top Row"}
+                          </button>
                         </td>
                         <td style={{ fontSize: "0.85rem", color: "var(--adm-text2)" }}>
                           {post.publishedAt || "—"}
@@ -1065,17 +1153,21 @@ export default function AdminPage() {
 
                   <div className="ed-field">
                     <label className="ed-label">Category</label>
-                    <select
+                    <input
+                      type="text"
                       className="ed-input"
+                      list="admin-category-suggestions"
                       value={form.category || "Video"}
-                      onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value as any }))}
-                    >
-                      <option value="Video">Video</option>
-                      <option value="PDF">PDF</option>
-                      <option value="Productivity">Productivity</option>
-                      <option value="SEO">SEO</option>
-                      <option value="Tech">Tech</option>
-                    </select>
+                      onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                      placeholder="Select or type new category..."
+                    />
+                    <datalist id="admin-category-suggestions">
+                      <option value="Video" />
+                      <option value="PDF" />
+                      <option value="Productivity" />
+                      <option value="SEO" />
+                      <option value="Tech" />
+                    </datalist>
                   </div>
 
                   <div className="ed-field">
@@ -1098,10 +1190,46 @@ export default function AdminPage() {
                       onChange={(e) => setForm((prev) => ({ ...prev, readTime: e.target.value }))}
                     />
                   </div>
+
+                  {/* Featured and Top Row Checkboxes */}
+                  <div className="ed-field" style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--adm-border2)" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.85rem", color: "var(--adm-text)" }}>
+                      <input
+                        type="checkbox"
+                        checked={!!form.featured}
+                        onChange={(e) => setForm((prev) => ({ ...prev, featured: e.target.checked }))}
+                        style={{ width: 16, height: 16, accentColor: "#f59e0b" }}
+                      />
+                      <span><strong>Feature as Hero Flagship</strong> (Auto-unfeatures any other post)</span>
+                    </label>
+                  </div>
+
+                  <div className="ed-field" style={{ marginTop: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.85rem", color: "var(--adm-text)" }}>
+                      <input
+                        type="checkbox"
+                        checked={!!form.topHighlight}
+                        onChange={(e) => setForm((prev) => ({ ...prev, topHighlight: e.target.checked }))}
+                        style={{ width: 16, height: 16, accentColor: "#14B8A6" }}
+                      />
+                      <span><strong>Top Row Highlight</strong> (Shown beside hero, max 2)</span>
+                    </label>
+                  </div>
                 </div>
 
                 <div className="ed-card">
-                  <h3 style={{ fontSize: "0.95rem", margin: "0 0 16px" }}>Cover Image</h3>
+                  <h3 style={{ fontSize: "0.95rem", margin: "0 0 8px" }}>Cover Image</h3>
+                  <p style={{ fontSize: "0.78rem", color: "var(--adm-muted)", margin: "0 0 12px" }}>
+                    Recommended size: <strong>1200x630 px (1.91:1)</strong>. Cards render with full containment without cropping.
+                  </p>
+
+                  {imageRatioWarning && (
+                    <div style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.4)", borderRadius: 6, padding: "8px 10px", fontSize: "0.78rem", color: "#d97706", marginBottom: 12 }}>
+                      <AlertCircle size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 5 }} />
+                      {imageRatioWarning}
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     <button type="button" className={`cover-tab ${coverMode === "upload" ? "active" : ""}`} onClick={() => setCoverMode("upload")}>Upload File</button>
                     <button type="button" className={`cover-tab ${coverMode === "url" ? "active" : ""}`} onClick={() => setCoverMode("url")}>Image URL</button>

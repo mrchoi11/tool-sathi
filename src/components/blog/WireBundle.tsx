@@ -1,35 +1,117 @@
 /**
- * WireBundle — Clean Tech Editorial Discovery Wires (Reference Blueprint)
+ * WireBundle — Fully Dynamic Wire Routing & Category Branches
  *
- * Requirements:
- * 1. SPINE: Vertical bundle (5-6 strands, 1.8-2.5px, wave) running in the first
- *    column-gap (between Column 1 and Column 2) from below the top row to pagination.
- * 2. BRANCHES: Each category group (Video, PDF Tools, Tech, Productivity, SEO)
- *    has a smooth branch leaving the spine and travelling through the open horizontal
- *    channel (row-gap / top channel) to that group's first card top-center.
- * 3. NO CARD OVERLAP: Branches run strictly in the channels (at cardTop - 26..38px)
- *    and curve 90° down into the card top node (cardTop - 8px). Wires never cross
- *    over card thumbnails or card text!
- * 4. NODES: 28px circular nodes at spine junctions and card top-centers.
- * 5. PILLS: Category capsule badges ("Video", "PDF Tools", "Tech", "Productivity", "SEO")
- *    centered along the horizontal branch segment.
- * 6. MOBILE (<768px): Only 2 thin wavy strands in the left margin.
+ * 1. DYNAMIC CATEGORY DISCOVERY:
+ *    Inspects all cards currently in the grid via cardGridRef.
+ *    Groups cards by their category. For each unique category:
+ *    - Main Branch: travels through horizontal channel to primary card top-center
+ *    - Category Pill: crisply displayed mid-branch with dynamic color
+ *    - Terminal Node: circular 24px node right above card top
+ *    - Twigs: subtle secondary branches to any additional cards in other rows
+ * 2. STABLE COLOR ENGINE:
+ *    Predefined styles for Video, PDF/PDF Tools, Tech, SEO, Productivity.
+ *    Deterministic HSL color hashing for ANY new admin-created category.
+ * 3. ZERO-OVERLAP ROUTING:
+ *    Spine runs down the first column-gap channel.
+ *    Branches run strictly in the horizontal row channels (cardTop - 26..38px).
+ *    Zero lines cross over any card face or thumbnail.
+ * 4. RESPONSIVE:
+ *    < 768px (Mobile): branches removed, 2 thin wavy strands in left margin.
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+
+export interface CategoryStyle {
+  label: string;
+  border: string;
+  bg: string;
+  text: string;
+  glow: string;
+}
+
+export const KNOWN_CATEGORY_STYLES: Record<string, CategoryStyle> = {
+  video: {
+    label: 'Video',
+    border: '#7c3aed',
+    bg: 'rgba(139, 92, 246, 0.12)',
+    text: '#7c3aed',
+    glow: 'rgba(139, 92, 246, 0.35)',
+  },
+  pdf: {
+    label: 'PDF Tools',
+    border: '#2563eb',
+    bg: 'rgba(59, 130, 246, 0.12)',
+    text: '#2563eb',
+    glow: 'rgba(59, 130, 246, 0.35)',
+  },
+  'pdf tools': {
+    label: 'PDF Tools',
+    border: '#2563eb',
+    bg: 'rgba(59, 130, 246, 0.12)',
+    text: '#2563eb',
+    glow: 'rgba(59, 130, 246, 0.35)',
+  },
+  tech: {
+    label: 'Tech',
+    border: '#0891b2',
+    bg: 'rgba(34, 211, 238, 0.14)',
+    text: '#0891b2',
+    glow: 'rgba(34, 211, 238, 0.35)',
+  },
+  seo: {
+    label: 'SEO',
+    border: '#059669',
+    bg: 'rgba(16, 185, 129, 0.12)',
+    text: '#059669',
+    glow: 'rgba(16, 185, 129, 0.35)',
+  },
+  productivity: {
+    label: 'Productivity',
+    border: '#d97706',
+    bg: 'rgba(245, 158, 11, 0.14)',
+    text: '#d97706',
+    glow: 'rgba(245, 158, 11, 0.35)',
+  },
+};
+
+/**
+ * Returns consistent styling for any category (known or custom admin category)
+ */
+export function resolveCategoryStyle(categoryName: string): CategoryStyle {
+  const norm = (categoryName || 'General').toLowerCase().trim();
+  if (KNOWN_CATEGORY_STYLES[norm]) {
+    return { ...KNOWN_CATEGORY_STYLES[norm], label: categoryName };
+  }
+
+  // Stable deterministic HSL color hashing for new categories
+  let hash = 0;
+  for (let i = 0; i < norm.length; i++) {
+    hash = norm.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash % 360);
+  return {
+    label: categoryName,
+    border: `hsl(${hue}, 70%, 45%)`,
+    bg: `hsla(${hue}, 70%, 50%, 0.12)`,
+    text: `hsl(${hue}, 75%, 40%)`,
+    glow: `hsla(${hue}, 70%, 50%, 0.35)`,
+  };
+}
 
 interface Pt {
   x: number;
   y: number;
 }
 
-interface BranchConfig {
+interface BranchInfo {
   category: string;
-  pillLabel: string;
+  style: CategoryStyle;
   from: Pt;
   to: Pt;
   channelY: number;
   midPill: Pt;
+  // Secondary twigs to other cards of the same category
+  twigs: Pt[];
 }
 
 interface WireBundleState {
@@ -38,55 +120,13 @@ interface WireBundleState {
   spineX: number;
   startY: number;
   endY: number;
-  branches: BranchConfig[];
+  branches: BranchInfo[];
 }
 
 interface WireBundleProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   cardGridRef: React.RefObject<HTMLDivElement | null>;
 }
-
-/* Category Color Tokens matching reference design */
-const CATEGORY_META: Record<
-  string,
-  { label: string; border: string; bg: string; text: string; glow: string }
-> = {
-  Video: {
-    label: 'Video',
-    border: '#7c3aed',
-    bg: 'rgba(139, 92, 246, 0.12)',
-    text: '#7c3aed',
-    glow: 'rgba(139, 92, 246, 0.35)',
-  },
-  PDF: {
-    label: 'PDF Tools',
-    border: '#2563eb',
-    bg: 'rgba(59, 130, 246, 0.12)',
-    text: '#2563eb',
-    glow: 'rgba(59, 130, 246, 0.35)',
-  },
-  Tech: {
-    label: 'Tech',
-    border: '#0891b2',
-    bg: 'rgba(34, 211, 238, 0.14)',
-    text: '#0891b2',
-    glow: 'rgba(34, 211, 238, 0.35)',
-  },
-  Productivity: {
-    label: 'Productivity',
-    border: '#d97706',
-    bg: 'rgba(245, 158, 11, 0.14)',
-    text: '#d97706',
-    glow: 'rgba(245, 158, 11, 0.35)',
-  },
-  SEO: {
-    label: 'SEO',
-    border: '#059669',
-    bg: 'rgba(16, 185, 129, 0.12)',
-    text: '#059669',
-    glow: 'rgba(16, 185, 129, 0.35)',
-  },
-};
 
 /* Spine continuous wavy strands */
 const STRANDS = [
@@ -132,7 +172,7 @@ function buildSpineWave(
   return d;
 }
 
-/* Build orthogonal smooth 90-degree curved branch path (stays strictly in channels) */
+/* Build smooth orthogonal 90-degree curved branch path (stays strictly in channels) */
 function buildBranchPath(fromX: number, channelY: number, targetX: number, targetY: number, strandOffset = 0): string {
   const y = channelY + strandOffset * 0.6;
   const isLeft = targetX < fromX;
@@ -168,11 +208,9 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
     const mobile = w < 768;
     setIsMobile(mobile);
 
-    // Compute spine X from actual card grid DOM columns
     let spineX = Math.round(w * 0.355);
     const grid = cardGridRef.current;
-
-    const branches: BranchConfig[] = [];
+    const branches: BranchInfo[] = [];
 
     if (grid && !mobile) {
       const gridBox = grid.getBoundingClientRect();
@@ -187,53 +225,77 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
         spineX = Math.round((gapLeft + gapRight) / 2);
       }
 
-      // Check categories: Video, PDF, Tech, Productivity, SEO
-      const categoriesToFind = ['Video', 'PDF', 'Tech', 'Productivity', 'SEO'];
+      // Group current cards in grid by category
+      const categoryGroups = new Map<string, HTMLElement[]>();
+      Array.from(grid.children).forEach((child) => {
+        const el = child as HTMLElement;
+        const cat = el.getAttribute('data-category')?.trim();
+        if (cat) {
+          if (!categoryGroups.has(cat)) categoryGroups.set(cat, []);
+          categoryGroups.get(cat)!.push(el);
+        }
+      });
 
-      categoriesToFind.forEach((cat) => {
-        const cardEl = grid.querySelector<HTMLElement>(`[data-category="${cat}"]`);
-        if (!cardEl) return;
+      const gridTop = gridBox.top - wrapBox.top;
 
-        const cardBox = cardEl.getBoundingClientRect();
-        const targetX = Math.round(cardBox.left - wrapBox.left + cardBox.width / 2);
-        const cardTopY = Math.round(cardBox.top - wrapBox.top);
+      let catIndex = 0;
+      categoryGroups.forEach((cardEls, cat) => {
+        if (cardEls.length === 0) return;
+        const primaryCard = cardEls[0];
+        const primaryBox = primaryCard.getBoundingClientRect();
 
-        // Determine if this card is in row 1, 2, etc.
-        const gridTop = gridBox.top - wrapBox.top;
+        const targetX = Math.round(primaryBox.left - wrapBox.left + primaryBox.width / 2);
+        const cardTopY = Math.round(primaryBox.top - wrapBox.top);
+
         const isRow1 = cardTopY - gridTop < 100;
 
-        // Channel Y: strictly above the card
         let channelY: number;
         if (isRow1) {
-          // If Tech (Col 3), elevate slightly so it runs unhindered above PDF (Col 2)
-          channelY = cat === 'Tech' ? cardTopY - 38 : cardTopY - 24;
+          // If column 3, elevate slightly to cleanly run across
+          const isCol3 = targetX > w * 0.65;
+          channelY = isCol3 ? cardTopY - 38 : cardTopY - 24;
         } else {
-          // Midpoint of row gap (56px)
           channelY = cardTopY - 28;
         }
 
-        const targetY = cardTopY - 8; // node right above card top edge
-        const meta = CATEGORY_META[cat] || CATEGORY_META.Tech;
+        const targetY = cardTopY - 8;
+        const style = resolveCategoryStyle(cat);
 
-        // Midpoint for pill label
         let midPillX = Math.round((spineX + targetX) / 2);
-        if (cat === 'Tech') {
-          // Position cleanly between Col 2 and Col 3
+        if (targetX > w * 0.65) {
           midPillX = Math.round(targetX - 70);
         }
 
+        // Compute secondary twigs for other cards of the same category
+        const twigs: Pt[] = [];
+        cardEls.slice(1).forEach((secEl) => {
+          const secBox = secEl.getBoundingClientRect();
+          const secX = Math.round(secBox.left - wrapBox.left + secBox.width / 2);
+          const secY = Math.round(secBox.top - wrapBox.top - 8);
+          twigs.push({ x: secX, y: secY });
+        });
+
         branches.push({
           category: cat,
-          pillLabel: meta.label,
+          style,
           from: { x: spineX, y: channelY },
           to: { x: targetX, y: targetY },
           channelY,
           midPill: { x: midPillX, y: channelY },
+          twigs,
         });
+
+        catIndex++;
       });
     }
 
-    const startY = 430; // below top row and cluster header pill
+    // Spine starts right below the top area / cluster header and ends above pagination
+    let startY = 430;
+    if (grid) {
+      const gridBox = grid.getBoundingClientRect();
+      const relativeGridTop = gridBox.top - wrapBox.top;
+      startY = Math.max(160, relativeGridTop - 50);
+    }
     const endY = Math.max(startY + 400, h - 90);
 
     setState({
@@ -323,12 +385,11 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
           </linearGradient>
         </defs>
 
-        {/* ─── 1. SPINE: 5-6 Wavy Strands in First Column Gap Channel ─── */}
+        {/* ─── 1. SPINE: 5-6 Continuous Wavy Strands in First Column Gap Channel ─── */}
         {STRANDS.map((s, i) => {
           const d = buildSpineWave(spineX, startY, endY, s.offset, s.amp, s.phase);
           return (
             <g key={`spine-${i}`}>
-              {/* Solid continuous strand (NO DASHES) */}
               <path
                 d={d}
                 stroke={s.color}
@@ -338,7 +399,6 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
                 fill="none"
               />
 
-              {/* Flowing light pulse overlay */}
               {s.pulse && (
                 <path
                   d={d}
@@ -356,14 +416,13 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
           );
         })}
 
-        {/* ─── 2. BRANCHES: Each Group Connected via Channels ─── */}
+        {/* ─── 2. DYNAMIC BRANCHES & TWIGS ─── */}
         {branches.map((b) => {
-          const meta = CATEGORY_META[b.category] || CATEGORY_META.Tech;
           const centerPath = buildBranchPath(b.from.x, b.channelY, b.to.x, b.to.y, 0);
 
           return (
             <g key={`branch-group-${b.category}`}>
-              {/* 3 distinct strands per branch */}
+              {/* 3 distinct strands per main branch */}
               {[-2.5, 0, 2.5].map((off, idx) => {
                 const pathD = buildBranchPath(b.from.x, b.channelY, b.to.x, b.to.y, off);
                 const isCenter = idx === 1;
@@ -371,7 +430,7 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
                   <path
                     key={`b-strand-${idx}`}
                     d={pathD}
-                    stroke={isCenter ? meta.border : '#14B8A6'}
+                    stroke={isCenter ? b.style.border : '#14B8A6'}
                     strokeWidth={isCenter ? 2.2 : 1.5}
                     strokeOpacity={isCenter ? 0.95 : 0.65}
                     strokeLinecap="round"
@@ -380,7 +439,7 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
                 );
               })}
 
-              {/* Subtle flowing light pulse on branch */}
+              {/* Flowing light pulse along main branch */}
               <path
                 d={centerPath}
                 stroke="url(#wbPulseGrad)"
@@ -392,31 +451,58 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
                 style={{ animationDuration: '4.8s' }}
               />
 
-              {/* Node at spine junction (24px = r: 12) */}
+              {/* Node at spine junction */}
               <circle
                 cx={b.from.x}
                 cy={b.channelY}
                 r="11"
                 fill="#ffffff"
-                stroke={meta.border}
+                stroke={b.style.border}
                 strokeWidth="2.2"
                 filter="url(#wbGlowTeal)"
               />
-              <circle cx={b.from.x} cy={b.channelY} r="4.5" fill={meta.border} />
+              <circle cx={b.from.x} cy={b.channelY} r="4.5" fill={b.style.border} />
               <circle cx={b.from.x} cy={b.channelY} r="1.8" fill="#ffffff" />
 
-              {/* Node at Card Top Center (24px = r: 11) */}
+              {/* Node at Primary Card Top Center */}
               <circle
                 cx={b.to.x}
                 cy={b.to.y}
                 r="11"
                 fill="#ffffff"
-                stroke={meta.border}
+                stroke={b.style.border}
                 strokeWidth="2.2"
                 filter="url(#wbGlowTeal)"
               />
-              <circle cx={b.to.x} cy={b.to.y} r="4.5" fill={meta.border} />
+              <circle cx={b.to.x} cy={b.to.y} r="4.5" fill={b.style.border} />
               <circle cx={b.to.x} cy={b.to.y} r="1.8" fill="#ffffff" />
+
+              {/* Secondary Twigs to additional cards of the same category */}
+              {b.twigs.map((tw, ti) => {
+                const twigY = tw.y - 18;
+                const twigPath = buildBranchPath(spineX, twigY, tw.x, tw.y, 0);
+                return (
+                  <g key={`twig-${ti}`}>
+                    <path
+                      d={twigPath}
+                      stroke={b.style.border}
+                      strokeWidth={1.6}
+                      strokeOpacity={0.7}
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                    <circle
+                      cx={tw.x}
+                      cy={tw.y}
+                      r="8"
+                      fill="#ffffff"
+                      stroke={b.style.border}
+                      strokeWidth="1.8"
+                    />
+                    <circle cx={tw.x} cy={tw.y} r="3.2" fill={b.style.border} />
+                  </g>
+                );
+              })}
             </g>
           );
         })}
@@ -458,26 +544,23 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
         <circle cx={width + 16} cy="880" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
       </svg>
 
-      {/* ─── 5. HTML CATEGORY PILL CAPSULES ON BRANCHES (Crisp & Interactive) ─── */}
-      {branches.map((b) => {
-        const meta = CATEGORY_META[b.category] || CATEGORY_META.Tech;
-        return (
-          <div
-            key={`pill-${b.category}`}
-            className="wire-capsule-badge"
-            style={{
-              left: `${b.midPill.x}px`,
-              top: `${b.midPill.y}px`,
-              borderColor: meta.border,
-              background: '#ffffff',
-              color: meta.text,
-              boxShadow: `0 2px 10px ${meta.glow}`,
-            }}
-          >
-            <span>{b.pillLabel}</span>
-          </div>
-        );
-      })}
+      {/* ─── 5. DYNAMIC HTML CATEGORY PILL CAPSULES ON BRANCHES ─── */}
+      {branches.map((b) => (
+        <div
+          key={`pill-${b.category}`}
+          className="wire-capsule-badge"
+          style={{
+            left: `${b.midPill.x}px`,
+            top: `${b.midPill.y}px`,
+            borderColor: b.style.border,
+            background: '#ffffff',
+            color: b.style.text,
+            boxShadow: `0 2px 10px ${b.style.glow}`,
+          }}
+        >
+          <span>{b.style.label}</span>
+        </div>
+      ))}
     </div>
   );
 }

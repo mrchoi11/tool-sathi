@@ -15,13 +15,15 @@ export interface BlogPost {
     role: string;
     avatar: string;
   };
-  category: "Video" | "PDF" | "Productivity" | "SEO" | "Tech";
+  category: "Video" | "PDF" | "Productivity" | "SEO" | "Tech" | string;
   tags: string[];
   coverImage: string;
   publishedAt: string;
   status: "published" | "draft";
   readTime: string;
   views?: number;
+  featured?: boolean;
+  topHighlight?: boolean;
   // SEO fields
   metaTitle?: string;
   metaDescription?: string;
@@ -35,13 +37,23 @@ const COLLECTION = "blog_posts";
 
 export async function getAllPosts(): Promise<BlogPost[]> {
   try {
-    const snap = await getDocs(collection(db, COLLECTION));
+    const fetchPromise = getDocs(collection(db, COLLECTION));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Firestore fetch timeout")), 2500)
+    );
+    const snap = await Promise.race([fetchPromise, timeoutPromise]);
     if (snap.empty) {
       return INITIAL_POSTS;
     }
     const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() } as BlogPost));
+    const hasFirestoreFeatured = posts.some((p) => p.featured);
     const existingSlugs = new Set(posts.map((p) => p.slug));
-    const fallback = INITIAL_POSTS.filter((p) => !existingSlugs.has(p.slug));
+    const fallback = INITIAL_POSTS.filter((p) => !existingSlugs.has(p.slug)).map((p) => {
+      if (hasFirestoreFeatured && p.featured) {
+        return { ...p, featured: false };
+      }
+      return p;
+    });
     const combined = [...posts, ...fallback];
     return combined.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
   } catch (err) {
@@ -52,14 +64,24 @@ export async function getAllPosts(): Promise<BlogPost[]> {
 
 export async function getPublishedPosts(): Promise<BlogPost[]> {
   try {
-    const snap = await getDocs(collection(db, COLLECTION));
+    const fetchPromise = getDocs(collection(db, COLLECTION));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Firestore fetch timeout")), 2500)
+    );
+    const snap = await Promise.race([fetchPromise, timeoutPromise]);
     if (snap.empty) {
       return INITIAL_POSTS.filter((p) => p.status === "published");
     }
     const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() } as BlogPost));
     const published = posts.filter((p) => p.status === "published");
+    const hasFirestoreFeatured = published.some((p) => p.featured);
     const existingSlugs = new Set(published.map((p) => p.slug));
-    const fallback = INITIAL_POSTS.filter((p) => p.status === "published" && !existingSlugs.has(p.slug));
+    const fallback = INITIAL_POSTS.filter((p) => p.status === "published" && !existingSlugs.has(p.slug)).map((p) => {
+      if (hasFirestoreFeatured && p.featured) {
+        return { ...p, featured: false };
+      }
+      return p;
+    });
     const combined = [...published, ...fallback];
     return combined.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
   } catch (err) {
@@ -94,6 +116,62 @@ export async function savePost(post: BlogPost): Promise<void> {
 
 export async function deletePost(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION, id));
+}
+
+export async function setFeaturedPost(targetId: string): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, COLLECTION));
+    const batch = writeBatch(db);
+    
+    // Un-feature all other posts, feature the target
+    snap.docs.forEach((d) => {
+      if (d.id === targetId) {
+        batch.update(d.ref, { featured: true });
+      } else if (d.data().featured) {
+        batch.update(d.ref, { featured: false });
+      }
+    });
+
+    // If targetId is from INITIAL_POSTS and not yet in firestore:
+    const exists = snap.docs.some((d) => d.id === targetId);
+    if (!exists) {
+      const fallbackPost = INITIAL_POSTS.find((p) => p.id === targetId);
+      if (fallbackPost) {
+        const { id, ...data } = fallbackPost;
+        batch.set(doc(db, COLLECTION, targetId), { ...data, featured: true });
+      }
+    }
+
+    const commitPromise = batch.commit();
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout updating featured post")), 12000)
+    );
+    await Promise.race([commitPromise, timeoutPromise]);
+  } catch (err) {
+    console.error("Error setting featured post in Firestore:", err);
+    throw err;
+  }
+}
+
+export async function toggleTopHighlight(targetId: string, currentVal: boolean): Promise<boolean> {
+  try {
+    const newVal = !currentVal;
+    if (newVal) {
+      // Check count of currently highlighted posts (max 2)
+      const snap = await getDocs(collection(db, COLLECTION));
+      const highlighted = snap.docs.filter((d) => d.data().topHighlight && d.id !== targetId);
+      if (highlighted.length >= 2) {
+        throw new Error("Maximum 2 articles can be highlighted in the top row. Please unhighlight another first.");
+      }
+    }
+
+    const postRef = doc(db, COLLECTION, targetId);
+    await setDoc(postRef, { topHighlight: newVal }, { merge: true });
+    return newVal;
+  } catch (err) {
+    console.error("Error toggling top highlight:", err);
+    throw err;
+  }
 }
 
 // ─── IMAGE UPLOAD (100% Free - Instant In-Browser WebP Compression) ──────────
@@ -158,6 +236,7 @@ export const INITIAL_POSTS: BlogPost[] = [
     status: "published",
     readTime: "7 min read",
     views: 3420,
+    featured: true,
     metaTitle: "Building High-Performance Web Video Applications | ProToolBox",
     metaDescription: "Learn how modern browser video players leverage GPU decoding and WebCodecs for lightning-fast streaming.",
     author: {
