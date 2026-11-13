@@ -46,16 +46,16 @@ export async function getAllPosts(): Promise<BlogPost[]> {
       return INITIAL_POSTS;
     }
     const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() } as BlogPost));
-    const hasFirestoreFeatured = posts.some((p) => p.featured);
-    const existingSlugs = new Set(posts.map((p) => p.slug));
-    const fallback = INITIAL_POSTS.filter((p) => !existingSlugs.has(p.slug)).map((p) => {
-      if (hasFirestoreFeatured && p.featured) {
-        return { ...p, featured: false };
-      }
-      return p;
-    });
-    const combined = [...posts, ...fallback];
-    return combined.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+    // Filter out dummy/test posts
+    const cleanPosts = posts.filter(
+      (p) =>
+        p.title &&
+        !p.title.toLowerCase().includes("ds dmsmksd") &&
+        !p.title.toLowerCase().includes("bhvgvg") &&
+        !p.title.toLowerCase().includes("hijiojio") &&
+        !p.title.toLowerCase().includes("1234567890")
+    );
+    return cleanPosts.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
   } catch (err) {
     console.error("Error fetching all posts:", err);
     return INITIAL_POSTS;
@@ -73,17 +73,16 @@ export async function getPublishedPosts(): Promise<BlogPost[]> {
       return INITIAL_POSTS.filter((p) => p.status === "published");
     }
     const posts = snap.docs.map((d) => ({ id: d.id, ...d.data() } as BlogPost));
-    const published = posts.filter((p) => p.status === "published");
-    const hasFirestoreFeatured = published.some((p) => p.featured);
-    const existingSlugs = new Set(published.map((p) => p.slug));
-    const fallback = INITIAL_POSTS.filter((p) => p.status === "published" && !existingSlugs.has(p.slug)).map((p) => {
-      if (hasFirestoreFeatured && p.featured) {
-        return { ...p, featured: false };
-      }
-      return p;
-    });
-    const combined = [...published, ...fallback];
-    return combined.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
+    const published = posts.filter(
+      (p) =>
+        p.status === "published" &&
+        p.title &&
+        !p.title.toLowerCase().includes("ds dmsmksd") &&
+        !p.title.toLowerCase().includes("bhvgvg") &&
+        !p.title.toLowerCase().includes("hijiojio") &&
+        !p.title.toLowerCase().includes("1234567890")
+    );
+    return published.sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime());
   } catch (err) {
     console.error("Error fetching published posts:", err);
     return INITIAL_POSTS.filter((p) => p.status === "published");

@@ -15,6 +15,7 @@ import {
   setFeaturedPost, toggleTopHighlight
 } from "../data/blogRegistry";
 import type { BlogPost } from "../data/blogRegistry";
+import { categories as siteToolCategories } from "../data/toolRegistry";
 import {
   getAllSeoEntries, saveSeoEntry, type SeoMetadataEntry
 } from "../data/seoRegistry";
@@ -35,13 +36,27 @@ const AUTH_USER_KEY = "protoolbox_admin_user";
 
 type Tab = "posts" | "editor" | "seo" | "settings";
 
+export const WEBSITE_CATEGORIES = [
+  "Video Tools",
+  "PDF Tools",
+  "Image Tools",
+  "Video Processing",
+  "Audio Tools",
+  "Converters",
+  "Subtitle Tools",
+  "Creator Tools",
+  "SEO Tools",
+  "Productivity",
+  "Tech",
+];
+
 const emptyPost = (): Partial<BlogPost> => ({
   id: "post-" + Date.now(),
   title: "",
   slug: "",
   excerpt: "",
   content: "",
-  category: "Video",
+  category: "Video Tools",
   tags: [],
   coverImage: "",
   status: "published",
@@ -564,6 +579,75 @@ export default function AdminPage() {
   const [form, setForm] = useState<Partial<BlogPost>>(emptyPost());
   const [tagInput, setTagInput] = useState("");
   const [imageRatioWarning, setImageRatioWarning] = useState<string | null>(null);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [postCategoryFilter, setPostCategoryFilter] = useState("all");
+  const [postSearch, setPostSearch] = useState("");
+
+  // Inject noindex, nofollow meta tag on Admin Page for SEO privacy
+  useEffect(() => {
+    let robotsMeta = document.querySelector('meta[name="robots"]');
+    const createdRobots = !robotsMeta;
+    if (!robotsMeta) {
+      robotsMeta = document.createElement('meta');
+      robotsMeta.setAttribute('name', 'robots');
+      document.head.appendChild(robotsMeta);
+    }
+    const prevRobots = robotsMeta.getAttribute('content');
+    robotsMeta.setAttribute('content', 'noindex, nofollow');
+
+    let googlebotMeta = document.querySelector('meta[name="googlebot"]');
+    const createdGooglebot = !googlebotMeta;
+    if (!googlebotMeta) {
+      googlebotMeta = document.createElement('meta');
+      googlebotMeta.setAttribute('name', 'googlebot');
+      document.head.appendChild(googlebotMeta);
+    }
+    const prevGooglebot = googlebotMeta.getAttribute('content');
+    googlebotMeta.setAttribute('content', 'noindex, nofollow');
+
+    return () => {
+      if (createdRobots) {
+        robotsMeta?.remove();
+      } else if (prevRobots) {
+        robotsMeta?.setAttribute('content', prevRobots);
+      } else {
+        robotsMeta?.removeAttribute('content');
+      }
+
+      if (createdGooglebot) {
+        googlebotMeta?.remove();
+      } else if (prevGooglebot) {
+        googlebotMeta?.setAttribute('content', prevGooglebot);
+      } else {
+        googlebotMeta?.removeAttribute('content');
+      }
+    };
+  }, []);
+
+  // Collect all unique categories across website tools & existing blogs
+  const allCategories = useMemo(() => {
+    const set = new Set<string>(WEBSITE_CATEGORIES);
+    siteToolCategories.forEach((c) => set.add(c.name));
+    posts.forEach((p) => {
+      if (p.category?.trim()) set.add(p.category.trim());
+    });
+    return Array.from(set);
+  }, [posts]);
+
+  // Filter articles by category and search
+  const filteredPosts = useMemo(() => {
+    return posts.filter((p) => {
+      const matchCat =
+        postCategoryFilter === "all" ||
+        p.category?.toLowerCase() === postCategoryFilter.toLowerCase();
+      const matchSearch =
+        !postSearch.trim() ||
+        p.title.toLowerCase().includes(postSearch.toLowerCase()) ||
+        p.slug.toLowerCase().includes(postSearch.toLowerCase()) ||
+        (p.category && p.category.toLowerCase().includes(postSearch.toLowerCase()));
+      return matchCat && matchSearch;
+    });
+  }, [posts, postCategoryFilter, postSearch]);
 
   // Toggle Featured Post (One active featured post at a time)
   const handleToggleFeatured = async (postId: string) => {
@@ -639,6 +723,7 @@ export default function AdminPage() {
     const fresh = emptyPost();
     setForm(fresh);
     setTagInput("");
+    setIsCustomCategory(false);
     setEditingPost(null);
     editor?.commands.setContent("");
     setTab("editor");
@@ -649,6 +734,7 @@ export default function AdminPage() {
     setForm({ ...post });
     setTagInput(post.tags?.join(", ") || "");
     setEditingPost(post);
+    setIsCustomCategory(!WEBSITE_CATEGORIES.includes(post.category));
     editor?.commands.setContent(post.content || "");
     setTab("editor");
   };
@@ -949,6 +1035,73 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Category Filter Pills & Search */}
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 6, background: "var(--adm-bg2)", padding: 4, borderRadius: 8, border: "1px solid var(--adm-border)", overflowX: "auto", maxWidth: "100%" }}>
+                <button
+                  type="button"
+                  onClick={() => setPostCategoryFilter("all")}
+                  style={{
+                    border: "none",
+                    background: postCategoryFilter === "all" ? "var(--adm-primary)" : "transparent",
+                    color: postCategoryFilter === "all" ? "#ffffff" : "var(--adm-text2)",
+                    padding: "6px 14px",
+                    borderRadius: 6,
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  All ({posts.length})
+                </button>
+                {allCategories.map((cat) => {
+                  const count = posts.filter((p) => p.category?.toLowerCase() === cat.toLowerCase()).length;
+                  if (count === 0 && !["Video Tools", "PDF Tools", "Image Tools", "Tech", "SEO Tools", "Productivity"].includes(cat)) return null;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setPostCategoryFilter(cat)}
+                      style={{
+                        border: "none",
+                        background: postCategoryFilter.toLowerCase() === cat.toLowerCase() ? "var(--adm-primary)" : "transparent",
+                        color: postCategoryFilter.toLowerCase() === cat.toLowerCase() ? "#ffffff" : "var(--adm-text2)",
+                        padding: "6px 12px",
+                        borderRadius: 6,
+                        fontSize: "0.82rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {cat} {count > 0 ? `(${count})` : ""}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 240, position: "relative" }}>
+                <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--adm-muted)" }} />
+                <input
+                  type="text"
+                  placeholder="Search articles by title, slug or category..."
+                  value={postSearch}
+                  onChange={(e) => setPostSearch(e.target.value)}
+                  style={{
+                    width: "100%",
+                    background: "var(--adm-bg2)",
+                    border: "1px solid var(--adm-border)",
+                    borderRadius: 8,
+                    padding: "9px 12px 9px 36px",
+                    color: "var(--adm-text)",
+                    fontSize: "0.85rem",
+                    outline: "none"
+                  }}
+                />
+              </div>
+            </div>
+
             <div className="adm-table-wrap">
               <table className="adm-table">
                 <thead>
@@ -965,14 +1118,16 @@ export default function AdminPage() {
                 <tbody>
                   {loading ? (
                     <tr><td colSpan={7} style={{ textAlign: "center", padding: 32 }}>Loading articles...</td></tr>
-                  ) : posts.length === 0 ? (
+                  ) : filteredPosts.length === 0 ? (
                     <tr>
                       <td colSpan={7} style={{ textAlign: "center", padding: 48, color: "var(--adm-text2)" }}>
-                        No articles published yet. Click "New Article" to create one.
+                        {postSearch || postCategoryFilter !== "all"
+                          ? "No articles matched your filter criteria."
+                          : 'No articles published yet. Click "New Article" to create one.'}
                       </td>
                     </tr>
                   ) : (
-                    posts.map((post) => (
+                    filteredPosts.map((post) => (
                       <tr key={post.id}>
                         <td style={{ textAlign: "center" }}>
                           <button
@@ -1125,11 +1280,76 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* TipTap Visual Editor */}
-                <div className="ed-card" style={{ padding: 0, overflow: "hidden" }}>
+                {/* TipTap Modern Expanded Visual Editor */}
+                <div className="ed-card tiptap-card-wrapper" style={{ padding: 0, overflow: "hidden", marginBottom: 24 }}>
                   <EditorToolbar editor={editor} />
-                  <div className="tiptap-content" style={{ minHeight: 380, padding: 24 }}>
-                    <EditorContent editor={editor} />
+                  <div className="tiptap-editor-container">
+                    <EditorContent editor={editor} className="tiptap-editor-field" />
+                  </div>
+                  {editor && (
+                    <div className="tiptap-footer-stats">
+                      <span>{editor.storage.characterCount?.words() || 0} words</span>
+                      <span>•</span>
+                      <span>{editor.storage.characterCount?.characters() || 0} characters</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* ─── SEARCH ENGINE OPTIMIZATION (SERP SETTINGS) ─── */}
+                <div className="ed-card">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <Globe size={18} color="var(--adm-primary)" />
+                    <h3 style={{ fontSize: "1rem", margin: 0, fontWeight: 700 }}>SERP &amp; SEO Meta Settings</h3>
+                  </div>
+                  <p style={{ fontSize: "0.82rem", color: "var(--adm-muted)", margin: "0 0 16px" }}>
+                    Customize the exact title and description that appear in Google search results and social previews.
+                  </p>
+
+                  <div className="ed-field">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <label className="ed-label" style={{ margin: 0 }}>Meta Title (SERP Title)</label>
+                      <span style={{ fontSize: "0.75rem", color: (form.metaTitle?.length || 0) > 60 ? "#f59e0b" : "var(--adm-muted)" }}>
+                        {form.metaTitle?.length || 0} / 60 chars (Recommended: 50–60)
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      className="ed-input"
+                      value={form.metaTitle || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, metaTitle: e.target.value }))}
+                      placeholder={form.title ? `${form.title} | ProToolBox` : "E.g. How to Play TeraBox Videos Online Free | ProToolBox"}
+                    />
+                  </div>
+
+                  <div className="ed-field">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <label className="ed-label" style={{ margin: 0 }}>Meta Description (SERP Snippet)</label>
+                      <span style={{ fontSize: "0.75rem", color: (form.metaDescription?.length || 0) > 160 ? "#f59e0b" : "var(--adm-muted)" }}>
+                        {form.metaDescription?.length || 0} / 160 chars (Recommended: 140–160)
+                      </span>
+                    </div>
+                    <textarea
+                      className="ed-textarea"
+                      rows={3}
+                      value={form.metaDescription || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, metaDescription: e.target.value }))}
+                      placeholder={form.excerpt || "Enter a compelling summary that encourages clicks on Google search results..."}
+                    />
+                  </div>
+
+                  {/* Google SERP Live Preview Box */}
+                  <div className="serp-preview-box">
+                    <div className="serp-preview-label">Google SERP Live Preview</div>
+                    <div className="serp-preview-site">
+                      <img src="/ProToolBox Logo.png" alt="" className="serp-preview-favicon" />
+                      <span className="serp-preview-url">https://protoolbox.in › blog › {form.slug || "article-slug"}</span>
+                    </div>
+                    <div className="serp-preview-title">
+                      {form.metaTitle || (form.title ? `${form.title} | ProToolBox` : "Article Title | ProToolBox")}
+                    </div>
+                    <div className="serp-preview-desc">
+                      {form.metaDescription || form.excerpt || "Preview of the snippet that search engines will display underneath your title in search results."}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1152,22 +1372,62 @@ export default function AdminPage() {
                   </div>
 
                   <div className="ed-field">
-                    <label className="ed-label">Category</label>
-                    <input
-                      type="text"
-                      className="ed-input"
-                      list="admin-category-suggestions"
-                      value={form.category || "Video"}
-                      onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                      placeholder="Select or type new category..."
-                    />
-                    <datalist id="admin-category-suggestions">
-                      <option value="Video" />
-                      <option value="PDF" />
-                      <option value="Productivity" />
-                      <option value="SEO" />
-                      <option value="Tech" />
-                    </datalist>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <label className="ed-label" style={{ margin: 0 }}>Category</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomCategory((v) => !v);
+                          if (!isCustomCategory) {
+                            setForm((prev) => ({ ...prev, category: "" }));
+                          } else {
+                            setForm((prev) => ({ ...prev, category: "Video Tools" }));
+                          }
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--adm-primary)",
+                          fontSize: "0.78rem",
+                          cursor: "pointer",
+                          padding: 0,
+                          textDecoration: "underline"
+                        }}
+                      >
+                        {isCustomCategory ? "← Choose existing category" : "+ Add Custom Category"}
+                      </button>
+                    </div>
+
+                    {isCustomCategory ? (
+                      <input
+                        type="text"
+                        className="ed-input"
+                        value={form.category || ""}
+                        onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                        placeholder="Type custom category (e.g. AI Tools, Design)..."
+                        autoFocus
+                      />
+                    ) : (
+                      <select
+                        className="ed-input"
+                        value={form.category || "Video Tools"}
+                        onChange={(e) => {
+                          if (e.target.value === "__NEW__") {
+                            setIsCustomCategory(true);
+                            setForm((prev) => ({ ...prev, category: "" }));
+                          } else {
+                            setForm((prev) => ({ ...prev, category: e.target.value }));
+                          }
+                        }}
+                      >
+                        {allCategories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                        <option value="__NEW__">+ Add Custom Category...</option>
+                      </select>
+                    )}
                   </div>
 
                   <div className="ed-field">
