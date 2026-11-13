@@ -1,25 +1,30 @@
 /**
  * WireBundle — Fully Dynamic Wire Routing & Category Branches
  *
- * 1. DYNAMIC CATEGORY DISCOVERY:
- *    Inspects all cards currently in the grid via cardGridRef.
- *    Groups cards by their category. For each unique category:
- *    - Main Branch: travels through horizontal channel to primary card top-center
- *    - Category Pill: crisply displayed mid-branch with dynamic color
- *    - Terminal Node: circular 24px node right above card top
- *    - Twigs: subtle secondary branches to any additional cards in other rows
- * 2. STABLE COLOR ENGINE:
- *    Predefined styles for Video, PDF/PDF Tools, Tech, SEO, Productivity.
- *    Deterministic HSL color hashing for ANY new admin-created category.
- * 3. ZERO-OVERLAP ROUTING:
- *    Spine runs down the first column-gap channel.
- *    Branches run strictly in the horizontal row channels (cardTop - 26..38px).
- *    Zero lines cross over any card face or thumbnail.
- * 4. RESPONSIVE:
- *    < 768px (Mobile): branches removed, 2 thin wavy strands in left margin.
+ * FIXES IMPLEMENTED:
+ * 1. RECOMPUTE ON EVERY CHANGE:
+ *    - Recomputes on page, category filter, search, posts array, and window/card resize.
+ *    - Immediately visible on first mount.
+ *    - On page/filter change: fades out stale wires (150ms) -> settles -> computes fresh getBoundingClientRect() -> fades in (250ms).
+ * 2. SPINE POSITION & HEIGHT COMPUTED FROM REAL CARD RECTS:
+ *    - Spine X = exact center of gutter between Column 1 and Column 2.
+ *    - Spine startY = first card row top - 24px (or just below top row on Page 1).
+ *    - Spine endY = last card row bottom + 16px. Stops strictly above pagination!
+ *    - Short pages (1-4 cards): spine ends immediately 16px below the last card row.
+ * 3. RIGHT-EDGE WIRE CONSTRAINED TO SIDEBAR:
+ *    - Runs outside the sidebar in the right margin, strictly from sidebar top to sidebar bottom.
+ *    - Never overflows into the footer.
+ * 4. NODES STRICTLY ON ACTIVE CONNECTIONS:
+ *    - Nodes only rendered at spine junctions (where branch leaves) and card top-centers (where branch connects).
+ *    - Zero orphaned or floating spine nodes!
+ * 5. SINGLE-CATEGORY ROW COMBINING:
+ *    - When all cards in a row share the same category, renders a single unified branch with one clean category pill and twigs to cards.
+ * 6. RESPONSIVE:
+ *    - < 768px (Mobile): 2 subtle wavy strands along left margin from first card to last card.
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import type { BlogPost } from '../../data/blogRegistry';
 
 export interface CategoryStyle {
   label: string;
@@ -74,16 +79,13 @@ export const KNOWN_CATEGORY_STYLES: Record<string, CategoryStyle> = {
   },
 };
 
-/**
- * Returns consistent styling for any category (known or custom admin category)
- */
 export function resolveCategoryStyle(categoryName: string): CategoryStyle {
   const norm = (categoryName || 'General').toLowerCase().trim();
   if (KNOWN_CATEGORY_STYLES[norm]) {
     return { ...KNOWN_CATEGORY_STYLES[norm], label: categoryName };
   }
 
-  // Stable deterministic HSL color hashing for new categories
+  // Stable deterministic HSL color hashing for custom admin categories
   let hash = 0;
   for (let i = 0; i < norm.length; i++) {
     hash = norm.charCodeAt(i) + ((hash << 5) - hash);
@@ -98,37 +100,61 @@ export function resolveCategoryStyle(categoryName: string): CategoryStyle {
   };
 }
 
-interface Pt {
-  x: number;
-  y: number;
+interface BranchLine {
+  d: string;
+  stroke: string;
+  strokeWidth: number;
+  strokeOpacity: number;
+  isCenter: boolean;
 }
 
-interface BranchInfo {
-  category: string;
-  style: CategoryStyle;
-  from: Pt;
-  to: Pt;
-  channelY: number;
-  midPill: Pt;
-  // Secondary twigs to other cards of the same category
-  twigs: Pt[];
+interface WireNode {
+  cx: number;
+  cy: number;
+  r: number;
+  stroke: string;
+  fillInner: string;
+}
+
+interface CategoryPill {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  border: string;
+  text: string;
+  glow: string;
 }
 
 interface WireBundleState {
+  hasCards: boolean;
   width: number;
   height: number;
   spineX: number;
   startY: number;
   endY: number;
-  branches: BranchInfo[];
+  branchLines: BranchLine[];
+  nodes: WireNode[];
+  pills: CategoryPill[];
+  rightWire: {
+    x: number;
+    y1: number;
+    y2: number;
+  } | null;
 }
 
-interface WireBundleProps {
+export interface WireBundleProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   cardGridRef: React.RefObject<HTMLDivElement | null>;
+  sidebarRef?: React.RefObject<HTMLElement | null>;
+  posts: BlogPost[];
+  currentPage: number;
+  selectedCategory?: string;
+  searchQuery?: string;
+  showTopRow?: boolean;
 }
 
-/* Spine continuous wavy strands */
+/* Continuous wavy strands for spine */
 const STRANDS = [
   { offset: -10, amp: 8, phase: 0.0, opacity: 0.70, width: 2.0, color: '#14B8A6', pulse: false, dur: 7 },
   { offset: -5, amp: 10, phase: 0.6, opacity: 1.00, width: 2.5, color: '#22D3EE', pulse: true, dur: 5.8 },
@@ -149,7 +175,7 @@ function buildSpineWave(
 ): string {
   const totalDist = endY - startY;
   if (totalDist <= 0) return '';
-  const numSegs = Math.max(4, Math.floor(totalDist / 180));
+  const numSegs = Math.max(3, Math.floor(totalDist / 140));
   const segHeight = totalDist / numSegs;
 
   let d = `M ${spineX + offset} ${startY}`;
@@ -172,168 +198,432 @@ function buildSpineWave(
   return d;
 }
 
-/* Build smooth orthogonal 90-degree curved branch path (stays strictly in channels) */
+/* Build smooth orthogonal 90-degree curved branch path */
 function buildBranchPath(fromX: number, channelY: number, targetX: number, targetY: number, strandOffset = 0): string {
   const y = channelY + strandOffset * 0.6;
+  const dist = Math.abs(targetX - fromX);
+  if (dist < 8) {
+    return `M ${fromX} ${y} L ${targetX} ${targetY}`;
+  }
+
   const isLeft = targetX < fromX;
-  const r = 16; // smooth corner radius
+  const r = Math.min(16, Math.max(4, dist * 0.35));
 
   if (isLeft) {
-    const cornerStartX = Math.max(targetX + r, fromX - 6);
-    return `M ${fromX} ${y} L ${cornerStartX} ${y} C ${targetX + r * 0.45} ${y}, ${targetX} ${y + r * 0.45}, ${targetX} ${y + r} L ${targetX} ${targetY}`;
+    const cornerX = targetX + r;
+    return `M ${fromX} ${y} L ${cornerX} ${y} Q ${targetX} ${y} ${targetX} ${y + r} L ${targetX} ${targetY}`;
   } else {
-    const cornerStartX = Math.min(targetX - r, fromX + 6);
-    return `M ${fromX} ${y} L ${cornerStartX} ${y} C ${targetX - r * 0.45} ${y}, ${targetX} ${y + r * 0.45}, ${targetX} ${y + r} L ${targetX} ${targetY}`;
+    const cornerX = targetX - r;
+    return `M ${fromX} ${y} L ${cornerX} ${y} Q ${targetX} ${y} ${targetX} ${y + r} L ${targetX} ${targetY}`;
   }
 }
 
-export default function WireBundle({ containerRef, cardGridRef }: WireBundleProps) {
+export default function WireBundle({
+  containerRef,
+  cardGridRef,
+  sidebarRef,
+  posts,
+  currentPage,
+  selectedCategory = 'All',
+  searchQuery = '',
+  showTopRow = false,
+}: WireBundleProps) {
   const [state, setState] = useState<WireBundleState>({
+    hasCards: true,
     width: 900,
-    height: 1400,
+    height: 1200,
     spineX: 340,
     startY: 420,
-    endY: 1350,
-    branches: [],
+    endY: 1100,
+    branchLines: [],
+    nodes: [],
+    pills: [],
+    rightWire: null,
   });
+
   const [isMobile, setIsMobile] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const isFirstMount = useRef(true);
 
   const compute = useCallback(() => {
     if (!containerRef.current) return;
     const wrap = containerRef.current;
     const wrapBox = wrap.getBoundingClientRect();
-    const w = wrap.clientWidth || 900;
-    const h = Math.max(wrap.scrollHeight, wrap.clientHeight, 1400);
+    const w = wrap.clientWidth || window.innerWidth || 900;
 
-    const mobile = w < 768;
+    const mobile = window.innerWidth < 768 || w < 768;
     setIsMobile(mobile);
 
-    let spineX = Math.round(w * 0.355);
     const grid = cardGridRef.current;
-    const branches: BranchInfo[] = [];
+    if (!grid) return;
+    const gridBox = grid.getBoundingClientRect();
+    const cardEls = Array.from(grid.children) as HTMLElement[];
 
-    if (grid && !mobile) {
-      const gridBox = grid.getBoundingClientRect();
-      const firstCard = grid.children[0] as HTMLElement | undefined;
-      const secondCard = grid.children[1] as HTMLElement | undefined;
+    if (cardEls.length === 0) {
+      return;
+    }
 
-      if (firstCard && secondCard) {
-        const c1Box = firstCard.getBoundingClientRect();
-        const c2Box = secondCard.getBoundingClientRect();
-        const gapLeft = c1Box.right - wrapBox.left;
-        const gapRight = c2Box.left - wrapBox.left;
-        spineX = Math.round((gapLeft + gapRight) / 2);
+    // Measure cards relative to container wrapper
+    interface MeasuredCard {
+      el: HTMLElement;
+      box: DOMRect;
+      left: number;
+      right: number;
+      top: number;
+      bottom: number;
+      centerX: number;
+      category: string;
+    }
+
+    const measuredCards: MeasuredCard[] = cardEls.map((el) => {
+      const b = el.getBoundingClientRect();
+      const top = Math.round(b.top - wrapBox.top);
+      const bottom = Math.round(b.bottom - wrapBox.top);
+      const left = Math.round(b.left - wrapBox.left);
+      const right = Math.round(b.right - wrapBox.left);
+      const centerX = Math.round((left + right) / 2);
+      const category = el.getAttribute('data-category')?.trim() || 'General';
+      return { el, box: b, left, right, top, bottom, centerX, category };
+    });
+
+    // Group cards into rows based on top position
+    const rows: MeasuredCard[][] = [];
+    measuredCards.forEach((card) => {
+      let placed = false;
+      for (const row of rows) {
+        if (Math.abs(row[0].top - card.top) < 35) {
+          row.push(card);
+          placed = true;
+          break;
+        }
       }
+      if (!placed) {
+        rows.push([card]);
+      }
+    });
 
-      // Group current cards in grid by category
-      const categoryGroups = new Map<string, HTMLElement[]>();
-      Array.from(grid.children).forEach((child) => {
-        const el = child as HTMLElement;
-        const cat = el.getAttribute('data-category')?.trim();
-        if (cat) {
-          if (!categoryGroups.has(cat)) categoryGroups.set(cat, []);
-          categoryGroups.get(cat)!.push(el);
-        }
-      });
+    rows.sort((a, b) => a[0].top - b[0].top);
+    rows.forEach((row) => row.sort((a, b) => a.left - b.left));
 
-      const gridTop = gridBox.top - wrapBox.top;
+    // ─── 1. SPINE X: Center of gutter between Column 1 and Column 2 ─────────
+    let spineX: number;
+    const computedStyle = window.getComputedStyle(grid);
+    const colGap = parseFloat(computedStyle.columnGap) || 56;
+    const gridWidth = gridBox.width;
+    const colWidth = (gridWidth - 2 * colGap) / 3;
+    const gridLeftRel = Math.round(gridBox.left - wrapBox.left);
+    const mathGutterCenter = Math.round(gridLeftRel + colWidth + colGap / 2);
 
-      let catIndex = 0;
-      categoryGroups.forEach((cardEls, cat) => {
-        if (cardEls.length === 0) return;
-        const primaryCard = cardEls[0];
-        const primaryBox = primaryCard.getBoundingClientRect();
+    const row0 = rows[0] || [];
+    if (row0.length >= 2) {
+      const c0 = row0[0];
+      const c1 = row0[1];
+      spineX = Math.round((c0.right + c1.left) / 2);
+    } else {
+      spineX = mathGutterCenter;
+    }
 
-        const targetX = Math.round(primaryBox.left - wrapBox.left + primaryBox.width / 2);
-        const cardTopY = Math.round(primaryBox.top - wrapBox.top);
+    // ─── 2. START Y & END Y: Strictly bounded by cards, never past pagination! ─
+    const firstRowTop = rows[0][0].top;
+    const lastRow = rows[rows.length - 1];
+    const lastRowBottom = Math.max(...lastRow.map((c) => c.bottom));
 
-        const isRow1 = cardTopY - gridTop < 100;
+    let startY: number;
+    if (showTopRow) {
+      const relGridTop = Math.round(gridBox.top - wrapBox.top);
+      startY = Math.max(160, relGridTop - 48);
+    } else {
+      startY = Math.max(16, Math.round(firstRowTop - 24));
+    }
 
-        let channelY: number;
-        if (isRow1) {
-          // If column 3, elevate slightly to cleanly run across
-          const isCol3 = targetX > w * 0.65;
-          channelY = isCol3 ? cardTopY - 38 : cardTopY - 24;
+    // Spine END Y: exactly 16px below the last card row (stops well before pagination!)
+    const endY = Math.round(lastRowBottom + 16);
+
+    // ─── 3. DYNAMIC BRANCHES & NODES (ZERO FLOATING / ORPHANED NODES) ───────
+    const branchLines: BranchLine[] = [];
+    const nodes: WireNode[] = [];
+    const pills: CategoryPill[] = [];
+
+    if (!mobile) {
+      rows.forEach((rowCards, rowIndex) => {
+        const rowTop = Math.min(...rowCards.map((c) => c.top));
+        const channelY = Math.round(rowTop - 24);
+
+        const firstCategory = rowCards[0].category.toLowerCase();
+        const isSingleCategory = rowCards.every((c) => c.category.toLowerCase() === firstCategory);
+
+        if (isSingleCategory) {
+          const cat = rowCards[0].category;
+          const style = resolveCategoryStyle(cat);
+
+          // Junction node at spine
+          nodes.push({
+            cx: spineX,
+            cy: channelY,
+            r: 10,
+            stroke: style.border,
+            fillInner: style.border,
+          });
+
+          const leftCards = rowCards.filter((c) => c.centerX < spineX);
+          const rightCards = rowCards.filter((c) => c.centerX >= spineX);
+
+          // Connect Left Cards
+          leftCards.forEach((c) => {
+            const targetY = c.top - 8;
+            [-2.2, 0, 2.2].forEach((off, sIdx) => {
+              branchLines.push({
+                d: buildBranchPath(spineX, channelY, c.centerX, targetY, off),
+                stroke: sIdx === 1 ? style.border : '#14B8A6',
+                strokeWidth: sIdx === 1 ? 2.2 : 1.4,
+                strokeOpacity: sIdx === 1 ? 0.95 : 0.65,
+                isCenter: sIdx === 1,
+              });
+            });
+            nodes.push({
+              cx: c.centerX,
+              cy: targetY,
+              r: 10,
+              stroke: style.border,
+              fillInner: style.border,
+            });
+          });
+
+          // Connect Right Cards
+          rightCards.forEach((c, rIdx) => {
+            const targetY = c.top - 8;
+            const isPrimary = rIdx === 0;
+
+            if (isPrimary) {
+              [-2.2, 0, 2.2].forEach((off, sIdx) => {
+                branchLines.push({
+                  d: buildBranchPath(spineX, channelY, c.centerX, targetY, off),
+                  stroke: sIdx === 1 ? style.border : '#14B8A6',
+                  strokeWidth: sIdx === 1 ? 2.2 : 1.4,
+                  strokeOpacity: sIdx === 1 ? 0.95 : 0.65,
+                  isCenter: sIdx === 1,
+                });
+              });
+            } else {
+              branchLines.push({
+                d: buildBranchPath(spineX, channelY, c.centerX, targetY, 0),
+                stroke: style.border,
+                strokeWidth: 1.8,
+                strokeOpacity: 0.8,
+                isCenter: false,
+              });
+            }
+
+            nodes.push({
+              cx: c.centerX,
+              cy: targetY,
+              r: 10,
+              stroke: style.border,
+              fillInner: style.border,
+            });
+          });
+
+          // Category Pill position
+          let pillX: number;
+          if (rightCards.length > 0) {
+            pillX = Math.round((spineX + rightCards[0].centerX) / 2);
+          } else if (leftCards.length > 0) {
+            pillX = Math.round((spineX + leftCards[0].centerX) / 2);
+          } else {
+            pillX = spineX;
+          }
+
+          pills.push({
+            id: `row-${rowIndex}-${cat}`,
+            label: style.label,
+            x: pillX,
+            y: channelY,
+            border: style.border,
+            text: style.text,
+            glow: style.glow,
+          });
         } else {
-          channelY = cardTopY - 28;
+          // Multiple categories in this row
+          const catMap = new Map<string, MeasuredCard[]>();
+          rowCards.forEach((c) => {
+            if (!catMap.has(c.category)) catMap.set(c.category, []);
+            catMap.get(c.category)!.push(c);
+          });
+
+          let catIdx = 0;
+          catMap.forEach((cardsInCat, cat) => {
+            const style = resolveCategoryStyle(cat);
+            const primaryCard = cardsInCat[0];
+            const isCol2 = primaryCard.centerX > spineX + colWidth;
+            const branchY = isCol2 ? channelY - 12 : channelY;
+
+            // Junction node at spine
+            nodes.push({
+              cx: spineX,
+              cy: branchY,
+              r: 10,
+              stroke: style.border,
+              fillInner: style.border,
+            });
+
+            cardsInCat.forEach((c, idx) => {
+              const targetY = c.top - 8;
+              const isMain = idx === 0;
+
+              if (isMain) {
+                [-2.2, 0, 2.2].forEach((off, sIdx) => {
+                  branchLines.push({
+                    d: buildBranchPath(spineX, branchY, c.centerX, targetY, off),
+                    stroke: sIdx === 1 ? style.border : '#14B8A6',
+                    strokeWidth: sIdx === 1 ? 2.2 : 1.4,
+                    strokeOpacity: sIdx === 1 ? 0.95 : 0.65,
+                    isCenter: sIdx === 1,
+                  });
+                });
+              } else {
+                branchLines.push({
+                  d: buildBranchPath(spineX, branchY, c.centerX, targetY, 0),
+                  stroke: style.border,
+                  strokeWidth: 1.8,
+                  strokeOpacity: 0.8,
+                  isCenter: false,
+                });
+              }
+
+              nodes.push({
+                cx: c.centerX,
+                cy: targetY,
+                r: 10,
+                stroke: style.border,
+                fillInner: style.border,
+              });
+            });
+
+            let pillX = Math.round((spineX + primaryCard.centerX) / 2);
+            if (isCol2) {
+              pillX = Math.round(primaryCard.centerX - 60);
+            }
+
+            pills.push({
+              id: `row-${rowIndex}-${cat}-${catIdx}`,
+              label: style.label,
+              x: pillX,
+              y: branchY,
+              border: style.border,
+              text: style.text,
+              glow: style.glow,
+            });
+
+            catIdx++;
+          });
         }
-
-        const targetY = cardTopY - 8;
-        const style = resolveCategoryStyle(cat);
-
-        let midPillX = Math.round((spineX + targetX) / 2);
-        if (targetX > w * 0.65) {
-          midPillX = Math.round(targetX - 70);
-        }
-
-        // Compute secondary twigs for other cards of the same category
-        const twigs: Pt[] = [];
-        cardEls.slice(1).forEach((secEl) => {
-          const secBox = secEl.getBoundingClientRect();
-          const secX = Math.round(secBox.left - wrapBox.left + secBox.width / 2);
-          const secY = Math.round(secBox.top - wrapBox.top - 8);
-          twigs.push({ x: secX, y: secY });
-        });
-
-        branches.push({
-          category: cat,
-          style,
-          from: { x: spineX, y: channelY },
-          to: { x: targetX, y: targetY },
-          channelY,
-          midPill: { x: midPillX, y: channelY },
-          twigs,
-        });
-
-        catIndex++;
       });
     }
 
-    // Spine starts right below the top area / cluster header and ends above pagination
-    let startY = 430;
-    if (grid) {
-      const gridBox = grid.getBoundingClientRect();
-      const relativeGridTop = gridBox.top - wrapBox.top;
-      startY = Math.max(160, relativeGridTop - 50);
+    // ─── 4. RIGHT-EDGE WIRE: STRICTLY CONSTRAINED TO SIDEBAR (FOOTER MEIN NAHI) ─
+    let rightWire: { x: number; y1: number; y2: number } | null = null;
+    if (sidebarRef && sidebarRef.current && w >= 1100) {
+      const sideEl = sidebarRef.current;
+      const sideBox = sideEl.getBoundingClientRect();
+      const sideRightRel = Math.round(sideBox.right - wrapBox.left);
+      const sideTopRel = Math.round(sideBox.top - wrapBox.top);
+      const sideBottomRel = Math.round(sideBox.bottom - wrapBox.top);
+
+      rightWire = {
+        x: sideRightRel + 14,
+        y1: Math.max(16, sideTopRel + 16),
+        y2: sideBottomRel,
+      };
     }
-    const endY = Math.max(startY + 400, h - 90);
+
+    const totalHeight = Math.max(endY + 30, rightWire ? rightWire.y2 + 20 : endY + 30);
+    const totalWidth = Math.max(w + 30, rightWire ? rightWire.x + 20 : w);
 
     setState({
-      width: w,
-      height: h,
+      hasCards: true,
+      width: totalWidth,
+      height: totalHeight,
       spineX,
       startY,
       endY,
-      branches,
+      branchLines,
+      nodes,
+      pills,
+      rightWire,
     });
-  }, [containerRef, cardGridRef]);
+  }, [containerRef, cardGridRef, sidebarRef, showTopRow]);
 
+  const depsKey = `${currentPage}-${selectedCategory}-${searchQuery}-${posts.map((p) => p.id).join(',')}-${showTopRow}`;
+
+  // Initial mount: compute immediately
   useEffect(() => {
     compute();
-    const t1 = setTimeout(compute, 100);
-    const t2 = setTimeout(compute, 350);
-    const t3 = setTimeout(compute, 800);
-
-    const ro = new ResizeObserver(() => compute());
-    if (containerRef.current) ro.observe(containerRef.current);
-    if (cardGridRef.current) ro.observe(cardGridRef.current);
-    window.addEventListener('resize', compute);
+    const t1 = setTimeout(compute, 60);
+    const t2 = setTimeout(compute, 200);
+    const t3 = setTimeout(compute, 500);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
-      ro.disconnect();
-      window.removeEventListener('resize', compute);
     };
-  }, [compute, containerRef, cardGridRef]);
+  }, [compute]);
 
-  const { width, height, spineX, startY, endY, branches } = state;
+  // Page / Filter change: fade out (150ms), recompute fresh rects, fade in (250ms)
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
 
-  /* Mobile view (<768px): 2 thin wavy strands in left margin only */
+    setIsVisible(false);
+
+    const t1 = setTimeout(() => {
+      compute();
+      setIsVisible(true);
+    }, 150);
+
+    const t2 = setTimeout(() => {
+      compute();
+    }, 350);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [depsKey, compute]);
+
+  // Window resize & ResizeObserver listeners
+  useEffect(() => {
+    const handleResize = () => compute();
+    window.addEventListener('resize', handleResize);
+
+    const ro = new ResizeObserver(() => compute());
+    if (containerRef.current) ro.observe(containerRef.current);
+    if (cardGridRef.current) ro.observe(cardGridRef.current);
+    if (sidebarRef?.current) ro.observe(sidebarRef.current);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      ro.disconnect();
+    };
+  }, [compute, containerRef, cardGridRef, sidebarRef]);
+
+  const { hasCards, width, height, spineX, startY, endY, branchLines, nodes, pills, rightWire } = state;
+
+  if (!hasCards) return null;
+
+  /* Mobile view (<768px): 2 thin wavy strands in left margin strictly within card height */
   if (isMobile) {
     return (
-      <div className="wire-bundle-wrapper" aria-hidden="true">
+      <div
+        className="wire-bundle-wrapper"
+        aria-hidden="true"
+        style={{
+          opacity: isVisible ? 1 : 0,
+          transition: 'opacity 200ms ease',
+        }}
+      >
         <svg
           className="wire-bundle-svg"
           viewBox={`0 0 ${width} ${height}`}
@@ -361,7 +651,14 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
   }
 
   return (
-    <div className="wire-bundle-wrapper" aria-hidden="true">
+    <div
+      className="wire-bundle-wrapper"
+      aria-hidden="true"
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transition: 'opacity 220ms ease',
+      }}
+    >
       <svg
         className="wire-bundle-svg"
         viewBox={`0 0 ${width} ${height}`}
@@ -385,7 +682,7 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
           </linearGradient>
         </defs>
 
-        {/* ─── 1. SPINE: 5-6 Continuous Wavy Strands in First Column Gap Channel ─── */}
+        {/* ─── 1. SPINE: 5-6 Wavy Strands strictly bounded between startY and endY ─── */}
         {STRANDS.map((s, i) => {
           const d = buildSpineWave(spineX, startY, endY, s.offset, s.amp, s.phase);
           return (
@@ -417,31 +714,19 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
         })}
 
         {/* ─── 2. DYNAMIC BRANCHES & TWIGS ─── */}
-        {branches.map((b) => {
-          const centerPath = buildBranchPath(b.from.x, b.channelY, b.to.x, b.to.y, 0);
-
-          return (
-            <g key={`branch-group-${b.category}`}>
-              {/* 3 distinct strands per main branch */}
-              {[-2.5, 0, 2.5].map((off, idx) => {
-                const pathD = buildBranchPath(b.from.x, b.channelY, b.to.x, b.to.y, off);
-                const isCenter = idx === 1;
-                return (
-                  <path
-                    key={`b-strand-${idx}`}
-                    d={pathD}
-                    stroke={isCenter ? b.style.border : '#14B8A6'}
-                    strokeWidth={isCenter ? 2.2 : 1.5}
-                    strokeOpacity={isCenter ? 0.95 : 0.65}
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                );
-              })}
-
-              {/* Flowing light pulse along main branch */}
+        {branchLines.map((b, idx) => (
+          <React.Fragment key={`branch-${idx}`}>
+            <path
+              d={b.d}
+              stroke={b.stroke}
+              strokeWidth={b.strokeWidth}
+              strokeOpacity={b.strokeOpacity}
+              strokeLinecap="round"
+              fill="none"
+            />
+            {b.isCenter && (
               <path
-                d={centerPath}
+                d={b.d}
                 stroke="url(#wbPulseGrad)"
                 strokeWidth={2.4}
                 strokeDasharray="36 320"
@@ -450,115 +735,82 @@ export default function WireBundle({ containerRef, cardGridRef }: WireBundleProp
                 className="wire-flowing-pulse"
                 style={{ animationDuration: '4.8s' }}
               />
-
-              {/* Node at spine junction */}
-              <circle
-                cx={b.from.x}
-                cy={b.channelY}
-                r="11"
-                fill="#ffffff"
-                stroke={b.style.border}
-                strokeWidth="2.2"
-                filter="url(#wbGlowTeal)"
-              />
-              <circle cx={b.from.x} cy={b.channelY} r="4.5" fill={b.style.border} />
-              <circle cx={b.from.x} cy={b.channelY} r="1.8" fill="#ffffff" />
-
-              {/* Node at Primary Card Top Center */}
-              <circle
-                cx={b.to.x}
-                cy={b.to.y}
-                r="11"
-                fill="#ffffff"
-                stroke={b.style.border}
-                strokeWidth="2.2"
-                filter="url(#wbGlowTeal)"
-              />
-              <circle cx={b.to.x} cy={b.to.y} r="4.5" fill={b.style.border} />
-              <circle cx={b.to.x} cy={b.to.y} r="1.8" fill="#ffffff" />
-
-              {/* Secondary Twigs to additional cards of the same category */}
-              {b.twigs.map((tw, ti) => {
-                const twigY = tw.y - 18;
-                const twigPath = buildBranchPath(spineX, twigY, tw.x, tw.y, 0);
-                return (
-                  <g key={`twig-${ti}`}>
-                    <path
-                      d={twigPath}
-                      stroke={b.style.border}
-                      strokeWidth={1.6}
-                      strokeOpacity={0.7}
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                    <circle
-                      cx={tw.x}
-                      cy={tw.y}
-                      r="8"
-                      fill="#ffffff"
-                      stroke={b.style.border}
-                      strokeWidth="1.8"
-                    />
-                    <circle cx={tw.x} cy={tw.y} r="3.2" fill={b.style.border} />
-                  </g>
-                );
-              })}
-            </g>
-          );
-        })}
-
-        {/* ─── 3. SPINE NODES (3 along the vertical run) ─── */}
-        {[0.28, 0.55, 0.82].map((frac, i) => {
-          const ny = startY + (endY - startY) * frac;
-          const cols = ['#14B8A6', '#22D3EE', '#5EEAD4'];
-          return (
-            <g key={`snode-${i}`}>
-              <circle
-                cx={spineX}
-                cy={ny}
-                r="13"
-                fill="#ffffff"
-                stroke={cols[i]}
-                strokeWidth="2.2"
-                filter="url(#wbGlowTeal)"
-              />
-              <circle cx={spineX} cy={ny} r="5" fill={cols[i]} />
-              <circle cx={spineX} cy={ny} r="2" fill="#ffffff" />
-            </g>
-          );
-        })}
-
-        {/* ─── 4. RIGHT-EDGE WIRE BUNDLE (Outside Sidebar in Margin) ─── */}
-        {[-4, 0, 4].map((off, i) => (
-          <path
-            key={`re-${i}`}
-            d={`M ${width + 16 + off} 120 C ${width + 22 + off} 420, ${width + 12 + off} 760, ${width + 18 + off} ${height - 80}`}
-            stroke={['#14B8A6', '#22D3EE', '#5EEAD4'][i]}
-            strokeWidth={i === 1 ? 1.8 : 1.3}
-            strokeOpacity={0.65}
-            fill="none"
-          />
+            )}
+          </React.Fragment>
         ))}
-        <circle cx={width + 16} cy="260" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
-        <circle cx={width + 16} cy="580" r="5" fill="#ffffff" stroke="#22D3EE" strokeWidth="1.8" />
-        <circle cx={width + 16} cy="880" r="5" fill="#ffffff" stroke="#14B8A6" strokeWidth="1.8" />
+
+        {/* ─── 3. ACTIVE CONNECTION NODES (ONLY AT JUNCTIONS & CARDS) ─── */}
+        {nodes.map((node, idx) => (
+          <g key={`node-${idx}`}>
+            <circle
+              cx={node.cx}
+              cy={node.cy}
+              r={node.r}
+              fill="#ffffff"
+              stroke={node.stroke}
+              strokeWidth="2.2"
+              filter="url(#wbGlowTeal)"
+            />
+            <circle cx={node.cx} cy={node.cy} r={node.r * 0.45} fill={node.fillInner} />
+            <circle cx={node.cx} cy={node.cy} r={node.r * 0.18} fill="#ffffff" />
+          </g>
+        ))}
+
+        {/* ─── 4. RIGHT-EDGE WIRE BUNDLE (CONSTRAINED STRICTLY TO SIDEBAR) ─── */}
+        {rightWire && (
+          <g key="right-edge-bundle">
+            {[-3, 0, 3].map((off, i) => {
+              const x = rightWire.x + off;
+              const y1 = rightWire.y1;
+              const y2 = rightWire.y2;
+              const d = `M ${x} ${y1} C ${x + 6} ${y1 + (y2 - y1) * 0.3}, ${x - 4} ${y1 + (y2 - y1) * 0.7}, ${x} ${y2}`;
+              return (
+                <path
+                  key={`re-${i}`}
+                  d={d}
+                  stroke={['#14B8A6', '#22D3EE', '#5EEAD4'][i]}
+                  strokeWidth={i === 1 ? 1.8 : 1.3}
+                  strokeOpacity={0.65}
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              );
+            })}
+            <circle
+              cx={rightWire.x}
+              cy={rightWire.y1 + (rightWire.y2 - rightWire.y1) * 0.3}
+              r="4.5"
+              fill="#ffffff"
+              stroke="#14B8A6"
+              strokeWidth="1.8"
+            />
+            <circle
+              cx={rightWire.x}
+              cy={rightWire.y1 + (rightWire.y2 - rightWire.y1) * 0.7}
+              r="4.5"
+              fill="#ffffff"
+              stroke="#22D3EE"
+              strokeWidth="1.8"
+            />
+          </g>
+        )}
       </svg>
 
-      {/* ─── 5. DYNAMIC HTML CATEGORY PILL CAPSULES ON BRANCHES ─── */}
-      {branches.map((b) => (
+      {/* ─── 5. DYNAMIC HTML CATEGORY PILLS ON BRANCHES ─── */}
+      {pills.map((p) => (
         <div
-          key={`pill-${b.category}`}
+          key={p.id}
           className="wire-capsule-badge"
           style={{
-            left: `${b.midPill.x}px`,
-            top: `${b.midPill.y}px`,
-            borderColor: b.style.border,
+            left: `${p.x}px`,
+            top: `${p.y}px`,
+            borderColor: p.border,
             background: '#ffffff',
-            color: b.style.text,
-            boxShadow: `0 2px 10px ${b.style.glow}`,
+            color: p.text,
+            boxShadow: `0 2px 10px ${p.glow}`,
           }}
         >
-          <span>{b.style.label}</span>
+          <span>{p.label}</span>
         </div>
       ))}
     </div>

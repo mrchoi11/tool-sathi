@@ -342,17 +342,19 @@ export default function BlogPage() {
   const activeCategoryFromUrl = searchParams.get('category') || 'All';
   const rawPage = parseInt(searchParams.get('page') || '1', 10);
   const activePageFromUrl = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
+  const activeSearchFromUrl = searchParams.get('q') || searchParams.get('search') || '';
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState(activeSearchFromUrl);
+  const [debouncedSearch, setDebouncedSearch] = useState(activeSearchFromUrl);
   const [selectedCategory, setSelectedCategory] = useState<string>(activeCategoryFromUrl);
   const [currentPage, setCurrentPage] = useState<number>(activePageFromUrl);
   const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
 
-  // Refs for WireBundle — left column wrapper + card grid
+  // Refs for WireBundle — left column wrapper + card grid + sidebar
   const mainAreaRef = useRef<HTMLDivElement>(null);
   const cardGridRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
 
   usePageSeo(
     'page-blog',
@@ -363,7 +365,12 @@ export default function BlogPage() {
   // Sync with URL params
   useEffect(() => {
     setSelectedCategory(activeCategoryFromUrl);
-  }, [activeCategoryFromUrl]);
+    const q = searchParams.get('q') || searchParams.get('search') || '';
+    if (q !== searchQuery) {
+      setSearchQuery(q);
+      setDebouncedSearch(q);
+    }
+  }, [activeCategoryFromUrl, searchParams]);
 
   useEffect(() => {
     const p = parseInt(searchParams.get('page') || '1', 10);
@@ -504,12 +511,12 @@ export default function BlogPage() {
 
   const totalPages = Math.max(1, Math.ceil(paginatedBasePosts.length / 9));
 
-  // Reset to page 1 if current page is out of range
+  // Reset to page 1 if current page is out of range (only after posts have loaded)
   useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
+    if (!loadingPosts && currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1);
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, loadingPosts]);
 
   // 9 cards for the current active page
   const currentGridPosts = useMemo(() => {
@@ -594,7 +601,16 @@ export default function BlogPage() {
           <main className="blog-main-area" ref={mainAreaRef}>
             {/* Dynamic Wire Bundle SVG (recomputes on cards / page / filter change) */}
             {!loadingPosts && currentGridPosts.length > 0 && (
-              <WireBundle containerRef={mainAreaRef} cardGridRef={cardGridRef} />
+              <WireBundle
+                containerRef={mainAreaRef}
+                cardGridRef={cardGridRef}
+                sidebarRef={sidebarRef}
+                posts={currentGridPosts}
+                currentPage={currentPage}
+                selectedCategory={selectedCategory}
+                searchQuery={debouncedSearch}
+                showTopRow={showTopRow}
+              />
             )}
 
             {loadingPosts ? (
@@ -785,7 +801,7 @@ export default function BlogPage() {
           </main>
 
           {/* ─── RIGHT SIDEBAR (300px, Sticky on Desktop, Below on Tablet/Mobile) ─── */}
-          <aside className="blog-editorial-sidebar">
+          <aside className="blog-editorial-sidebar" ref={sidebarRef}>
             {/* 1. Explore All Categories Card */}
             <div className="sidebar-card sidebar-categories-card">
               <h3 className="sidebar-section-title">Explore All Categories</h3>
