@@ -653,47 +653,60 @@ export default function BlogPage() {
                 {/* ─── a) TOP ROW: Featured Card (Left) + 2 Compact Cards (Right) (Page 1 Only) ─ */}
                 {showTopRow && featuredPost && (
                   <div className={`discovery-top-row ${topStackedPosts.length === 0 ? 'discovery-top-row--solo' : ''}`}>
-                    {/* Left: Large Dark Featured Article Card with Uncropped Contain Image */}
+                    {/* Left: Large Featured Article Card with Clear Unobstructed Cover & Heading */}
                     <div
                       ref={featuredTilt.ref}
                       className="featured-guide-card reveal-node"
                       onMouseMove={featuredTilt.onMouseMove}
                       onMouseLeave={featuredTilt.onMouseLeave}
                     >
-                      {/* Uncropped contain cover with blurred backdrop fill */}
-                      <div
-                        className="featured-backdrop-layer"
-                        style={{
-                          backgroundImage: `url(${featuredPost.coverImage || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80'})`,
-                        }}
-                        aria-hidden="true"
-                      />
-                      <div className="featured-contain-wrapper">
-                        <img
-                          src={featuredPost.coverImage || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80'}
-                          alt={featuredPost.title}
-                          className="featured-contain-img"
-                          width="1200"
-                          height="630"
-                          loading="lazy"
-                        />
-                      </div>
+                      {/* 1. Dedicated Unobstructed Top Cover Image Frame (16:9 / 1200x630) */}
+                      <Link
+                        to={`/blog/${featuredPost.slug}`}
+                        className="featured-visual-frame"
+                        aria-label={featuredPost.title}
+                      >
+                        {featuredPost.coverImage && featuredPost.coverImage.trim() !== '' ? (
+                          <img
+                            src={featuredPost.coverImage}
+                            alt={featuredPost.title}
+                            className="featured-visual-img"
+                            width="1200"
+                            height="630"
+                            loading="eager"
+                          />
+                        ) : (
+                          <BrandedCoverPlaceholder category={featuredPost.category} title={featuredPost.title} />
+                        )}
 
-                      <div className="featured-guide-overlay" />
-                      <div className="featured-guide-glow" aria-hidden="true" />
-                      <div className="featured-guide-blueprint" aria-hidden="true" />
-
-                      <div className="featured-guide-content">
-                        <div className="featured-guide-badge">
-                          <span className="featured-badge-dot" />
-                          FEATURED HERO
+                        {/* Sleek Floating Badges on Top Corners */}
+                        <div className="featured-visual-badge-row">
+                          <div className="featured-guide-badge">
+                            <span className="featured-badge-dot" />
+                            FEATURED HERO
+                          </div>
+                          <span
+                            className="featured-cat-pill"
+                            style={{
+                              background: resolveCategoryStyle(featuredPost.category).bg,
+                              color: resolveCategoryStyle(featuredPost.category).text,
+                              borderColor: resolveCategoryStyle(featuredPost.category).border,
+                            }}
+                          >
+                            {resolveCategoryStyle(featuredPost.category).label || featuredPost.category}
+                          </span>
                         </div>
+                      </Link>
 
+                      {/* 2. Dedicated Bottom Editorial Content Area */}
+                      <div className="featured-guide-content">
                         <h2 className="featured-guide-title">
                           <Link to={`/blog/${featuredPost.slug}`}>{featuredPost.title}</Link>
                         </h2>
 
-                        <p className="featured-guide-excerpt">{featuredPost.excerpt}</p>
+                        {featuredPost.excerpt && (
+                          <p className="featured-guide-excerpt">{featuredPost.excerpt}</p>
+                        )}
 
                         <div className="featured-guide-footer">
                           <Link to={`/blog/${featuredPost.slug}`} className="featured-guide-cta">
@@ -701,7 +714,6 @@ export default function BlogPage() {
                           </Link>
 
                           <div className="featured-guide-meta">
-                            <span className="featured-cat-tag">{featuredPost.category}</span>
                             <span>
                               <Clock size={12} /> {featuredPost.readTime}
                             </span>
