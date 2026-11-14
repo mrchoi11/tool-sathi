@@ -19,6 +19,7 @@ export interface BlogPost {
   tags: string[];
   coverImage: string;
   publishedAt: string;
+  updatedAt?: string;
   status: "published" | "draft";
   readTime: string;
   views?: number;
@@ -32,6 +33,25 @@ export interface BlogPost {
 }
 
 const COLLECTION = "blog_posts";
+
+export function formatBlogDate(publishedAt?: string, updatedAt?: string): string {
+  if (updatedAt && publishedAt) {
+    const pub = new Date(publishedAt).getTime();
+    const upd = new Date(updatedAt).getTime();
+    if (!isNaN(upd) && (!isNaN(pub) ? upd - pub > 60000 : true)) {
+      const d = new Date(updatedAt);
+      return `Updated: ${d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
+    }
+  }
+  if (publishedAt) {
+    const d = new Date(publishedAt);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+    }
+    return publishedAt;
+  }
+  return "";
+}
 
 // ─── READ ────────────────────────────────────────────────────────────────────
 

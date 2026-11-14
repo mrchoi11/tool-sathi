@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Clock, ArrowRight, BookOpen, ChevronLeft, ChevronRight, Play, Shield } from 'lucide-react';
-import { getPublishedPosts } from '../data/blogRegistry';
+import { Search, Clock, Calendar, ArrowRight, BookOpen, ChevronLeft, ChevronRight, Play, Shield } from 'lucide-react';
+import { getPublishedPosts, formatBlogDate } from '../data/blogRegistry';
 import type { BlogPost } from '../data/blogRegistry';
 import { usePageSeo } from '../hooks/usePageSeo';
 import WireBundle, { resolveCategoryStyle } from '../components/blog/WireBundle';
@@ -90,7 +90,106 @@ function BrandedCoverPlaceholder({
   );
 }
 
-/* ─── Top Row Compact Stacked Card (Aspect Ratio 1200 / 630, No Crop) ────── */
+/* ─── Large Featured Article Card (Dedicated Unobstructed Image + Slim Footer) ─── */
+function FeaturedGuideCard({
+  post,
+  tilt,
+}: {
+  post: BlogPost;
+  tilt: {
+    ref: React.RefObject<HTMLDivElement | null>;
+    onMouseMove: (e: React.MouseEvent<HTMLDivElement>) => void;
+    onMouseLeave: () => void;
+  };
+}) {
+  const authorName = post.author?.name?.trim() || 'Admin';
+  const authorAvatar = post.author?.avatar?.trim();
+  const initial = authorName.charAt(0).toUpperCase() || 'A';
+  const [avatarErr, setAvatarErr] = useState(!authorAvatar);
+  const dateStr = formatBlogDate(post.publishedAt, post.updatedAt);
+  const catStyle = resolveCategoryStyle(post.category);
+
+  return (
+    <div
+      ref={tilt.ref}
+      className="featured-guide-card reveal-node"
+      onMouseMove={tilt.onMouseMove}
+      onMouseLeave={tilt.onMouseLeave}
+    >
+      {/* 1. Dedicated Unobstructed Top Cover Image Frame (16:9 / 1200x630) */}
+      <Link
+        to={`/blog/${post.slug}`}
+        className="featured-visual-frame"
+        aria-label={post.title}
+      >
+        {post.coverImage && post.coverImage.trim() !== '' ? (
+          <img
+            src={post.coverImage}
+            alt={post.title}
+            className="featured-visual-img"
+            width="1200"
+            height="630"
+            loading="eager"
+          />
+        ) : (
+          <BrandedCoverPlaceholder category={post.category} title={post.title} />
+        )}
+
+        {/* Sleek Floating Badges on Top Corners */}
+        <div className="featured-visual-badge-row">
+          <div className="featured-guide-badge">
+            <span className="featured-badge-dot" />
+            FEATURED HERO
+          </div>
+          <span
+            className="featured-cat-pill"
+            style={{
+              background: catStyle.bg,
+              color: catStyle.text,
+              borderColor: catStyle.border,
+            }}
+          >
+            {catStyle.label || post.category}
+          </span>
+        </div>
+      </Link>
+
+      {/* 2. Sleek Slim Bottom Editorial Content Area */}
+      <div className="featured-guide-content">
+        <h2 className="featured-guide-title">
+          <Link to={`/blog/${post.slug}`}>{post.title}</Link>
+        </h2>
+
+        <div className="featured-guide-footer">
+          <div className="card-author-line card-author-line--dark">
+            <div className="author-avatar-circle" title={authorName}>
+              {!avatarErr && authorAvatar ? (
+                <img src={authorAvatar} alt={authorName} onError={() => setAvatarErr(true)} />
+              ) : (
+                <span>{initial}</span>
+              )}
+            </div>
+            <span className="card-author-name">{authorName}</span>
+            {dateStr && (
+              <>
+                <span className="meta-dot">·</span>
+                <span className="card-meta-date">{dateStr}</span>
+              </>
+            )}
+            <span className="meta-dot">·</span>
+            <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
+          </div>
+
+          <Link to={`/blog/${post.slug}`} className="featured-guide-cta">
+            Deep Dive <ArrowRight size={13} className="cta-arrow" />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Top Row Compact Stacked Card (Aspect Ratio 16:9, No Crop, Dynamic Author) ─── */
 function TopRowCompactCard({
   post,
   delay = 0,
@@ -103,6 +202,11 @@ function TopRowCompactCard({
   const tilt = useTilt(4);
   const catStyle = resolveCategoryStyle(post.category);
   const [imgFailed, setImgFailed] = useState(!post.coverImage || post.coverImage.trim() === '');
+  const authorName = post.author?.name?.trim() || 'Admin';
+  const authorAvatar = post.author?.avatar?.trim();
+  const initial = authorName.charAt(0).toUpperCase() || 'A';
+  const [avatarErr, setAvatarErr] = useState(!authorAvatar);
+  const dateStr = formatBlogDate(post.publishedAt, post.updatedAt);
 
   return (
     <div
@@ -114,17 +218,14 @@ function TopRowCompactCard({
     >
       <Link to={`/blog/${post.slug}`} className="top-compact-thumb" aria-label={post.title}>
         {!imgFailed && post.coverImage ? (
-          <>
-            <div className="top-compact-backdrop" style={{ backgroundImage: `url(${post.coverImage})` }} aria-hidden="true" />
-            <img
-              src={post.coverImage}
-              alt={post.title}
-              width="1200"
-              height="630"
-              loading="lazy"
-              onError={() => setImgFailed(true)}
-            />
-          </>
+          <img
+            src={post.coverImage}
+            alt={post.title}
+            width="1200"
+            height="630"
+            loading="lazy"
+            onError={() => setImgFailed(true)}
+          />
         ) : (
           <BrandedCoverPlaceholder category={post.category} title={post.title} isCompact={true} />
         )}
@@ -137,21 +238,40 @@ function TopRowCompactCard({
       </Link>
 
       <div className="top-compact-body">
-        <div className="top-compact-meta">
-          <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
-        </div>
         <h4 className="top-compact-title">
           <Link to={`/blog/${post.slug}`}>{post.title}</Link>
         </h4>
-        <Link to={`/blog/${post.slug}`} className="top-compact-read">
-          Read <ArrowRight size={11} className="read-arrow" />
-        </Link>
+
+        {/* Dynamic Author Avatar in Circle + Name + Date */}
+        <div className="card-author-line">
+          <div className="author-avatar-circle" title={authorName}>
+            {!avatarErr && authorAvatar ? (
+              <img src={authorAvatar} alt={authorName} onError={() => setAvatarErr(true)} />
+            ) : (
+              <span>{initial}</span>
+            )}
+          </div>
+          <span className="card-author-name">{authorName}</span>
+          {dateStr && (
+            <>
+              <span className="meta-dot">·</span>
+              <span className="card-meta-date">{dateStr}</span>
+            </>
+          )}
+        </div>
+
+        <div className="top-compact-footer">
+          <span className="meta-time"><Clock size={11} /> {post.readTime}</span>
+          <Link to={`/blog/${post.slug}`} className="top-compact-read">
+            Read <ArrowRight size={11} className="read-arrow" />
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ─── TeraBox Player Mockup Card (Aspect Ratio 1200 / 630, 3-Column Grid) ─── */
+/* ─── TeraBox Player Mockup Card (Aspect Ratio 16:9, 3-Column Grid) ─── */
 function TeraBoxPlayerCard({
   post,
   delay = 0,
@@ -165,6 +285,11 @@ function TeraBoxPlayerCard({
 }) {
   const tilt = useTilt(5);
   const catStyle = resolveCategoryStyle(post.category);
+  const authorName = post.author?.name?.trim() || 'Admin';
+  const authorAvatar = post.author?.avatar?.trim();
+  const initial = authorName.charAt(0).toUpperCase() || 'A';
+  const [avatarErr, setAvatarErr] = useState(!authorAvatar);
+  const dateStr = formatBlogDate(post.publishedAt, post.updatedAt);
 
   return (
     <div
@@ -230,6 +355,24 @@ function TeraBoxPlayerCard({
             <Link to={`/blog/${post.slug}`}>{post.title}</Link>
           </h4>
 
+          {/* Dynamic Author Avatar in Circle + Name + Date */}
+          <div className="card-author-line">
+            <div className="author-avatar-circle" title={authorName}>
+              {!avatarErr && authorAvatar ? (
+                <img src={authorAvatar} alt={authorName} onError={() => setAvatarErr(true)} />
+              ) : (
+                <span>{initial}</span>
+              )}
+            </div>
+            <span className="card-author-name">{authorName}</span>
+            {dateStr && (
+              <>
+                <span className="meta-dot">·</span>
+                <span className="card-meta-date">{dateStr}</span>
+              </>
+            )}
+          </div>
+
           <div className="node-card__footer">
             <Link to={`/blog/${post.slug}`} className="node-card__read">
               Read <ArrowRight size={12} className="read-arrow" />
@@ -243,7 +386,7 @@ function TeraBoxPlayerCard({
   );
 }
 
-/* ─── Standard Thumbnail Card (Aspect Ratio 1200 / 630, Contain & No Crop) ─ */
+/* ─── Standard Thumbnail Card (Aspect Ratio 16:9, Contain & No Crop) ─────── */
 function StandardThumbCard({
   post,
   delay = 0,
@@ -258,6 +401,11 @@ function StandardThumbCard({
   const tilt = useTilt(5);
   const catStyle = resolveCategoryStyle(post.category);
   const [imgFailed, setImgFailed] = useState(!post.coverImage || post.coverImage.trim() === '');
+  const authorName = post.author?.name?.trim() || 'Admin';
+  const authorAvatar = post.author?.avatar?.trim();
+  const initial = authorName.charAt(0).toUpperCase() || 'A';
+  const [avatarErr, setAvatarErr] = useState(!authorAvatar);
+  const dateStr = formatBlogDate(post.publishedAt, post.updatedAt);
 
   return (
     <div
@@ -282,17 +430,14 @@ function StandardThumbCard({
       <div className="node-card__inner">
         <Link to={`/blog/${post.slug}`} className="node-card__img-link">
           {!imgFailed && post.coverImage ? (
-            <>
-              <div className="node-card__backdrop" style={{ backgroundImage: `url(${post.coverImage})` }} aria-hidden="true" />
-              <img
-                src={post.coverImage}
-                alt={post.title}
-                width="1200"
-                height="630"
-                loading="lazy"
-                onError={() => setImgFailed(true)}
-              />
-            </>
+            <img
+              src={post.coverImage}
+              alt={post.title}
+              width="1200"
+              height="630"
+              loading="lazy"
+              onError={() => setImgFailed(true)}
+            />
           ) : (
             <BrandedCoverPlaceholder category={post.category} title={post.title} />
           )}
@@ -319,6 +464,24 @@ function StandardThumbCard({
           <h4 className="node-card__title">
             <Link to={`/blog/${post.slug}`}>{post.title}</Link>
           </h4>
+
+          {/* Dynamic Author Avatar in Circle + Name + Date */}
+          <div className="card-author-line">
+            <div className="author-avatar-circle" title={authorName}>
+              {!avatarErr && authorAvatar ? (
+                <img src={authorAvatar} alt={authorName} onError={() => setAvatarErr(true)} />
+              ) : (
+                <span>{initial}</span>
+              )}
+            </div>
+            <span className="card-author-name">{authorName}</span>
+            {dateStr && (
+              <>
+                <span className="meta-dot">·</span>
+                <span className="card-meta-date">{dateStr}</span>
+              </>
+            )}
+          </div>
 
           <div className="node-card__footer">
             <Link to={`/blog/${post.slug}`} className="node-card__read">
@@ -653,74 +816,8 @@ export default function BlogPage() {
                 {/* ─── a) TOP ROW: Featured Card (Left) + 2 Compact Cards (Right) (Page 1 Only) ─ */}
                 {showTopRow && featuredPost && (
                   <div className={`discovery-top-row ${topStackedPosts.length === 0 ? 'discovery-top-row--solo' : ''}`}>
-                    {/* Left: Large Featured Article Card with Clear Unobstructed Cover & Heading */}
-                    <div
-                      ref={featuredTilt.ref}
-                      className="featured-guide-card reveal-node"
-                      onMouseMove={featuredTilt.onMouseMove}
-                      onMouseLeave={featuredTilt.onMouseLeave}
-                    >
-                      {/* 1. Dedicated Unobstructed Top Cover Image Frame (16:9 / 1200x630) */}
-                      <Link
-                        to={`/blog/${featuredPost.slug}`}
-                        className="featured-visual-frame"
-                        aria-label={featuredPost.title}
-                      >
-                        {featuredPost.coverImage && featuredPost.coverImage.trim() !== '' ? (
-                          <img
-                            src={featuredPost.coverImage}
-                            alt={featuredPost.title}
-                            className="featured-visual-img"
-                            width="1200"
-                            height="630"
-                            loading="eager"
-                          />
-                        ) : (
-                          <BrandedCoverPlaceholder category={featuredPost.category} title={featuredPost.title} />
-                        )}
-
-                        {/* Sleek Floating Badges on Top Corners */}
-                        <div className="featured-visual-badge-row">
-                          <div className="featured-guide-badge">
-                            <span className="featured-badge-dot" />
-                            FEATURED HERO
-                          </div>
-                          <span
-                            className="featured-cat-pill"
-                            style={{
-                              background: resolveCategoryStyle(featuredPost.category).bg,
-                              color: resolveCategoryStyle(featuredPost.category).text,
-                              borderColor: resolveCategoryStyle(featuredPost.category).border,
-                            }}
-                          >
-                            {resolveCategoryStyle(featuredPost.category).label || featuredPost.category}
-                          </span>
-                        </div>
-                      </Link>
-
-                      {/* 2. Dedicated Bottom Editorial Content Area */}
-                      <div className="featured-guide-content">
-                        <h2 className="featured-guide-title">
-                          <Link to={`/blog/${featuredPost.slug}`}>{featuredPost.title}</Link>
-                        </h2>
-
-                        {featuredPost.excerpt && (
-                          <p className="featured-guide-excerpt">{featuredPost.excerpt}</p>
-                        )}
-
-                        <div className="featured-guide-footer">
-                          <Link to={`/blog/${featuredPost.slug}`} className="featured-guide-cta">
-                            Deep Dive <ArrowRight size={13} className="cta-arrow" />
-                          </Link>
-
-                          <div className="featured-guide-meta">
-                            <span>
-                              <Clock size={12} /> {featuredPost.readTime}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    {/* Left: Large Featured Article Card with Unobstructed Cover & Slim Footer */}
+                    <FeaturedGuideCard post={featuredPost} tilt={featuredTilt} />
 
                     {/* Right: 2 Compact Stacked Cards (~178px height, matching featured card height) */}
                     {topStackedPosts.length > 0 && (

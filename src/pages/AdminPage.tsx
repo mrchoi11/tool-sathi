@@ -758,6 +758,7 @@ export default function AdminPage() {
     }
     setSaving(true);
     try {
+      const isEditing = !!editingPost || (!!form.id && posts.some((p) => p.id === form.id));
       const tags = tagInput ? tagInput.split(",").map((t) => t.trim()).filter(Boolean) : form.tags || [];
       const postToSave: BlogPost = {
         id: form.id || "post-" + Date.now(),
@@ -770,6 +771,7 @@ export default function AdminPage() {
         coverImage: form.coverImage || "",
         status: form.status || "published",
         publishedAt: form.publishedAt || new Date().toISOString().split("T")[0],
+        updatedAt: isEditing ? new Date().toISOString() : form.updatedAt,
         readTime: form.readTime || "3 min read",
         views: form.views || 0,
         featured: !!form.featured,
@@ -778,7 +780,11 @@ export default function AdminPage() {
         metaDescription: form.metaDescription,
         canonicalUrl: form.canonicalUrl,
         ogImage: form.ogImage,
-        author: form.author || { name: "Admin", role: "Content Lead", avatar: "" },
+        author: {
+          name: form.author?.name?.trim() || "Admin",
+          role: form.author?.role?.trim() || "Content Lead",
+          avatar: form.author?.avatar?.trim() || "",
+        },
       };
 
       await savePost(postToSave);
@@ -1449,6 +1455,79 @@ export default function AdminPage() {
                       value={form.readTime || "4 min read"}
                       onChange={(e) => setForm((prev) => ({ ...prev, readTime: e.target.value }))}
                     />
+                  </div>
+
+                  <div className="ed-field">
+                    <label className="ed-label">Publish Date</label>
+                    <input
+                      type="date"
+                      className="ed-input"
+                      value={form.publishedAt ? form.publishedAt.split("T")[0] : ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, publishedAt: e.target.value }))}
+                    />
+                    {form.updatedAt && (
+                      <span style={{ fontSize: "0.75rem", color: "#14B8A6", marginTop: 4, display: "block" }}>
+                        Last Updated: {new Date(form.updatedAt).toLocaleDateString()} {new Date(form.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Author Configuration */}
+                  <div className="ed-field" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--adm-border2)" }}>
+                    <label className="ed-label">Author Name</label>
+                    <input
+                      type="text"
+                      className="ed-input"
+                      value={form.author?.name || ""}
+                      onChange={(e) => setForm((prev) => ({
+                        ...prev,
+                        author: { ...(prev.author || { role: "Content Lead", avatar: "" }), name: e.target.value }
+                      }))}
+                      placeholder="e.g. Bhupesh, ProToolBox Team"
+                    />
+                  </div>
+
+                  <div className="ed-field">
+                    <label className="ed-label">Author Avatar (URL or Profile Image)</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        overflow: "hidden",
+                        background: "linear-gradient(135deg, #14B8A6, #0284c7)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                        flexShrink: 0,
+                        border: "2px solid #14B8A6"
+                      }}>
+                        {form.author?.avatar ? (
+                          <img
+                            src={form.author.avatar}
+                            alt=""
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            onError={(e) => { (e.currentTarget as HTMLElement).style.display = "none"; }}
+                          />
+                        ) : (
+                          (form.author?.name || "A").charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        className="ed-input"
+                        style={{ flex: 1 }}
+                        value={form.author?.avatar || ""}
+                        onChange={(e) => setForm((prev) => ({
+                          ...prev,
+                          author: { ...(prev.author || { name: "Admin", role: "Content Lead" }), avatar: e.target.value }
+                        }))}
+                        placeholder="https://... avatar image URL"
+                      />
+                    </div>
                   </div>
 
                   {/* Featured and Top Row Checkboxes */}
