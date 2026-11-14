@@ -339,7 +339,8 @@ function StandardThumbCard({
 export default function BlogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const activeCategoryFromUrl = searchParams.get('category') || 'All';
+  const urlCat = searchParams.get('category');
+  const activeCategoryFromUrl = (!urlCat || urlCat.toLowerCase() === 'all') ? 'All' : urlCat;
   const rawPage = parseInt(searchParams.get('page') || '1', 10);
   const activePageFromUrl = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
   const activeSearchFromUrl = searchParams.get('q') || searchParams.get('search') || '';
@@ -364,13 +365,15 @@ export default function BlogPage() {
 
   // Sync with URL params
   useEffect(() => {
-    setSelectedCategory(activeCategoryFromUrl);
+    const rawCat = searchParams.get('category');
+    const normCat = (!rawCat || rawCat.toLowerCase() === 'all') ? 'All' : rawCat;
+    setSelectedCategory(normCat);
     const q = searchParams.get('q') || searchParams.get('search') || '';
     if (q !== searchQuery) {
       setSearchQuery(q);
       setDebouncedSearch(q);
     }
-  }, [activeCategoryFromUrl, searchParams]);
+  }, [searchParams]);
 
   useEffect(() => {
     const p = parseInt(searchParams.get('page') || '1', 10);
@@ -395,12 +398,14 @@ export default function BlogPage() {
   }, []);
 
   const handleCategoryChange = (cat: string) => {
-    setSelectedCategory(cat);
+    const isAll = !cat || cat.toLowerCase() === 'all';
+    const targetCat = isAll ? 'All' : cat;
+    setSelectedCategory(targetCat);
     setCurrentPage(1);
     setSearchParams((prev) => {
       const p = new URLSearchParams(prev);
-      if (cat === 'All') p.delete('category');
-      else p.set('category', cat);
+      if (isAll) p.delete('category');
+      else p.set('category', targetCat);
       p.delete('page');
       return p;
     });
@@ -450,7 +455,7 @@ export default function BlogPage() {
     }));
   }, [allPosts]);
 
-  const isFiltering = !!(debouncedSearch.trim() || selectedCategory !== 'All');
+  const isFiltering = !!(debouncedSearch.trim() || (selectedCategory && selectedCategory.toLowerCase() !== 'all'));
 
   /* Featured dark card tilt */
   const featuredTilt = useTilt(5);
@@ -493,21 +498,18 @@ export default function BlogPage() {
         post.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         post.excerpt.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         post.tags.some((t) => t.toLowerCase().includes(debouncedSearch.toLowerCase()));
-      const matchCat = selectedCategory === 'All' || post.category.toLowerCase() === selectedCategory.toLowerCase();
+      const matchCat =
+        !selectedCategory ||
+        selectedCategory.toLowerCase() === 'all' ||
+        post.category.toLowerCase().trim() === selectedCategory.toLowerCase().trim();
       return matchSearch && matchCat;
     });
   }, [allPosts, debouncedSearch, selectedCategory]);
 
-  /* ─── 3. Pagination Rule: (Total - 3) / 9 on Page 1, Pure 9 on Page 2+ ─ */
+  /* ─── 3. All matching articles in the cards grid ─────────────────────── */
   const paginatedBasePosts = useMemo(() => {
-    if (isFiltering) {
-      // When searching/filtering, all matching posts are in the grid
-      return filteredPool;
-    }
-    // Exclude the 3 top row posts from page 1 onwards
-    const topIds = new Set([featuredPost?.id, topStackedPost1?.id, topStackedPost2?.id].filter(Boolean));
-    return allPosts.filter((p) => p.status === 'published' && !topIds.has(p.id));
-  }, [isFiltering, filteredPool, allPosts, featuredPost, topStackedPost1, topStackedPost2]);
+    return filteredPool;
+  }, [filteredPool]);
 
   const totalPages = Math.max(1, Math.ceil(paginatedBasePosts.length / 9));
 
@@ -538,8 +540,12 @@ export default function BlogPage() {
     return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
   }, [totalPages, currentPage]);
 
-  // Show top row strictly when not filtering and on Page 1
-  const showTopRow = !isFiltering && currentPage === 1 && !!featuredPost;
+  // Show top row strictly on Page 1 when 'All' category is active and no search query
+  const showTopRow =
+    !debouncedSearch.trim() &&
+    (!selectedCategory || selectedCategory.toLowerCase() === 'all') &&
+    currentPage === 1 &&
+    !!featuredPost;
 
   return (
     <div className="blog-page">
@@ -574,7 +580,9 @@ export default function BlogPage() {
           {/* Dynamic Category Filter Pills */}
           <div className="hero-quick-toggles" role="tablist">
             {dynamicCategories.slice(0, 5).map((cat) => {
-              const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
+              const isActive =
+                (!selectedCategory && cat.toLowerCase() === 'all') ||
+                (selectedCategory && selectedCategory.toLowerCase() === cat.toLowerCase());
               const style = resolveCategoryStyle(cat);
               return (
                 <button
@@ -586,7 +594,7 @@ export default function BlogPage() {
                 >
                   <span
                     className="toggle-dot"
-                    style={{ background: cat === 'All' ? '#14B8A6' : style.border }}
+                    style={{ background: cat.toLowerCase() === 'all' ? '#14B8A6' : style.border }}
                   />
                   <span>{cat}</span>
                 </button>
@@ -619,7 +627,7 @@ export default function BlogPage() {
                   <div key={i} className="skeleton-card" />
                 ))}
               </div>
-            ) : currentGridPosts.length === 0 ? (
+            ) : filteredPool.length === 0 ? (
               /* Empty Search / Filter State */
               <div className="blog-empty" style={{ textAlign: 'center', padding: '60px 20px' }}>
                 <BookOpen size={48} color="#14B8A6" style={{ margin: '0 auto 16px' }} />
@@ -644,7 +652,7 @@ export default function BlogPage() {
               <div className="discovery-tree-flow">
                 {/* ─── a) TOP ROW: Featured Card (Left) + 2 Compact Cards (Right) (Page 1 Only) ─ */}
                 {showTopRow && featuredPost && (
-                  <div className="discovery-top-row">
+                  <div className={`discovery-top-row ${topStackedPosts.length === 0 ? 'discovery-top-row--solo' : ''}`}>
                     {/* Left: Large Dark Featured Article Card with Uncropped Contain Image */}
                     <div
                       ref={featuredTilt.ref}
@@ -703,14 +711,16 @@ export default function BlogPage() {
                     </div>
 
                     {/* Right: 2 Compact Stacked Cards (~178px height, matching featured card height) */}
-                    <div className="discovery-top-stacked">
-                      {topStackedPost1 && (
-                        <TopRowCompactCard post={topStackedPost1} delay={80} isRotated={true} />
-                      )}
-                      {topStackedPost2 && (
-                        <TopRowCompactCard post={topStackedPost2} delay={140} />
-                      )}
-                    </div>
+                    {topStackedPosts.length > 0 && (
+                      <div className="discovery-top-stacked">
+                        {topStackedPost1 && (
+                          <TopRowCompactCard post={topStackedPost1} delay={80} isRotated={true} />
+                        )}
+                        {topStackedPost2 && (
+                          <TopRowCompactCard post={topStackedPost2} delay={140} />
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -722,7 +732,7 @@ export default function BlogPage() {
                       ? `Articles in ${selectedCategory} (${paginatedBasePosts.length})`
                       : currentPage > 1
                       ? `Page ${currentPage} of ${totalPages} · Article Nodes`
-                      : 'Video, PDF & Architecture Nodes'}
+                      : `All Articles (${paginatedBasePosts.length})`}
                   </span>
                 </div>
 
@@ -830,7 +840,7 @@ export default function BlogPage() {
                   <li className="sidebar-cat-item">
                     <button
                       type="button"
-                      className={`sidebar-cat-btn sidebar-cat-all${selectedCategory === 'All' ? ' active' : ''}`}
+                      className={`sidebar-cat-btn sidebar-cat-all${(!selectedCategory || selectedCategory.toLowerCase() === 'all') ? ' active' : ''}`}
                       onClick={() => handleCategoryChange('All')}
                     >
                       <span className="sidebar-cat-node-dot" style={{ background: '#94A3B8' }} />

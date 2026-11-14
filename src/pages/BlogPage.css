@@ -272,6 +272,10 @@ header .navbar-link[href="/blog"].navbar-link-active {
   width: 100%;
 }
 
+.discovery-top-row.discovery-top-row--solo {
+  grid-template-columns: 1fr;
+}
+
 /* Large Featured Article Card (FIX 1 & A: Full height match ~380px) */
 .featured-guide-card {
   position: relative;
