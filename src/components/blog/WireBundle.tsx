@@ -230,7 +230,7 @@ export default function WireBundle({
 }: WireBundleProps) {
   const [state, setState] = useState<WireBundleState>({
     hasCards: true,
-    width: 900,
+    width: typeof window !== 'undefined' ? Math.min(window.innerWidth, 900) : 900,
     height: 1200,
     spineX: 340,
     startY: 420,
@@ -537,7 +537,7 @@ export default function WireBundle({
     }
 
     const totalHeight = Math.max(endY + 30, rightWire ? rightWire.y2 + 20 : endY + 30);
-    const totalWidth = Math.max(w + 30, rightWire ? rightWire.x + 20 : w);
+    const totalWidth = mobile ? Math.min(w, wrapBox.width || w) : Math.max(w + 30, rightWire ? rightWire.x + 20 : w);
 
     setState({
       hasCards: true,
@@ -615,6 +615,7 @@ export default function WireBundle({
 
   /* Mobile view (<768px): 2 thin wavy strands in left margin strictly within card height */
   if (isMobile) {
+    const mobileWidth = Math.min(width, 36);
     return (
       <div
         className="wire-bundle-wrapper"
@@ -622,24 +623,26 @@ export default function WireBundle({
         style={{
           opacity: isVisible ? 1 : 0,
           transition: 'opacity 200ms ease',
+          maxWidth: '100%',
+          overflow: 'hidden',
         }}
       >
         <svg
           className="wire-bundle-svg"
-          viewBox={`0 0 ${width} ${height}`}
-          style={{ width: `${width}px`, height: `${height}px` }}
+          viewBox={`0 0 ${mobileWidth} ${height}`}
+          style={{ width: `${mobileWidth}px`, height: `${height}px`, maxWidth: '100%' }}
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
           <path
-            d={buildSpineWave(16, startY, endY, 0, 6, 0.4)}
+            d={buildSpineWave(8, startY, endY, 0, 4, 0.4)}
             stroke="#14B8A6"
             strokeWidth={1.5}
             strokeOpacity={0.65}
             fill="none"
           />
           <path
-            d={buildSpineWave(22, startY, endY, 0, 8, 1.2)}
+            d={buildSpineWave(14, startY, endY, 0, 5, 1.2)}
             stroke="#22D3EE"
             strokeWidth={1.8}
             strokeOpacity={0.8}

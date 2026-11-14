@@ -846,7 +846,10 @@ export default function BlogPage() {
                 </div>
 
                 {/* ─── b) CARDS GRID: 3 COLUMNS, DYNAMIC WIRES & CARDS ──────── */}
-                <div className="discovery-cards-grid" ref={cardGridRef}>
+                <div
+                  className={`discovery-cards-grid ${currentGridPosts.length === 1 ? 'discovery-cards-grid--single' : ''}`}
+                  ref={cardGridRef}
+                >
                   {currentGridPosts.map((post, idx) => {
                     const isStacked = idx === 1 || idx === 6;
                     const isAlternate = idx % 3 === 1;

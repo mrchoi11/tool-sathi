@@ -200,12 +200,22 @@ header .navbar-link[href="/blog"].navbar-link-active {
   align-items: start;
   position: relative;
   z-index: 2;
+  width: 100%;
+  max-width: 100%;
 }
 
 .blog-main-area {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   position: relative;
   z-index: 2;
+}
+
+.discovery-tree-flow {
+  width: 100%;
+  max-width: 100%;
+  position: relative;
 }
 
 /* ─── WIRE BUNDLE SVG LAYER (FIX 3: Decorative, Behind Cards in Left Column) ─ */
@@ -784,6 +794,7 @@ header .navbar-link[href="/blog"].navbar-link-active {
   z-index: 2;
   width: 100%;
   height: 100%;
+  min-height: 340px;
   border-radius: 14px;
   background: #ffffff;
   border: 1px solid rgba(20, 184, 166, 0.16);
@@ -791,6 +802,7 @@ header .navbar-link[href="/blog"].navbar-link-active {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   transition: border-color 0.35s var(--ease-apple), box-shadow 0.35s var(--ease-apple);
 }
 
@@ -803,6 +815,7 @@ header .navbar-link[href="/blog"].navbar-link-active {
   padding: 14px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   flex: 1;
 }
 
@@ -1560,11 +1573,17 @@ header .navbar-link[href="/blog"].navbar-link-active {
     grid-template-columns: minmax(0, 1fr) 300px;
     gap: 28px;
     align-items: start;
+    width: 100%;
   }
   .discovery-cards-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     column-gap: 56px;
     row-gap: 56px;
+    width: 100%;
+  }
+  .discovery-cards-grid.discovery-cards-grid--single {
+    grid-template-columns: minmax(0, 560px);
+    max-width: 560px;
   }
   .discovery-top-row {
     grid-template-columns: 1.55fr 1fr;
@@ -1579,19 +1598,36 @@ header .navbar-link[href="/blog"].navbar-link-active {
   .blog-editorial-layout {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 32px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .blog-main-area {
+    width: 100%;
+    max-width: 100%;
   }
 
   .discovery-top-row {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .discovery-cards-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 36px;
     row-gap: 40px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .discovery-cards-grid.discovery-cards-grid--single {
+    grid-template-columns: minmax(0, 560px);
+    max-width: 560px;
   }
 
   .blog-editorial-sidebar {
@@ -1605,16 +1641,44 @@ header .navbar-link[href="/blog"].navbar-link-active {
 }
 
 @media (max-width: 767px) {
+  .blog-container {
+    padding: 0 16px;
+  }
+
   .blog-editorial-layout {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 24px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .blog-main-area {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .discovery-tree-flow {
+    width: 100%;
+    max-width: 100%;
   }
 
   .discovery-top-row {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .discovery-top-stacked {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 100%;
   }
 
   .discovery-cards-grid,
@@ -1622,6 +1686,104 @@ header .navbar-link[href="/blog"].navbar-link-active {
   .skeleton-grid {
     grid-template-columns: 1fr;
     row-gap: 24px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .discovery-cards-grid > * {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .node-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .node-card__inner {
+    width: 100%;
+    max-width: 100%;
+    min-height: 320px;
+  }
+
+  .featured-guide-card {
+    padding: 0;
+    min-height: auto;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .featured-visual-frame {
+    height: auto;
+    min-height: 180px;
+    max-height: 225px;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+  }
+
+  .featured-guide-content {
+    padding: 1rem 1.15rem 1.25rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .featured-guide-title {
+    font-size: 1.25rem;
+    line-height: 1.32;
+  }
+
+  .featured-guide-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .featured-guide-footer .card-author-line {
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 100%;
+  }
+
+  .featured-guide-cta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .top-compact-card {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
+    padding: 12px;
+  }
+
+  .top-compact-thumb {
+    width: 100%;
+    min-width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+
+  .top-compact-content {
+    width: 100%;
+    padding: 10px 2px 2px;
+  }
+
+  .top-compact-footer {
+    margin-top: 8px;
+  }
+
+  .wire-bundle-wrapper {
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  .wire-bundle-svg {
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .blog-editorial-sidebar {
@@ -1633,15 +1795,6 @@ header .navbar-link[href="/blog"].navbar-link-active {
     order: 2;
   }
 
-  .featured-guide-card {
-    padding: 1.6rem 1.4rem;
-    min-height: 320px;
-  }
-
-  .featured-guide-title {
-    font-size: 1.35rem;
-  }
-
   .hero-br {
     display: none;
   }
@@ -1651,6 +1804,6 @@ header .navbar-link[href="/blog"].navbar-link-active {
   }
 
   .corner-mesh-container {
-    opacity: 0.5;
+    opacity: 0.35;
   }
 }
