@@ -59,15 +59,25 @@ const emptyPost = (): Partial<BlogPost> => ({
   category: "Video Tools",
   tags: [],
   coverImage: "",
+  coverImageAlt: "",
   status: "published",
   publishedAt: new Date().toISOString().split("T")[0],
   readTime: "3 min read",
   views: 0,
+  quickAnswer: "",
+  keyTakeaways: [],
+  faqs: [],
   metaTitle: "",
   metaDescription: "",
   canonicalUrl: "",
   ogImage: "",
-  author: { name: "Admin", role: "Content Lead", avatar: "" },
+  author: {
+    name: "Admin",
+    role: "Content Lead",
+    avatar: "",
+    bio: "",
+    social: { linkedin: "", twitter: "", website: "" },
+  },
 });
 
 function EditorToolbar({ editor }: { editor: any }) {
@@ -769,6 +779,7 @@ export default function AdminPage() {
         category: form.category || "Video",
         tags,
         coverImage: form.coverImage || "",
+        coverImageAlt: form.coverImageAlt?.trim() || "",
         status: form.status || "published",
         publishedAt: form.publishedAt || new Date().toISOString().split("T")[0],
         updatedAt: isEditing ? new Date().toISOString() : (form.updatedAt || new Date().toISOString()),
@@ -776,14 +787,23 @@ export default function AdminPage() {
         views: form.views || 0,
         featured: !!form.featured,
         topHighlight: !!form.topHighlight,
+        quickAnswer: form.quickAnswer?.trim() || "",
+        keyTakeaways: (form.keyTakeaways && form.keyTakeaways.length > 0) ? form.keyTakeaways.map(t => t.trim()).filter(Boolean) : [],
+        faqs: (form.faqs && form.faqs.length > 0) ? form.faqs.filter(f => f.question?.trim() && f.answer?.trim()) : [],
         metaTitle: form.metaTitle || "",
         metaDescription: form.metaDescription || "",
         canonicalUrl: form.canonicalUrl || "",
         ogImage: form.ogImage || "",
         author: {
           name: form.author?.name?.trim() || "Admin",
-          role: form.author?.role?.trim() || "Content Lead",
+          role: (form.author?.role?.trim() || "Content Lead").slice(0, 60),
           avatar: form.author?.avatar?.trim() || "",
+          bio: (form.author?.bio?.trim() || "").slice(0, 500),
+          social: {
+            linkedin: form.author?.social?.linkedin?.trim() || "",
+            twitter: form.author?.social?.twitter?.trim() || "",
+            website: form.author?.social?.website?.trim() || "",
+          },
         },
       };
 
@@ -1284,6 +1304,138 @@ export default function AdminPage() {
                       placeholder="Short 1-2 sentence preview for search & social cards..."
                     />
                   </div>
+
+                  {/* ─── QUICK ANSWER / SUMMARY BOX (OPTIONAL) ─── */}
+                  <div className="ed-field" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--adm-border2)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <label className="ed-label" style={{ margin: 0 }}>Quick Answer / Summary Box (Optional)</label>
+                      <span style={{ fontSize: "0.75rem", color: "var(--adm-muted)" }}>Highlighted box at top of article</span>
+                    </div>
+                    <textarea
+                      className="ed-textarea"
+                      rows={3}
+                      value={form.quickAnswer || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, quickAnswer: e.target.value }))}
+                      placeholder="Direct, concise answer or key summary shown in a highlighted box at the start of the article..."
+                    />
+                  </div>
+
+                  {/* ─── KEY TAKEAWAYS (OPTIONAL) ─── */}
+                  <div className="ed-field" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--adm-border2)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <label className="ed-label" style={{ margin: 0 }}>Key Takeaways (Optional)</label>
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn-sm"
+                        style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                        onClick={() => setForm((prev) => ({ ...prev, keyTakeaways: [...(prev.keyTakeaways || []), ""] }))}
+                      >
+                        + Add Takeaway
+                      </button>
+                    </div>
+                    {(!form.keyTakeaways || form.keyTakeaways.length === 0) ? (
+                      <p style={{ fontSize: "0.78rem", color: "var(--adm-muted)", margin: 0 }}>No takeaways added. Click "+ Add Takeaway" to add highlight bullets.</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {form.keyTakeaways.map((item, idx) => (
+                          <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ fontSize: "0.8rem", color: "var(--adm-muted)", width: 18 }}>{idx + 1}.</span>
+                            <input
+                              type="text"
+                              className="ed-input"
+                              style={{ flex: 1 }}
+                              value={item}
+                              onChange={(e) => {
+                                const updated = [...(form.keyTakeaways || [])];
+                                updated[idx] = e.target.value;
+                                setForm((prev) => ({ ...prev, keyTakeaways: updated }));
+                              }}
+                              placeholder="Enter key takeaway point..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (form.keyTakeaways || []).filter((_, i) => i !== idx);
+                                setForm((prev) => ({ ...prev, keyTakeaways: updated }));
+                              }}
+                              style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}
+                              title="Remove takeaway"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ─── FREQUENTLY ASKED QUESTIONS (FAQS) (OPTIONAL) ─── */}
+                  <div className="ed-field" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--adm-border2)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <label className="ed-label" style={{ margin: 0 }}>Frequently Asked Questions (FAQs) (Optional)</label>
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn-sm"
+                        style={{ fontSize: "0.75rem", padding: "3px 8px" }}
+                        onClick={() => setForm((prev) => ({
+                          ...prev,
+                          faqs: [...(prev.faqs || []), { question: "", answer: "" }]
+                        }))}
+                      >
+                        + Add FAQ Question
+                      </button>
+                    </div>
+                    <p style={{ fontSize: "0.78rem", color: "var(--adm-muted)", margin: "0 0 10px" }}>
+                      Renders as an interactive accordion and automatically outputs FAQPage JSON-LD schema for Google rich snippets.
+                    </p>
+                    {(!form.faqs || form.faqs.length === 0) ? (
+                      <p style={{ fontSize: "0.78rem", color: "var(--adm-muted)", margin: 0 }}>No FAQs added. Click "+ Add FAQ Question" to add Q&amp;A pairs.</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {form.faqs.map((faq, idx) => (
+                          <div key={idx} style={{ background: "var(--adm-bg)", border: "1px solid var(--adm-border2)", borderRadius: 8, padding: 12 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                              <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--adm-primary)" }}>FAQ #{idx + 1}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = (form.faqs || []).filter((_, i) => i !== idx);
+                                  setForm((prev) => ({ ...prev, faqs: updated }));
+                                }}
+                                style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 2 }}
+                                title="Remove FAQ"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              className="ed-input"
+                              style={{ marginBottom: 8 }}
+                              value={faq.question}
+                              onChange={(e) => {
+                                const updated = [...(form.faqs || [])];
+                                updated[idx] = { ...updated[idx], question: e.target.value };
+                                setForm((prev) => ({ ...prev, faqs: updated }));
+                              }}
+                              placeholder="Question (e.g. Can I watch TeraBox videos on mobile without app?)"
+                            />
+                            <textarea
+                              className="ed-textarea"
+                              rows={2}
+                              value={faq.answer}
+                              onChange={(e) => {
+                                const updated = [...(form.faqs || [])];
+                                updated[idx] = { ...updated[idx], answer: e.target.value };
+                                setForm((prev) => ({ ...prev, faqs: updated }));
+                              }}
+                              placeholder="Answer..."
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* TipTap Modern Expanded Visual Editor */}
@@ -1488,6 +1640,24 @@ export default function AdminPage() {
                   </div>
 
                   <div className="ed-field">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <label className="ed-label" style={{ margin: 0 }}>Author Designation / Role</label>
+                      <span style={{ fontSize: "0.75rem", color: "var(--adm-muted)" }}>Max 60 chars</span>
+                    </div>
+                    <input
+                      type="text"
+                      className="ed-input"
+                      maxLength={60}
+                      value={form.author?.role || ""}
+                      onChange={(e) => setForm((prev) => ({
+                        ...prev,
+                        author: { ...(prev.author || { name: "Admin", avatar: "" }), role: e.target.value.slice(0, 60) }
+                      }))}
+                      placeholder="e.g. Content Lead &amp; Tech Specialist"
+                    />
+                  </div>
+
+                  <div className="ed-field">
                     <label className="ed-label">Author Avatar (URL or Profile Image)</label>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{
@@ -1526,6 +1696,74 @@ export default function AdminPage() {
                           author: { ...(prev.author || { name: "Admin", role: "Content Lead" }), avatar: e.target.value }
                         }))}
                         placeholder="https://... avatar image URL"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="ed-field">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <label className="ed-label" style={{ margin: 0 }}>Author Bio</label>
+                      <span style={{ fontSize: "0.75rem", color: (form.author?.bio?.length || 0) > 480 ? "#f59e0b" : "var(--adm-muted)" }}>
+                        {form.author?.bio?.length || 0} / 500 chars
+                      </span>
+                    </div>
+                    <textarea
+                      className="ed-textarea"
+                      rows={3}
+                      maxLength={500}
+                      value={form.author?.bio || ""}
+                      onChange={(e) => setForm((prev) => ({
+                        ...prev,
+                        author: { ...(prev.author || { name: "Admin", role: "Content Lead", avatar: "" }), bio: e.target.value.slice(0, 500) }
+                      }))}
+                      placeholder="Author bio (first 200 chars shown with 'Read more' toggle on post page)..."
+                    />
+                  </div>
+
+                  <div className="ed-field">
+                    <label className="ed-label">Author Social Links (Optional)</label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <input
+                        type="url"
+                        className="ed-input"
+                        value={form.author?.social?.linkedin || ""}
+                        onChange={(e) => setForm((prev) => ({
+                          ...prev,
+                          author: {
+                            ...(prev.author || { name: "Admin", role: "Content Lead", avatar: "" }),
+                            social: { ...(prev.author?.social || {}), linkedin: e.target.value }
+                          }
+                        }))}
+                        placeholder="LinkedIn profile URL"
+                        style={{ fontSize: "0.82rem" }}
+                      />
+                      <input
+                        type="url"
+                        className="ed-input"
+                        value={form.author?.social?.twitter || ""}
+                        onChange={(e) => setForm((prev) => ({
+                          ...prev,
+                          author: {
+                            ...(prev.author || { name: "Admin", role: "Content Lead", avatar: "" }),
+                            social: { ...(prev.author?.social || {}), twitter: e.target.value }
+                          }
+                        }))}
+                        placeholder="Twitter / X profile URL"
+                        style={{ fontSize: "0.82rem" }}
+                      />
+                      <input
+                        type="url"
+                        className="ed-input"
+                        value={form.author?.social?.website || ""}
+                        onChange={(e) => setForm((prev) => ({
+                          ...prev,
+                          author: {
+                            ...(prev.author || { name: "Admin", role: "Content Lead", avatar: "" }),
+                            social: { ...(prev.author?.social || {}), website: e.target.value }
+                          }
+                        }))}
+                        placeholder="Website / portfolio URL"
+                        style={{ fontSize: "0.82rem" }}
                       />
                     </div>
                   </div>
@@ -1594,6 +1832,17 @@ export default function AdminPage() {
                   {form.coverImage && (
                     <img src={form.coverImage} alt="Cover Preview" className="cover-final-preview" />
                   )}
+
+                  <div className="ed-field" style={{ marginTop: 12 }}>
+                    <label className="ed-label">Featured Image Alt Text (SEO)</label>
+                    <input
+                      type="text"
+                      className="ed-input"
+                      value={form.coverImageAlt || ""}
+                      onChange={(e) => setForm((prev) => ({ ...prev, coverImageAlt: e.target.value }))}
+                      placeholder="Descriptive alt text for image (e.g. TeraBox player interface)"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import {
   collection, doc, getDocs, getDoc, setDoc, deleteDoc,
-  query, where, orderBy, Timestamp, writeBatch
+  query, where, orderBy, Timestamp, writeBatch, increment
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
@@ -12,24 +12,44 @@ export interface BlogPost {
   content: string;                   // HTML from TipTap editor
   author: {
     name: string;
-    role: string;
-    avatar: string;
+    role?: string;
+    avatar?: string;
+    bio?: string;                    // Max 500 chars bio
+    social?: {
+      linkedin?: string;
+      twitter?: string;
+      website?: string;
+    };
   };
   category: "Video" | "PDF" | "Productivity" | "SEO" | "Tech" | string;
   tags: string[];
   coverImage: string;
+  coverImageAlt?: string;            // Alt text for featured image
   publishedAt: string;
   updatedAt?: string;
   status: "published" | "draft";
   readTime: string;
   views?: number;
+  likes?: number;
   featured?: boolean;
   topHighlight?: boolean;
+  // Optional content blocks
+  quickAnswer?: string;              // Quick summary / Direct answer at top
+  keyTakeaways?: string[];           // Bullet points list
+  faqs?: Array<{ question: string; answer: string }>; // FAQ items with schema
   // SEO fields
   metaTitle?: string;
   metaDescription?: string;
   canonicalUrl?: string;
   ogImage?: string;
+}
+
+export function calculateReadTime(content: string): string {
+  if (!content) return "1 min read";
+  const plainText = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const words = plainText ? plainText.split(/\s+/).length : 0;
+  const minutes = Math.max(1, Math.ceil(words / 200));
+  return `${minutes} min read`;
 }
 
 const COLLECTION = "blog_posts";
@@ -211,6 +231,40 @@ export async function toggleTopHighlight(targetId: string, currentVal: boolean):
   } catch (err) {
     console.error("Error toggling top highlight:", err);
     throw err;
+  }
+}
+
+export async function togglePostLike(postId: string, willLike: boolean): Promise<number> {
+  const localKey = `ptb_post_like_count_${postId}`;
+  let currentLikes = 0;
+
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem(localKey);
+    if (cached) {
+      currentLikes = Number(cached) || 0;
+    }
+  }
+
+  try {
+    const postRef = doc(db, COLLECTION, postId);
+    const snap = await getDoc(postRef);
+    if (snap.exists()) {
+      currentLikes = Number(snap.data().likes) || currentLikes;
+    }
+    const newLikes = Math.max(0, currentLikes + (willLike ? 1 : -1));
+    await setDoc(postRef, { likes: newLikes }, { merge: true });
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(localKey, String(newLikes));
+    }
+    return newLikes;
+  } catch (err) {
+    console.warn("Could not update post like in Firestore (cached locally):", err);
+    const newLikes = Math.max(0, currentLikes + (willLike ? 1 : -1));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(localKey, String(newLikes));
+    }
+    return newLikes;
   }
 }
 
