@@ -122,7 +122,15 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | undefined>
 // ─── WRITE ───────────────────────────────────────────────────────────────────
 
 export async function savePost(post: BlogPost): Promise<void> {
-  const { id, ...data } = post;
+  const { id, ...raw } = post;
+  
+  // Strip any undefined keys so Firestore never throws unsupported field value error
+  const data: Record<string, any> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v !== undefined) {
+      data[k] = v;
+    }
+  }
   
   // 12s timeout so it never hangs indefinitely
   const savePromise = setDoc(doc(db, COLLECTION, id), data, { merge: true });
