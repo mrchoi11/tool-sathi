@@ -15,6 +15,17 @@
 $BASE_URL = 'https://protoolbox.in';
 $FIREBASE_PROJECT = 'tool-sathi001';
 
+// Handle instant cache clearing endpoint (e.g., /api/sitemap.php?clear_cache=1)
+if (isset($_GET['clear_cache']) && (!isset($_GET['type']) || $_GET['type'] === 'clear')) {
+    $cacheFile = sys_get_temp_dir() . '/protoolbox_sitemap_blogs.json';
+    if (file_exists($cacheFile)) {
+        @unlink($cacheFile);
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['status' => 'success', 'message' => 'Sitemap cache cleared successfully']);
+    exit;
+}
+
 // Detect whether requester is a search engine bot or wants raw XML
 $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
 $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
@@ -77,14 +88,20 @@ function formatSitemapDate($dateStr = null) {
 
 function getDynamicBlogPosts($projectId) {
     $cacheFile = sys_get_temp_dir() . '/protoolbox_sitemap_blogs.json';
-    $cacheTtl = 300; // 5 minutes
+    $cacheTtl = 30; // 30 seconds for near-real-time updates
 
-    if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheTtl)) {
+    // Force refresh if requested
+    if (isset($_GET['clear_cache']) || isset($_GET['nocache'])) {
+        if (file_exists($cacheFile)) {
+            @unlink($cacheFile);
+        }
+    } elseif (file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheTtl)) {
         $cached = json_decode(file_get_contents($cacheFile), true);
         if ($cached && is_array($cached)) return $cached;
     }
 
-    $apiUrl = "https://firestore.googleapis.com/v1/projects/{$projectId}/databases/(default)/documents/blog_posts";
+    // Query Firestore REST API directly with pageSize=300 to retrieve all published articles
+    $apiUrl = "https://firestore.googleapis.com/v1/projects/{$projectId}/databases/(default)/documents/blog_posts?pageSize=300";
     $posts = [];
 
     $ch = curl_init($apiUrl);
@@ -107,7 +124,8 @@ function getDynamicBlogPosts($projectId) {
                 $slug = $fields['slug']['stringValue'] ?? '';
                 if (empty($slug)) continue;
 
-                $updateTime = $doc['updateTime'] ?? $fields['publishedAt']['stringValue'] ?? date('c');
+                // Priority: updatedAt > updateTime > publishedAt
+                $updateTime = $fields['updatedAt']['stringValue'] ?? $doc['updateTime'] ?? $fields['publishedAt']['stringValue'] ?? date('c');
                 $posts[] = [
                     'slug' => $slug,
                     'lastmod' => formatSitemapDate($updateTime),
@@ -116,18 +134,22 @@ function getDynamicBlogPosts($projectId) {
                 ];
             }
         }
+
+        // Sort posts descending by lastmod (newest/most recently updated first)
+        usort($posts, function($a, $b) {
+            return strcmp($b['lastmod'], $a['lastmod']);
+        });
+
+        @file_put_contents($cacheFile, json_encode($posts));
+        return $posts;
     }
 
-    if (empty($posts)) {
-        $posts[] = [
-            'slug' => 'how-to-play-terabox-videos-online-without-app',
-            'lastmod' => formatSitemapDate('2026-10-20T13:29:15Z'),
-            'priority' => '0.8',
-            'changefreq' => 'weekly'
-        ];
+    // If API temporarily failed, fall back to cached copy if available
+    if (file_exists($cacheFile)) {
+        $cached = json_decode(file_get_contents($cacheFile), true);
+        if ($cached && is_array($cached)) return $cached;
     }
 
-    @file_put_contents($cacheFile, json_encode($posts));
     return $posts;
 }
 

@@ -21,9 +21,15 @@ export default function BlogPostPage() {
     getPostBySlug(slug).then((p) => {
       setPost(p || null);
       if (p) {
+        const canonical = (p.canonicalUrl && p.canonicalUrl.trim())
+          ? p.canonicalUrl.trim()
+          : `https://protoolbox.in/blog/${p.slug}`;
+
         applyDocumentSeo(
           p.metaTitle || `${p.title} | ProToolBox`,
-          p.metaDescription || p.excerpt
+          p.metaDescription || p.excerpt,
+          p.tags?.join(', '),
+          canonical
         );
         getPublishedPosts().then((all) => setRelatedPosts(all.filter((x) => x.id !== p.id).slice(0, 3)));
       }

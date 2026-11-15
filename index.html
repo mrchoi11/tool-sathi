@@ -12,6 +12,21 @@
     <meta name="author" content="ProToolBox" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://protoolbox.in/" />
+    <script>
+      (function() {
+        try {
+          var p = window.location.pathname;
+          var clean = p === '/' ? '/' : p.replace(/\/+$/, '');
+          var canonical = 'https://protoolbox.in' + clean;
+          var link = document.querySelector('link[rel="canonical"]');
+          if (link) link.setAttribute('href', canonical);
+          var og = document.querySelector('meta[property="og:url"]');
+          if (og) og.setAttribute('content', canonical);
+          var tw = document.querySelector('meta[property="twitter:url"]');
+          if (tw) tw.setAttribute('content', canonical);
+        } catch (e) {}
+      })();
+    </script>
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />

@@ -139,10 +139,22 @@ export async function savePost(post: BlogPost): Promise<void> {
   );
 
   await Promise.race([savePromise, timeoutPromise]);
+  invalidateSitemapCache();
 }
 
 export async function deletePost(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION, id));
+  invalidateSitemapCache();
+}
+
+/**
+ * Triggers instant sitemap cache invalidation on Hostinger so any added,
+ * updated, or deleted blog posts are reflected in /post-sitemap.xml immediately.
+ */
+function invalidateSitemapCache() {
+  if (typeof window !== 'undefined') {
+    fetch('/api/sitemap.php?clear_cache=1').catch(() => {});
+  }
 }
 
 export async function setFeaturedPost(targetId: string): Promise<void> {
@@ -174,6 +186,7 @@ export async function setFeaturedPost(targetId: string): Promise<void> {
       setTimeout(() => reject(new Error("Timeout updating featured post")), 12000)
     );
     await Promise.race([commitPromise, timeoutPromise]);
+    invalidateSitemapCache();
   } catch (err) {
     console.error("Error setting featured post in Firestore:", err);
     throw err;

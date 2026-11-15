@@ -10,6 +10,7 @@ export interface SeoMetadataEntry {
   title: string;           // Meta Title
   description: string;     // Meta Description
   keywords?: string;       // Keywords
+  canonicalUrl?: string;   // Optional custom canonical URL
   updatedAt?: string;      // Last update ISO date
 }
 
@@ -201,8 +202,34 @@ export async function getSeoForPage(pageId: string): Promise<SeoMetadataEntry | 
   return null;
 }
 
-// Apply Meta Tags to Document Head in Real Time (Title, Description, OG, Twitter)
-export function applyDocumentSeo(title: string, description: string, keywords?: string) {
+export function getCanonicalUrlForPath(pathname: string): string {
+  const BASE_URL = 'https://protoolbox.in';
+  if (!pathname || pathname === '/') return `${BASE_URL}/`;
+  const cleanPath = pathname.replace(/\/+$/, '');
+  return `${BASE_URL}${cleanPath}`;
+}
+
+export function setCanonicalUrl(url: string) {
+  if (typeof document === 'undefined') return;
+  let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+  if (!link) {
+    link = document.createElement('link');
+    link.setAttribute('rel', 'canonical');
+    document.head.appendChild(link);
+  }
+  link.setAttribute('href', url);
+
+  setMetaTag('property', 'og:url', url);
+  setMetaTag('property', 'twitter:url', url);
+}
+
+// Apply Meta Tags to Document Head in Real Time (Title, Description, OG, Twitter, Canonical)
+export function applyDocumentSeo(
+  title: string,
+  description: string,
+  keywords?: string,
+  canonicalUrl?: string
+) {
   if (title) {
     document.title = title;
     setMetaTag('name', 'title', title);
@@ -216,6 +243,9 @@ export function applyDocumentSeo(title: string, description: string, keywords?: 
   }
   if (keywords) {
     setMetaTag('name', 'keywords', keywords);
+  }
+  if (canonicalUrl) {
+    setCanonicalUrl(canonicalUrl);
   }
 }
 

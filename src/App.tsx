@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import LoadingPage from './components/LoadingPage';
 import ScrollToTop from './components/ScrollToTop';
+import CanonicalManager from './components/CanonicalManager';
 
 const ToolPage = lazy(() => import('./pages/ToolPage'));
 const CategoryPage = lazy(() => import('./pages/CategoryPage'));
@@ -22,6 +23,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <CanonicalManager />
       <Layout>
         <Suspense fallback={<LoadingPage />}>
           <Routes>

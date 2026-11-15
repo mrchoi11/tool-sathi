@@ -1,9 +1,17 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { categories, tools } from '../data/toolRegistry';
-import { Map, ExternalLink, ChevronRight } from 'lucide-react';
+import { Map, ExternalLink, ChevronRight, BookOpen } from 'lucide-react';
 import { usePageSeo } from '../hooks/usePageSeo';
+import { getPublishedPosts } from '../data/blogRegistry';
+import type { BlogPost } from '../data/blogRegistry';
 
 export default function SitemapPage() {
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+
+  useEffect(() => {
+    getPublishedPosts().then((posts) => setBlogPosts(posts)).catch(() => {});
+  }, []);
   usePageSeo(
     'page-sitemap',
     'HTML Sitemap — ProToolBox',
@@ -98,6 +106,33 @@ export default function SitemapPage() {
             ))}
           </div>
         </section>
+
+        {/* Dynamic Blog Articles */}
+        {blogPosts.length > 0 && (
+          <section style={{ marginBottom: '2.5rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
+              Blog Articles ({blogPosts.length})
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.75rem' }}>
+              {blogPosts.map(post => (
+                <Link
+                  key={post.id}
+                  to={`/blog/${post.slug}`}
+                  className="card"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.6rem',
+                    padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)',
+                    textDecoration: 'none', fontSize: '0.9rem',
+                    color: '#0f172a', fontWeight: 600
+                  }}
+                >
+                  <BookOpen size={16} style={{ color: '#14b8a6', flexShrink: 0 }} />
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.title}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* All Tools */}
         <section>
