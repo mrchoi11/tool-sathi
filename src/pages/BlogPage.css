@@ -1758,6 +1758,17 @@ header .navbar-link[href="/blog"].navbar-link-active {
     max-width: 100%;
     min-height: auto;
     padding: 12px;
+    transform: none !important;
+  }
+
+  .top-compact-card--rotate {
+    transform: none !important;
+  }
+
+  .card-author-line {
+    flex-wrap: wrap;
+    gap: 5px;
+    max-width: 100%;
   }
 
   .top-compact-thumb {
@@ -1800,7 +1811,10 @@ header .navbar-link[href="/blog"].navbar-link-active {
   }
 
   .blog-title {
-    font-size: 1.65rem;
+    font-size: 1.55rem;
+    line-height: 1.25;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .corner-mesh-container {
