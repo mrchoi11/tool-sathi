@@ -1581,10 +1581,6 @@ header .navbar-link[href="/blog"].navbar-link-active {
     row-gap: 56px;
     width: 100%;
   }
-  .discovery-cards-grid.discovery-cards-grid--single {
-    grid-template-columns: minmax(0, 560px);
-    max-width: 560px;
-  }
   .discovery-top-row {
     grid-template-columns: 1.55fr 1fr;
   }
@@ -1623,11 +1619,6 @@ header .navbar-link[href="/blog"].navbar-link-active {
     row-gap: 40px;
     width: 100%;
     max-width: 100%;
-  }
-
-  .discovery-cards-grid.discovery-cards-grid--single {
-    grid-template-columns: minmax(0, 560px);
-    max-width: 560px;
   }
 
   .blog-editorial-sidebar {

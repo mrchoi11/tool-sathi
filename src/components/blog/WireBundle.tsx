@@ -319,6 +319,8 @@ export default function WireBundle({
       const c0 = row0[0];
       const c1 = row0[1];
       spineX = Math.round((c0.right + c1.left) / 2);
+    } else if (row0.length === 1) {
+      spineX = Math.round(row0[0].right + colGap / 2);
     } else {
       spineX = mathGutterCenter;
     }
