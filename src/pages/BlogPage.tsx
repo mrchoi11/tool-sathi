@@ -652,6 +652,13 @@ export default function BlogPage() {
   const topStackedPost1 = topStackedPosts.length > 0 ? topStackedPosts[0] : null;
   const topStackedPost2 = topStackedPosts.length > 1 ? topStackedPosts[1] : null;
 
+  const heroPostIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (featuredPost) ids.add(featuredPost.id);
+    topStackedPosts.forEach((p) => ids.add(p.id));
+    return ids;
+  }, [featuredPost, topStackedPosts]);
+
   /* ─── 2. Search & Category Filter Pool ───────────────────────────────── */
   const filteredPool = useMemo(() => {
     return allPosts.filter((post) => {
@@ -671,8 +678,17 @@ export default function BlogPage() {
 
   /* ─── 3. All matching articles in the cards grid ─────────────────────── */
   const paginatedBasePosts = useMemo(() => {
+    const isAllCategory = !selectedCategory || selectedCategory.toLowerCase() === 'all';
+    const isSearching = !!debouncedSearch.trim();
+
+    // When viewing 'All' articles without a search filter, exclude the 3 hero section posts
+    // so they are never duplicated/repeated in the grid below.
+    if (isAllCategory && !isSearching) {
+      return filteredPool.filter((post) => !heroPostIds.has(post.id));
+    }
+
     return filteredPool;
-  }, [filteredPool]);
+  }, [filteredPool, selectedCategory, debouncedSearch, heroPostIds]);
 
   const totalPages = Math.max(1, Math.ceil(paginatedBasePosts.length / 9));
 
