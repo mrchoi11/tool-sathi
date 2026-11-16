@@ -60,7 +60,29 @@ if (empty($type)) {
 $dataFile = __DIR__ . '/sitemap-data.json';
 $siteData = [
     'categories' => ['video', 'pdf', 'image', 'video-processing', 'audio', 'converter', 'subtitle', 'creator', 'seo', 'productivity'],
-    'tools' => [],
+    'tools' => [
+        'video-player', 'terabox-video-player', 'diskwala-video-player', 'direct-video-player',
+        'video-metadata-viewer', 'video-aspect-ratio-calculator', 'video-resolution-calculator',
+        'video-thumbnail-extractor', 'video-playback-speed-controller', 'pdf-merger',
+        'pdf-splitter', 'pdf-compressor', 'pdf-to-jpg', 'jpg-to-pdf',
+        'pdf-metadata-viewer', 'pdf-rotation-tool', 'image-compressor', 'image-size-reducer',
+        'webp-converter', 'image-resizer', 'jpg-to-png', 'png-to-jpg',
+        'jpg-to-webp', 'png-to-webp', 'webp-to-jpg', 'image-cropper',
+        'image-rotator', 'image-flipper', 'image-metadata-viewer', 'image-dimensions-checker',
+        'image-to-base64', 'base64-to-image', 'favicon-generator', 'csv-to-json',
+        'json-to-csv', 'json-formatter', 'json-validator', 'markdown-to-html',
+        'html-to-text', 'yaml-to-json', 'base64-encoder-decoder', 'url-encoder-decoder',
+        'file-hash-generator', 'mime-type-checker', 'srt-to-vtt', 'vtt-to-srt',
+        'subtitle-timestamp-shifter', 'qr-code-generator', 'qr-code-reader', 'social-media-image-resizer',
+        'open-graph-preview', 'meta-title-preview', 'serp-preview', 'robots-txt-generator',
+        'xml-sitemap-generator', 'url-slug-generator', 'utm-builder', 'json-ld-generator',
+        'open-graph-tag-generator', 'heading-structure-analyzer', 'readability-checker', 'word-counter',
+        'character-counter', 'case-converter', 'remove-duplicate-lines', 'text-diff-checker',
+        'text-sorter', 'lorem-ipsum-generator', 'password-generator', 'uuid-generator',
+        'color-picker', 'color-converter', 'percentage-calculator', 'discount-calculator',
+        'age-calculator', 'date-difference-calculator', 'number-base-converter', 'random-number-generator',
+        'background-remover', 'html-to-word'
+    ],
     'pages' => [
         ['path' => '', 'priority' => '1.0', 'changefreq' => 'daily'],
         ['path' => 'tools', 'priority' => '0.9', 'changefreq' => 'daily'],
@@ -74,9 +96,22 @@ $siteData = [
 ];
 
 if (file_exists($dataFile)) {
-    $loaded = json_decode(file_get_contents($dataFile), true);
-    if ($loaded) {
-        $siteData = array_merge($siteData, $loaded);
+    $raw = @file_get_contents($dataFile);
+    if (!empty($raw)) {
+        // Strip UTF-8 BOM if present (\xEF\xBB\xBF) so json_decode never fails
+        $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw);
+        $loaded = json_decode($raw, true);
+        if ($loaded && is_array($loaded)) {
+            if (!empty($loaded['tools']) && is_array($loaded['tools'])) {
+                $siteData['tools'] = $loaded['tools'];
+            }
+            if (!empty($loaded['categories']) && is_array($loaded['categories'])) {
+                $siteData['categories'] = $loaded['categories'];
+            }
+            if (!empty($loaded['pages']) && is_array($loaded['pages'])) {
+                $siteData['pages'] = $loaded['pages'];
+            }
+        }
     }
 }
 
