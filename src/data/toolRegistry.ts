@@ -78,6 +78,26 @@ export const tools: Tool[] = [
     relatedTools: ['pinterest-image-downloader', 'instagram-reels-downloader', 'video-player'],
   },
   {
+    id: 'instagram-reels-downloader',
+    name: 'Instagram Reels Downloader',
+    description: 'Download Instagram Reels, videos, and post thumbnails in HD quality.',
+    longDescription: 'Save public Instagram Reels, standard video posts, and cover thumbnails directly in your browser with no watermark and no login required.',
+    category: 'video',
+    slug: 'instagram-reels-downloader',
+    icon: 'Film',
+    status: 'active',
+    isFeatured: true,
+    isNew: true,
+    inputFormats: ['url'],
+    outputFormats: ['mp4', 'jpg'],
+    keywords: ['instagram reels downloader', 'download instagram reels', 'instagram video downloader', 'save instagram reel', 'insta reel download', 'ig downloader'],
+    seo: {
+      title: 'Instagram Reels Downloader – Download Reels & Videos in HD | ProToolBox',
+      description: 'Free online Instagram Reels Downloader. Save public Instagram Reels, videos, and post thumbnails in high quality MP4 directly to your device without watermark.'
+    },
+    relatedTools: ['youtube-video-downloader', 'pinterest-image-downloader', 'video-player'],
+  },
+  {
     id: 'video-player',
     name: 'Online Video Player',
     description: 'Play videos from direct URLs with a polished, feature-rich player interface.',

@@ -772,32 +772,92 @@ if ($platform === 'youtube') {
 }
 
 // ─── 3. INSTAGRAM RESOLVER (PHASE 3 - PROVIDER ADAPTER) ─────────────────────
+// ─── 3. INSTAGRAM RESOLVER (PHASE 3 - PROVIDER ADAPTER) ─────────────────────
 if ($platform === 'instagram') {
-    $providerUrl = defined('DOWNLOADER_INSTAGRAM_PROVIDER') ? DOWNLOADER_INSTAGRAM_PROVIDER : getenv('DOWNLOADER_INSTAGRAM_PROVIDER');
 
+    // ── Validate Instagram URL & extract shortcode ──
+    $parsedIg  = parse_url($inputUrl);
+    $igHost    = strtolower($parsedIg['host'] ?? '');
+    $igPath    = rtrim($parsedIg['path'] ?? '', '/');
+
+    // Supported patterns: /reel/CODE, /reels/CODE, /p/CODE, /tv/CODE
+    $shortcode = null;
+    $mediaType = 'reel'; // default
+
+    if (preg_match('#^/reel(?:s)?/([A-Za-z0-9_-]+)#', $igPath, $igm)) {
+        $shortcode = $igm[1];
+        $mediaType = 'reel';
+    } elseif (preg_match('#^/p/([A-Za-z0-9_-]+)#', $igPath, $igm)) {
+        $shortcode = $igm[1];
+        $mediaType = 'post';
+    } elseif (preg_match('#^/tv/([A-Za-z0-9_-]+)#', $igPath, $igm)) {
+        $shortcode = $igm[1];
+        $mediaType = 'igtv';
+    }
+
+    if (empty($shortcode)) {
+        http_response_code(400);
+        echo json_encode([
+            'ok'       => false,
+            'platform' => 'instagram',
+            'error'    => [
+                'code'    => 'INVALID_URL',
+                'message' => 'Could not extract a valid Instagram shortcode. Supported: /reel/, /reels/, /p/, /tv/ URLs only.'
+            ]
+        ]);
+        exit;
+    }
+
+    // ── Reject private/login-required upfront message ──
+    // (Actual check happens at provider level; we give a clean stub here)
+
+    // ── Forward to provider if configured ──
+    $providerUrl = getenv('DOWNLOADER_INSTAGRAM_PROVIDER') ?: '';
     if (!empty($providerUrl)) {
+        $pvHost = strtolower(parse_url($providerUrl, PHP_URL_HOST) ?? '');
+        if (isPrivateOrReservedIp($pvHost)) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'platform' => 'instagram', 'error' => ['code' => 'PROVIDER_CONFIG_ERROR', 'message' => 'Invalid provider URL configured.']]);
+            exit;
+        }
         $ch = curl_init($providerUrl);
         curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['url' => $inputUrl]));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+            'url'        => $inputUrl,
+            'shortcode'  => $shortcode,
+            'media_type' => $mediaType
+        ]));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-        $resp = curl_exec($ch);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+        $resp     = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if ($resp) {
+        if ($resp !== false && $httpCode >= 200 && $httpCode < 300) {
+            header('Content-Type: application/json; charset=utf-8');
             echo $resp;
             exit;
         }
+
+        $errCode = ($httpCode === 503 || $httpCode === 0) ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_ERROR';
+        $errMsg  = ($httpCode === 503 || $httpCode === 0)
+            ? 'Instagram provider service is temporarily unavailable.'
+            : 'The Instagram provider service returned an error. Please try again.';
+        http_response_code(502);
+        echo json_encode(['ok' => false, 'platform' => 'instagram', 'error' => ['code' => $errCode, 'message' => $errMsg]]);
+        exit;
     }
 
+    // ── No provider configured — clean unavailable state ──
     http_response_code(503);
     echo json_encode([
-        'ok' => false,
+        'ok'       => false,
         'platform' => 'instagram',
-        'error' => [
-            'code' => 'PROVIDER_UNCONFIGURED',
-            'message' => 'Instagram Reels Downloader backend provider is currently being connected in Phase 3.'
+        'error'    => [
+            'code'    => 'PROVIDER_UNCONFIGURED',
+            'message' => 'Instagram Reels Downloader is temporarily unavailable. We are integrating the backend provider. Please try again soon.'
         ]
     ]);
     exit;
