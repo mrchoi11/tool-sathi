@@ -53,21 +53,28 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>3. External Video & Stream Links</h2>
+          <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>3. External Video &amp; Stream Links</h2>
           <p>
             When utilizing player tools with third-party URLs (such as direct MP4 links, HLS streams, or shared links), your browser directly fetches stream segments from the respective host CDN. ProToolBox does not host or proxy copyrighted audiovisual media.
           </p>
         </section>
 
         <section>
-          <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>4. Cookies and Local Storage</h2>
+          <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>4. Media Downloader Utilities</h2>
+          <p>
+            When using media download utilities (including Pinterest, YouTube, or Instagram downloaders), the public URLs you submit are processed ephemerally solely to resolve public asset manifests. We do not store, catalog, or archive media files, user queries, or personal download logs on our servers.
+          </p>
+        </section>
+
+        <section>
+          <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>5. Cookies and Local Storage</h2>
           <p>
             We use minimal local storage purely to remember user preferences (such as recently used tools). No tracking cookies are used to build personal profiles.
           </p>
         </section>
 
         <section>
-          <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>5. Contact Information</h2>
+          <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>6. Contact Information</h2>
           <p>
             If you have any questions or security concerns regarding ProToolBox's privacy standards, please reach out to our team at policyian@gmail.com.
           </p>

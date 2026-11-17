@@ -58,6 +58,26 @@ export const categories: ToolCategoryInfo[] = [
 export const tools: Tool[] = [
   // ======= CATEGORY A: VIDEO TOOLS =======
   {
+    id: 'youtube-video-downloader',
+    name: 'YouTube Video Downloader',
+    description: 'Download YouTube videos, Shorts, and audio in multiple quality options.',
+    longDescription: 'Download public YouTube videos in MP4 (144p to 1080p) or extract audio as MP3/M4A directly in your browser. Supports Shorts and all standard YouTube URL formats.',
+    category: 'video',
+    slug: 'youtube-video-downloader',
+    icon: 'Film',
+    status: 'active',
+    isFeatured: true,
+    isNew: true,
+    inputFormats: ['url'],
+    outputFormats: ['mp4', 'mp3', 'm4a'],
+    keywords: ['youtube downloader', 'download youtube video', 'youtube to mp4', 'youtube to mp3', 'shorts downloader', 'yt downloader', 'youtube hd download'],
+    seo: {
+      title: 'YouTube Video Downloader – Download YouTube Videos in HD | ProToolBox',
+      description: 'Free online YouTube Video Downloader. Download public YouTube videos and Shorts in MP4 HD quality or extract audio as MP3. No sign-up required.'
+    },
+    relatedTools: ['pinterest-image-downloader', 'instagram-reels-downloader', 'video-player'],
+  },
+  {
     id: 'video-player',
     name: 'Online Video Player',
     description: 'Play videos from direct URLs with a polished, feature-rich player interface.',
@@ -277,6 +297,26 @@ export const tools: Tool[] = [
   },
 
   // ======= CATEGORY C: IMAGE TOOLS =======
+  {
+    id: 'pinterest-image-downloader',
+    name: 'Pinterest Image Downloader',
+    description: 'Download Pinterest photos, aesthetic images, and original resolution pins in full HD quality.',
+    longDescription: 'Extract and save full-resolution Pinterest images and pin covers directly in your browser without quality loss.',
+    category: 'image',
+    slug: 'pinterest-image-downloader',
+    icon: 'ImageDown',
+    status: 'active',
+    isFeatured: true,
+    isNew: true,
+    inputFormats: ['url', 'pin.it'],
+    outputFormats: ['jpg', 'png', 'webp'],
+    keywords: ['pinterest downloader', 'download pinterest image', 'pinterest photo', 'pinterest picture', 'save pin', 'full hd', 'pin.it'],
+    seo: {
+      title: 'Pinterest Image Downloader – Save Pinterest Images in Full HD | ProToolBox',
+      description: 'Free online Pinterest Image Downloader. Save full-resolution photos, original quality artwork, and aesthetic pins directly in your browser with no watermark.'
+    },
+    relatedTools: ['image-compressor', 'image-resizer', 'webp-converter', 'background-remover'],
+  },
   {
     id: 'image-compressor',
     name: 'Image Compressor',

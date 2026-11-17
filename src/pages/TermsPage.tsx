@@ -65,6 +65,13 @@ export default function TermsPage() {
             The software and utilities are provided "as is" and "as available" without warranty of any kind. ProToolBox does not guarantee uninterrupted operation or zero data conversion anomalies. Always maintain backups of critical files.
           </p>
         </section>
+
+        <section>
+          <h2 style={{ color: '#0f172a', fontSize: '1.3rem', fontWeight: 700, marginBottom: 'var(--space-sm)' }}>5. Media Downloader Utilities &amp; Copyright Compliance</h2>
+          <p>
+            Our media downloading tools (such as Pinterest, YouTube, or Instagram downloaders) are intended strictly for personal backup, offline research, and saving content you own or have received explicit legal permission from the copyright holder to save. Users are solely responsible for compliance with intellectual property laws and third-party terms of service. ProToolBox does not host, store, or redistribute copyrighted media files and will promptly process valid DMCA or copyright takedown notices sent to policyian@gmail.com.
+          </p>
+        </section>
       </div>
     </div>
   );
