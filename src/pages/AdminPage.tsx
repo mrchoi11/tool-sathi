@@ -8,7 +8,7 @@ import {
   Clock, Hash, AlignLeft, Bold, Italic, List, Heading2,
   Underline as UnderlineIcon, Code, Quote, Undo2, Redo2,
   Strikethrough, AlignCenter, AlignRight, ListOrdered,
-  Minus, Sparkles, Star
+  Minus, Sparkles, Star, MessageSquare, MessageCircle, Edit3
 } from "lucide-react";
 import {
   getAllPosts, savePost, deletePost, uploadCoverImage, seedDefaults,
@@ -19,6 +19,22 @@ import { categories as siteToolCategories } from "../data/toolRegistry";
 import {
   getAllSeoEntries, saveSeoEntry, type SeoMetadataEntry
 } from "../data/seoRegistry";
+import {
+  verifyAdminLogin,
+  updateAdminPassword,
+  requestAdminPasswordReset,
+  verifyAdminPasswordResetOtp,
+  completeAdminPasswordReset,
+  ADMIN_EMAIL
+} from "../data/adminAuthRegistry";
+import {
+  getAllAdminComments,
+  adminToggleCommentVisibility,
+  adminUpdateComment,
+  adminDeleteComment,
+  formatCommentDate,
+  type BlogComment
+} from "../data/commentsRegistry";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import ImageExtension from "@tiptap/extension-image";
@@ -30,11 +46,10 @@ import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
 import "./AdminPage.css";
 
-const ADMIN_EMAIL = "policyian@gmail.com";
 const AUTH_KEY = "protoolbox_admin_auth";
 const AUTH_USER_KEY = "protoolbox_admin_user";
 
-type Tab = "posts" | "editor" | "seo" | "settings";
+type Tab = "posts" | "editor" | "comments" | "seo" | "settings";
 
 export const WEBSITE_CATEGORIES = [
   "Video Tools",
@@ -157,50 +172,23 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
     }
   }, [countdown]);
 
-  // 1. Submit Login
+  // 1. Submit Login (Central Firestore Verification - No dual password loophole)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      const res = await fetch("/api/admin-auth.php?action=login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json().catch(() => null);
-
-      if (res.ok && data?.success) {
+      const res = await verifyAdminLogin(username, password);
+      if (res.success) {
         sessionStorage.setItem(AUTH_KEY, "true");
-        sessionStorage.setItem(AUTH_USER_KEY, data.token || "authenticated");
+        sessionStorage.setItem(AUTH_USER_KEY, "authenticated");
         onLogin();
         return;
       }
-
-      // Client-side fallback if server PHP endpoint is not reachable (e.g. dev mode)
-      if (
-        (username.trim() === "admin" || username.trim().toLowerCase() === ADMIN_EMAIL) &&
-        (password === "protoolbox2026" || localStorage.getItem("protoolbox_custom_admin_pass") === password)
-      ) {
-        sessionStorage.setItem(AUTH_KEY, "true");
-        sessionStorage.setItem(AUTH_USER_KEY, "dev-session");
-        onLogin();
-        return;
-      }
-
-      setError(data?.error || "Invalid username/email or password.");
-    } catch {
-      // Offline fallback
-      if (
-        (username.trim() === "admin" || username.trim().toLowerCase() === ADMIN_EMAIL) &&
-        (password === "protoolbox2026" || localStorage.getItem("protoolbox_custom_admin_pass") === password)
-      ) {
-        sessionStorage.setItem(AUTH_KEY, "true");
-        onLogin();
-      } else {
-        setError("Invalid credentials.");
-      }
+      setError(res.error || "Invalid username/email or password.");
+    } catch (err: any) {
+      setError(err?.message || "Authentication service unavailable. Please check your internet connection.");
     } finally {
       setLoading(false);
     }
@@ -212,38 +200,18 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
     setError(null);
     setSuccess(null);
 
-    if (email.trim().toLowerCase() !== ADMIN_EMAIL) {
-      setError(`Only authorized administrator (${ADMIN_EMAIL}) can reset password.`);
-      return;
-    }
-
     setLoading(true);
     try {
-      const res = await fetch("/api/admin-auth.php?action=send_otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() })
-      });
-      const data = await res.json().catch(() => null);
-
-      if (res.ok && data?.success) {
-        setSuccess(`Verification code sent to ${ADMIN_EMAIL}. Check inbox/spam folder.`);
+      const res = await requestAdminPasswordReset(email);
+      if (res.success) {
+        setSuccess(res.message);
         setMode("otp");
         setCountdown(60);
       } else {
-        // Fallback for dev mode where PHP mail might fail
-        const fallbackOtp = Math.floor(100000 + Math.random() * 900000).toString();
-        sessionStorage.setItem("protoolbox_temp_otp", fallbackOtp);
-        setSuccess(`Verification code sent to ${ADMIN_EMAIL}. (Demo fallback: ${fallbackOtp})`);
-        setMode("otp");
-        setCountdown(60);
+        setError(res.message);
       }
-    } catch {
-      const fallbackOtp = "123456";
-      sessionStorage.setItem("protoolbox_temp_otp", fallbackOtp);
-      setSuccess(`Verification code sent to ${ADMIN_EMAIL}. (Fallback code: ${fallbackOtp})`);
-      setMode("otp");
-      setCountdown(60);
+    } catch (err: any) {
+      setError(err?.message || "Failed to dispatch verification code.");
     } finally {
       setLoading(false);
     }
@@ -262,44 +230,22 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/admin-auth.php?action=verify_otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: ADMIN_EMAIL, otp: otp.trim() })
-      });
-      const data = await res.json().catch(() => null);
-
-      if (res.ok && data?.success) {
-        setResetToken(data.reset_token);
+      const res = await verifyAdminPasswordResetOtp(otp);
+      if (res.success && res.resetToken) {
+        setResetToken(res.resetToken);
         setSuccess("Code verified! Set your new password.");
         setMode("new_password");
         return;
       }
-
-      // Check fallback code
-      const localOtp = sessionStorage.getItem("protoolbox_temp_otp");
-      if (localOtp && localOtp === otp.trim()) {
-        setResetToken("mock-token-" + Date.now());
-        setSuccess("Code verified! Set your new password.");
-        setMode("new_password");
-        return;
-      }
-
-      setError(data?.error || "Invalid or expired verification code.");
-    } catch {
-      const localOtp = sessionStorage.getItem("protoolbox_temp_otp");
-      if (localOtp === otp.trim()) {
-        setResetToken("mock-token-" + Date.now());
-        setMode("new_password");
-      } else {
-        setError("Invalid verification code.");
-      }
+      setError(res.error || "Invalid or expired verification code.");
+    } catch (err: any) {
+      setError(err?.message || "Verification failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // 4. Save New Password
+  // 4. Save New Password (Updates Central Firestore - Instantly synchronizes all devices)
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -315,24 +261,16 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/admin-auth.php?action=reset_password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reset_token: resetToken, new_password: newPassword })
-      });
-      const data = await res.json().catch(() => null);
-
-      // Save locally too for offline resilience
-      localStorage.setItem("protoolbox_custom_admin_pass", newPassword);
-
-      setSuccess("Password updated successfully! Please sign in with your new credentials.");
-      setPassword(newPassword);
-      setMode("login");
-    } catch {
-      localStorage.setItem("protoolbox_custom_admin_pass", newPassword);
-      setSuccess("Password updated successfully!");
-      setPassword(newPassword);
-      setMode("login");
+      const res = await completeAdminPasswordReset(resetToken, newPassword);
+      if (res.success) {
+        setSuccess("Password updated successfully across all devices! Please sign in with your new password.");
+        setPassword(newPassword);
+        setMode("login");
+      } else {
+        setError(res.error || "Failed to update password.");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Error updating password.");
     } finally {
       setLoading(false);
     }
@@ -585,6 +523,16 @@ export default function AdminPage() {
   const [newPassVal, setNewPassVal] = useState("");
   const [passChangeMsg, setPassChangeMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Comments Master CMS State
+  const [commentsList, setCommentsList] = useState<BlogComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentSearch, setCommentSearch] = useState("");
+  const [commentPostFilter, setCommentPostFilter] = useState("all");
+  const [commentStatusFilter, setCommentStatusFilter] = useState<"all" | "active" | "hidden">("all");
+  const [editingComment, setEditingComment] = useState<BlogComment | null>(null);
+  const [editForm, setEditForm] = useState({ authorName: "", authorEmail: "", content: "" });
+  const [commentActionLoading, setCommentActionLoading] = useState<string | null>(null);
+
   // Post form state
   const [form, setForm] = useState<Partial<BlogPost>>(emptyPost());
   const [tagInput, setTagInput] = useState("");
@@ -721,12 +669,136 @@ export default function AdminPage() {
     } catch {}
   }, []);
 
+  const loadAdminComments = useCallback(async () => {
+    setCommentsLoading(true);
+    try {
+      const data = await getAllAdminComments();
+      setCommentsList(data);
+    } catch (err) {
+      console.error("Failed to load comments:", err);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (authed) {
       loadPosts();
       loadSeoEntries();
+      loadAdminComments();
     }
-  }, [authed, loadPosts, loadSeoEntries]);
+  }, [authed, loadPosts, loadSeoEntries, loadAdminComments]);
+
+  // Comment Actions
+  const handleToggleHide = async (comment: BlogComment) => {
+    setCommentActionLoading(comment.id);
+    try {
+      const newHidden = await adminToggleCommentVisibility(comment.id, !!comment.hidden);
+      setCommentsList((prev) =>
+        prev.map((c) => (c.id === comment.id ? { ...c, hidden: newHidden } : c))
+      );
+      setSeoToast(newHidden ? "Comment hidden from public blog." : "Comment is now visible on blog.");
+      setTimeout(() => setSeoToast(null), 3000);
+    } catch (err) {
+      console.error("Error toggling comment visibility:", err);
+      alert("Failed to change comment visibility.");
+    } finally {
+      setCommentActionLoading(null);
+    }
+  };
+
+  const handleOpenEditComment = (comment: BlogComment) => {
+    setEditingComment(comment);
+    setEditForm({
+      authorName: comment.authorName || "",
+      authorEmail: comment.authorEmail || "",
+      content: comment.content || "",
+    });
+  };
+
+  const handleSaveCommentEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingComment) return;
+    if (!editForm.authorName.trim() || !editForm.content.trim()) {
+      alert("Author name and comment content are required.");
+      return;
+    }
+
+    setCommentActionLoading(editingComment.id);
+    try {
+      await adminUpdateComment(editingComment.id, {
+        authorName: editForm.authorName.trim(),
+        authorEmail: editForm.authorEmail.trim(),
+        content: editForm.content.trim(),
+      });
+      setCommentsList((prev) =>
+        prev.map((c) =>
+          c.id === editingComment.id
+            ? {
+                ...c,
+                authorName: editForm.authorName.trim(),
+                authorEmail: editForm.authorEmail.trim(),
+                content: editForm.content.trim(),
+              }
+            : c
+        )
+      );
+      setEditingComment(null);
+      setSeoToast("Comment updated successfully!");
+      setTimeout(() => setSeoToast(null), 3000);
+    } catch (err) {
+      console.error("Error updating comment:", err);
+      alert("Failed to update comment.");
+    } finally {
+      setCommentActionLoading(null);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to permanently delete this comment? If this comment has replies, they will also be deleted."
+      )
+    ) {
+      return;
+    }
+
+    setCommentActionLoading(commentId);
+    try {
+      await adminDeleteComment(commentId);
+      setCommentsList((prev) =>
+        prev.filter((c) => c.id !== commentId && c.parentId !== commentId)
+      );
+      setSeoToast("Comment permanently deleted.");
+      setTimeout(() => setSeoToast(null), 3000);
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+      alert("Failed to delete comment.");
+    } finally {
+      setCommentActionLoading(null);
+    }
+  };
+
+  const filteredComments = useMemo(() => {
+    return commentsList.filter((c) => {
+      if (commentPostFilter !== "all" && c.postId !== commentPostFilter) {
+        return false;
+      }
+      if (commentStatusFilter === "active" && c.hidden) return false;
+      if (commentStatusFilter === "hidden" && !c.hidden) return false;
+
+      if (commentSearch.trim()) {
+        const query = commentSearch.toLowerCase();
+        const nameMatch = c.authorName?.toLowerCase().includes(query);
+        const emailMatch = c.authorEmail?.toLowerCase().includes(query);
+        const contentMatch = c.content?.toLowerCase().includes(query);
+        const post = posts.find((p) => p.id === c.postId);
+        const postMatch = post?.title.toLowerCase().includes(query);
+        if (!nameMatch && !emailMatch && !contentMatch && !postMatch) return false;
+      }
+      return true;
+    });
+  }, [commentsList, commentPostFilter, commentStatusFilter, commentSearch, posts]);
 
   // Start Create Post
   const startCreate = () => {
@@ -880,7 +952,7 @@ export default function AdminPage() {
     }
   };
 
-  // Handle Password Change in Settings
+  // Handle Password Change in Settings (Centralized in Firestore)
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPassChangeMsg(null);
@@ -890,36 +962,16 @@ export default function AdminPage() {
     }
 
     try {
-      const res = await fetch("/api/admin-auth.php?action=change_password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ current_password: currPass, new_password: newPassVal })
-      });
-      const data = await res.json().catch(() => null);
-
-      if (res.ok && data?.success) {
-        localStorage.setItem("protoolbox_custom_admin_pass", newPassVal);
-        setPassChangeMsg({ type: "success", text: "Password changed successfully!" });
-        setCurrPass("");
-        setNewPassVal("");
-        return;
-      }
-
-      // Local fallback
-      const savedPass = localStorage.getItem("protoolbox_custom_admin_pass") || "protoolbox2026";
-      if (currPass === savedPass) {
-        localStorage.setItem("protoolbox_custom_admin_pass", newPassVal);
-        setPassChangeMsg({ type: "success", text: "Password changed successfully!" });
+      const res = await updateAdminPassword(currPass, newPassVal);
+      if (res.success) {
+        setPassChangeMsg({ type: "success", text: "Password changed successfully across all devices!" });
         setCurrPass("");
         setNewPassVal("");
       } else {
-        setPassChangeMsg({ type: "error", text: data?.error || "Current password is incorrect." });
+        setPassChangeMsg({ type: "error", text: res.error || "Current password is incorrect." });
       }
-    } catch {
-      localStorage.setItem("protoolbox_custom_admin_pass", newPassVal);
-      setPassChangeMsg({ type: "success", text: "Password changed successfully!" });
-      setCurrPass("");
-      setNewPassVal("");
+    } catch (err: any) {
+      setPassChangeMsg({ type: "error", text: err?.message || "Failed to update password." });
     }
   };
 
@@ -966,6 +1018,31 @@ export default function AdminPage() {
             onClick={startCreate}
           >
             <Plus size={16} /> New Article
+          </button>
+
+          <button
+            className={`adm-nav-item ${tab === "comments" ? "active" : ""}`}
+            onClick={() => {
+              setTab("comments");
+              loadAdminComments();
+            }}
+            style={{ position: "relative" }}
+          >
+            <MessageSquare size={16} /> Comments
+            {commentsList.length > 0 && (
+              <span
+                style={{
+                  fontSize: "0.68rem",
+                  background: "rgba(16,185,129,0.2)",
+                  color: "#34d399",
+                  padding: "1px 6px",
+                  borderRadius: "99px",
+                  marginLeft: "auto",
+                }}
+              >
+                {commentsList.length}
+              </span>
+            )}
           </button>
 
           <button
@@ -1318,55 +1395,6 @@ export default function AdminPage() {
                       onChange={(e) => setForm((prev) => ({ ...prev, quickAnswer: e.target.value }))}
                       placeholder="Direct, concise answer or key summary shown in a highlighted box at the start of the article..."
                     />
-                  </div>
-
-                  {/* ─── KEY TAKEAWAYS (OPTIONAL) ─── */}
-                  <div className="ed-field" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--adm-border2)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <label className="ed-label" style={{ margin: 0 }}>Key Takeaways (Optional)</label>
-                      <button
-                        type="button"
-                        className="adm-btn adm-btn-sm"
-                        style={{ fontSize: "0.75rem", padding: "3px 8px" }}
-                        onClick={() => setForm((prev) => ({ ...prev, keyTakeaways: [...(prev.keyTakeaways || []), ""] }))}
-                      >
-                        + Add Takeaway
-                      </button>
-                    </div>
-                    {(!form.keyTakeaways || form.keyTakeaways.length === 0) ? (
-                      <p style={{ fontSize: "0.78rem", color: "var(--adm-muted)", margin: 0 }}>No takeaways added. Click "+ Add Takeaway" to add highlight bullets.</p>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {form.keyTakeaways.map((item, idx) => (
-                          <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <span style={{ fontSize: "0.8rem", color: "var(--adm-muted)", width: 18 }}>{idx + 1}.</span>
-                            <input
-                              type="text"
-                              className="ed-input"
-                              style={{ flex: 1 }}
-                              value={item}
-                              onChange={(e) => {
-                                const updated = [...(form.keyTakeaways || [])];
-                                updated[idx] = e.target.value;
-                                setForm((prev) => ({ ...prev, keyTakeaways: updated }));
-                              }}
-                              placeholder="Enter key takeaway point..."
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = (form.keyTakeaways || []).filter((_, i) => i !== idx);
-                                setForm((prev) => ({ ...prev, keyTakeaways: updated }));
-                              }}
-                              style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}
-                              title="Remove takeaway"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   {/* ─── FREQUENTLY ASKED QUESTIONS (FAQS) (OPTIONAL) ─── */}
@@ -1846,6 +1874,301 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
+          </section>
+        )}
+
+        {/* ════ TAB: BLOG COMMENTS MASTER CMS ════ */}
+        {tab === "comments" && (
+          <section className="adm-section">
+            <div className="adm-page-header">
+              <div>
+                <h1 className="adm-page-title">Blog Comments Management</h1>
+                <p className="adm-page-sub">
+                  Master CMS: Moderate, hide, edit or delete comments across all blog articles.
+                </p>
+              </div>
+              <button
+                className="adm-btn adm-btn-secondary"
+                onClick={loadAdminComments}
+                disabled={commentsLoading}
+                title="Refresh comments list"
+              >
+                <RefreshCw size={15} className={commentsLoading ? "spin" : ""} /> Refresh
+              </button>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+              <div style={{ background: "var(--adm-bg2)", border: "1px solid var(--adm-border)", borderRadius: "var(--adm-radius-sm)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: "0.8rem", color: "var(--adm-text2)" }}>Total Comments:</span>
+                <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--adm-text)" }}>{commentsList.length}</span>
+              </div>
+              <div style={{ background: "var(--adm-bg2)", border: "1px solid var(--adm-border)", borderRadius: "var(--adm-radius-sm)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: "0.8rem", color: "#34d399" }}>Active (Public):</span>
+                <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "#34d399" }}>
+                  {commentsList.filter((c) => !c.hidden).length}
+                </span>
+              </div>
+              <div style={{ background: "var(--adm-bg2)", border: "1px solid var(--adm-border)", borderRadius: "var(--adm-radius-sm)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: "0.8rem", color: "#fbbf24" }}>Hidden (Unpublished):</span>
+                <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fbbf24" }}>
+                  {commentsList.filter((c) => !!c.hidden).length}
+                </span>
+              </div>
+            </div>
+
+            {/* Filter Pills, Post Selector & Search */}
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
+              <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 360 }}>
+                <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--adm-muted)" }} />
+                <input
+                  type="text"
+                  className="ed-input"
+                  style={{ paddingLeft: 36, height: 38 }}
+                  value={commentSearch}
+                  onChange={(e) => setCommentSearch(e.target.value)}
+                  placeholder="Search by author, email, or content..."
+                />
+              </div>
+
+              {/* Filter by Post */}
+              <div style={{ minWidth: 200, flex: "0 1 auto" }}>
+                <select
+                  className="ed-input"
+                  style={{ height: 38 }}
+                  value={commentPostFilter}
+                  onChange={(e) => setCommentPostFilter(e.target.value)}
+                >
+                  <option value="all">All Articles ({posts.length})</option>
+                  {posts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title.length > 40 ? p.title.substring(0, 40) + "..." : p.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Status Filter Buttons */}
+              <div style={{ display: "flex", gap: 6, background: "var(--adm-bg2)", padding: 4, borderRadius: "var(--adm-radius-sm)", border: "1px solid var(--adm-border)" }}>
+                <button
+                  type="button"
+                  className={`adm-pill-btn ${commentStatusFilter === "all" ? "active" : ""}`}
+                  onClick={() => setCommentStatusFilter("all")}
+                >
+                  All ({commentsList.length})
+                </button>
+                <button
+                  type="button"
+                  className={`adm-pill-btn ${commentStatusFilter === "active" ? "active" : ""}`}
+                  onClick={() => setCommentStatusFilter("active")}
+                >
+                  Active ({commentsList.filter((c) => !c.hidden).length})
+                </button>
+                <button
+                  type="button"
+                  className={`adm-pill-btn ${commentStatusFilter === "hidden" ? "active" : ""}`}
+                  onClick={() => setCommentStatusFilter("hidden")}
+                >
+                  Hidden ({commentsList.filter((c) => !!c.hidden).length})
+                </button>
+              </div>
+            </div>
+
+            {/* Comments List */}
+            {commentsLoading ? (
+              <div style={{ padding: 40, textAlign: "center", color: "var(--adm-muted)" }}>
+                <RefreshCw size={24} className="spin" style={{ margin: "0 auto 12px" }} />
+                <p>Loading comments...</p>
+              </div>
+            ) : filteredComments.length === 0 ? (
+              <div style={{ padding: "40px 20px", textAlign: "center", background: "var(--adm-bg2)", borderRadius: "var(--adm-radius)", border: "1px solid var(--adm-border)" }}>
+                <MessageSquare size={32} style={{ color: "var(--adm-muted)", margin: "0 auto 10px", opacity: 0.6 }} />
+                <p style={{ color: "var(--adm-text2)", fontWeight: 500, margin: 0 }}>No comments found matching your filters.</p>
+              </div>
+            ) : (
+              <div className="adm-comments-list">
+                {filteredComments.map((comment) => {
+                  const post = posts.find((p) => p.id === comment.postId);
+                  const isActionBusy = commentActionLoading === comment.id;
+
+                  return (
+                    <article
+                      key={comment.id}
+                      className={`adm-comment-card ${comment.hidden ? "is-hidden" : ""}`}
+                    >
+                      <div className="adm-comment-top">
+                        <div className="adm-comment-user-info">
+                          <div className="adm-comment-avatar">
+                            {comment.authorName ? comment.authorName.charAt(0).toUpperCase() : "U"}
+                          </div>
+                          <div className="adm-comment-meta">
+                            <span className="adm-comment-author-name">
+                              {comment.authorName}
+                              {comment.parentId && (
+                                <span className="adm-comment-badge-reply">↳ Reply</span>
+                              )}
+                            </span>
+                            {comment.authorEmail && (
+                              <span className="adm-comment-email">{comment.authorEmail}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="adm-comment-badges">
+                          {comment.hidden ? (
+                            <span className="adm-comment-badge-hidden">
+                              <EyeOff size={11} /> Hidden
+                            </span>
+                          ) : (
+                            <span className="adm-comment-badge-active">
+                              <Check size={11} /> Active
+                            </span>
+                          )}
+
+                          {post && (
+                            <Link
+                              to={`/blog/${post.slug}#comments-section`}
+                              target="_blank"
+                              className="adm-comment-post-link"
+                              title={`View on blog: ${post.title}`}
+                            >
+                              <ExternalLink size={12} />
+                              <span>{post.title.length > 32 ? post.title.substring(0, 32) + "..." : post.title}</span>
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="adm-comment-content">
+                        {comment.content}
+                      </div>
+
+                      <div className="adm-comment-footer">
+                        <span className="adm-comment-time">
+                          {formatCommentDate(comment.createdAt)} ({new Date(comment.createdAt).toLocaleDateString()}) • {comment.likes || 0} Likes
+                        </span>
+
+                        <div className="adm-comment-actions">
+                          {/* Hide / Unhide Toggle */}
+                          <button
+                            type="button"
+                            className={`adm-action-btn ${comment.hidden ? "btn-unhide" : "btn-hide"}`}
+                            onClick={() => handleToggleHide(comment)}
+                            disabled={isActionBusy}
+                            title={comment.hidden ? "Make visible on blog" : "Hide from blog"}
+                          >
+                            {comment.hidden ? (
+                              <>
+                                <Eye size={13} /> Unhide
+                              </>
+                            ) : (
+                              <>
+                                <EyeOff size={13} /> Hide
+                              </>
+                            )}
+                          </button>
+
+                          {/* Edit Comment */}
+                          <button
+                            type="button"
+                            className="adm-action-btn btn-edit"
+                            onClick={() => handleOpenEditComment(comment)}
+                            disabled={isActionBusy}
+                            title="Edit author name, email, or comment text"
+                          >
+                            <Edit2 size={13} /> Edit
+                          </button>
+
+                          {/* Delete Comment */}
+                          <button
+                            type="button"
+                            className="adm-action-btn btn-delete"
+                            onClick={() => handleDeleteComment(comment.id)}
+                            disabled={isActionBusy}
+                            title="Permanently delete comment"
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── EDIT COMMENT MODAL ── */}
+            {editingComment && (
+              <div className="adm-modal-backdrop" onClick={() => setEditingComment(null)}>
+                <div className="adm-modal-card" onClick={(e) => e.stopPropagation()}>
+                  <div className="adm-modal-header">
+                    <h3 className="adm-modal-title">Edit Comment</h3>
+                    <button
+                      type="button"
+                      onClick={() => setEditingComment(null)}
+                      style={{ background: "none", border: "none", color: "var(--adm-muted)", cursor: "pointer" }}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleSaveCommentEdit}>
+                    <div className="adm-modal-body">
+                      <div className="ed-field">
+                        <label className="ed-label">Author Name</label>
+                        <input
+                          type="text"
+                          className="ed-input"
+                          value={editForm.authorName}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, authorName: e.target.value }))}
+                          required
+                        />
+                      </div>
+
+                      <div className="ed-field">
+                        <label className="ed-label">Author Email (Optional)</label>
+                        <input
+                          type="email"
+                          className="ed-input"
+                          value={editForm.authorEmail}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, authorEmail: e.target.value }))}
+                          placeholder="user@example.com"
+                        />
+                      </div>
+
+                      <div className="ed-field">
+                        <label className="ed-label">Comment Content</label>
+                        <textarea
+                          className="ed-input"
+                          rows={4}
+                          value={editForm.content}
+                          onChange={(e) => setEditForm((prev) => ({ ...prev, content: e.target.value }))}
+                          required
+                          style={{ resize: "vertical" }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="adm-modal-footer">
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn-secondary"
+                        onClick={() => setEditingComment(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="adm-btn adm-btn-primary"
+                        disabled={commentActionLoading === editingComment.id}
+                      >
+                        <Save size={14} /> Save Changes
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

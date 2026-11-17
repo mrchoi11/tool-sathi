@@ -143,8 +143,11 @@ if ($action === 'send_otp') {
         exit;
     }
 
-    // Generate secure 6-digit OTP
-    $otp = (string) random_int(100000, 999999);
+    // Generate or use provided secure 6-digit OTP
+    $otp = !empty($body['otp']) ? preg_replace('/[^0-9]/', '', (string)$body['otp']) : (string) random_int(100000, 999999);
+    if (strlen($otp) !== 6) {
+        $otp = (string) random_int(100000, 999999);
+    }
     $expires = time() + 600; // 10 minutes validity
 
     $otpData = [
