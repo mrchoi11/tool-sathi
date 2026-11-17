@@ -27,74 +27,6 @@ export interface BlogComment {
 
 const COLLECTION = 'blog_comments';
 
-// ─── INITIAL SEED COMMENTS (Shown when a post has no comments in Firestore) ──
-const DEFAULT_COMMENTS_BY_POST: Record<string, BlogComment[]> = {
-  'post-2': [
-    {
-      id: 'c-seed-1',
-      postId: 'post-2',
-      parentId: null,
-      authorName: 'Rohan Sharma',
-      authorEmail: '',
-      content: 'Does this direct browser streaming method support 1080p and 4K resolution without the TeraBox speed limit?',
-      createdAt: '2026-11-12T10:15:00.000Z',
-      likes: 14,
-      hidden: false,
-      replies: [
-        {
-          id: 'c-seed-1-rep',
-          postId: 'post-2',
-          parentId: 'c-seed-1',
-          authorName: 'Alex Rivera',
-          authorEmail: '',
-          content: 'Yes! It streams directly from the underlying cloud video CDN chunk, bypassing the app-download throttle. If the source file is 1080p, you get smooth 1080p playback.',
-          createdAt: '2026-11-12T11:40:00.000Z',
-          likes: 8,
-          hidden: false
-        }
-      ]
-    },
-    {
-      id: 'c-seed-2',
-      postId: 'post-2',
-      parentId: null,
-      authorName: 'Priya Patel',
-      authorEmail: '',
-      content: 'Tested this on iPhone Safari and iPad Chrome. Works like a charm without installing any APK or app. Great tutorial!',
-      createdAt: '2026-11-13T16:22:00.000Z',
-      likes: 9,
-      hidden: false,
-      replies: []
-    }
-  ],
-  'post-1': [
-    {
-      id: 'c-seed-3',
-      postId: 'post-1',
-      parentId: null,
-      authorName: 'Devansh Verma',
-      authorEmail: '',
-      content: 'The WebCodecs pipeline section was super clear. How does this compare to MSE (Media Source Extensions) for adaptive HLS streaming?',
-      createdAt: '2026-11-10T14:30:00.000Z',
-      likes: 11,
-      hidden: false,
-      replies: [
-        {
-          id: 'c-seed-3-rep',
-          postId: 'post-1',
-          parentId: 'c-seed-3',
-          authorName: 'Sarah Chen',
-          authorEmail: '',
-          content: 'WebCodecs gives you frame-level control with zero memory copy to the GPU, cutting video decode latency by over 45% compared to classic MSE.',
-          createdAt: '2026-11-10T15:05:00.000Z',
-          likes: 6,
-          hidden: false
-        }
-      ]
-    }
-  ]
-};
-
 /**
  * Format relative timestamp (e.g. "Just now", "2 hours ago", "Nov 15, 2026")
  */
@@ -190,16 +122,18 @@ export async function getCommentsByPostId(postId: string): Promise<BlogComment[]
     const snap = await Promise.race([getDocs(q), timeoutPromise]);
 
     if (!snap.empty) {
-      const firestoreComments = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data()
-      })) as BlogComment[];
+      const firestoreComments = snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .filter((c) => !c.id.startsWith('c-seed-')) as BlogComment[];
 
-      // Merge firestore and local comments (avoiding duplicates by id)
+      // Merge firestore and local comments (avoiding duplicates by id and removing seed comments)
       const combinedMap = new Map<string, BlogComment>();
       firestoreComments.forEach((c) => combinedMap.set(c.id, c));
       localComments.forEach((c) => {
-        if (!combinedMap.has(c.id)) {
+        if (!combinedMap.has(c.id) && !c.id.startsWith('c-seed-')) {
           combinedMap.set(c.id, c);
         }
       });
@@ -215,29 +149,32 @@ export async function getCommentsByPostId(postId: string): Promise<BlogComment[]
       // Also filter out any hidden replies inside visible parents
       tree.forEach((tl) => {
         if (tl.replies) {
-          tl.replies = tl.replies.filter((r) => !r.hidden);
+          tl.replies = tl.replies.filter((r) => !r.hidden && !r.id.startsWith('c-seed-'));
         }
       });
       return tree;
     }
   } catch (err) {
-    console.warn('Firestore fetch for comments timed out or failed, using local/seed fallback:', err);
+    console.warn('Firestore fetch for comments timed out or failed, using local fallback:', err);
   }
 
-  // Fallback to local comments or default seed comments
+  // Fallback to local comments
   if (localComments.length > 0) {
-    const visible = localComments.filter((c) => !c.hidden);
+    const cleanLocal = localComments.filter((c) => !c.id.startsWith('c-seed-'));
+    if (cleanLocal.length !== localComments.length && typeof window !== 'undefined') {
+      localStorage.setItem(localKey, JSON.stringify(cleanLocal));
+    }
+    const visible = cleanLocal.filter((c) => !c.hidden);
     const tree = buildCommentTree(visible);
     tree.forEach((tl) => {
       if (tl.replies) {
-        tl.replies = tl.replies.filter((r) => !r.hidden);
+        tl.replies = tl.replies.filter((r) => !r.hidden && !r.id.startsWith('c-seed-'));
       }
     });
     return tree;
   }
 
-  const seed = DEFAULT_COMMENTS_BY_POST[postId] || [];
-  return seed.filter((c) => !c.hidden);
+  return [];
 }
 
 /**
@@ -351,22 +288,12 @@ export async function toggleCommentLike(
 export async function getAllAdminComments(): Promise<BlogComment[]> {
   const commentsMap = new Map<string, BlogComment>();
 
-  // 1. Add default seed comments as baseline
-  Object.values(DEFAULT_COMMENTS_BY_POST).forEach((postSeeds) => {
-    postSeeds.forEach((seed) => {
-      commentsMap.set(seed.id, { ...seed, hidden: !!seed.hidden });
-      if (seed.replies) {
-        seed.replies.forEach((rep) => {
-          commentsMap.set(rep.id, { ...rep, hidden: !!rep.hidden });
-        });
-      }
-    });
-  });
-
-  // 2. Fetch all comments from Firestore
+  // 1. Fetch all real comments from Firestore
   try {
     const snap = await getDocs(collection(db, COLLECTION));
     snap.docs.forEach((d) => {
+      // Exclude any legacy mock seed comments
+      if (d.id.startsWith('c-seed-')) return;
       const data = d.data() as BlogComment;
       commentsMap.set(d.id, {
         id: d.id,
@@ -384,7 +311,7 @@ export async function getAllAdminComments(): Promise<BlogComment[]> {
     console.warn('Could not fetch all comments from Firestore for admin, reading local caches:', err);
   }
 
-  // 3. Merge any comments in localStorage across all posts
+  // 2. Merge any user-submitted comments in localStorage across all posts (and clean up mock seeds)
   if (typeof window !== 'undefined') {
     try {
       for (let i = 0; i < localStorage.length; i++) {
@@ -393,7 +320,12 @@ export async function getAllAdminComments(): Promise<BlogComment[]> {
           const val = localStorage.getItem(key);
           if (val) {
             const list: BlogComment[] = JSON.parse(val);
-            list.forEach((item) => {
+            // Purge any old seed comments from localStorage
+            const cleanList = list.filter((item) => !item.id.startsWith('c-seed-'));
+            if (cleanList.length !== list.length) {
+              localStorage.setItem(key, JSON.stringify(cleanList));
+            }
+            cleanList.forEach((item) => {
               if (!commentsMap.has(item.id)) {
                 commentsMap.set(item.id, { ...item, hidden: !!item.hidden });
               }
