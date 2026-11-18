@@ -363,8 +363,8 @@ if ($action === 'stream') {
         $filename .= '.jpg';
     }
 
-    // Determine max file size (30MB for images, 150MB for videos)
-    $isMediaVideo = str_contains($inputUrl, '.mp4') || preg_match('/v[0-9]*\.pinimg\.com/i', $inputUrl) || str_contains($inputUrl, 'googlevideo');
+    // Determine max file size (30MB for images, 150MB for videos/audio)
+    $isMediaVideo = str_contains($inputUrl, '.mp4') || preg_match('/v[0-9]*\.pinimg\.com/i', $inputUrl) || str_contains($inputUrl, 'googlevideo') || str_ends_with(strtolower($filename), '.mp4') || str_ends_with(strtolower($filename), '.m4a') || str_ends_with(strtolower($filename), '.mp3');
     $MAX_ALLOWED_BYTES = $isMediaVideo ? 150 * 1024 * 1024 : 30 * 1024 * 1024;
 
     // Check HEAD content-length before streaming
@@ -405,7 +405,13 @@ if ($action === 'stream') {
     }
 
     header('Content-Disposition: attachment; filename="' . $filename . '"');
-    if ($mimeType) {
+    if (str_ends_with(strtolower($filename), '.mp4')) {
+        header('Content-Type: video/mp4');
+    } elseif (str_ends_with(strtolower($filename), '.m4a')) {
+        header('Content-Type: audio/mp4');
+    } elseif (str_ends_with(strtolower($filename), '.mp3')) {
+        header('Content-Type: audio/mpeg');
+    } elseif ($mimeType && !str_contains($mimeType, 'text/html')) {
         header('Content-Type: ' . $mimeType);
     } else {
         header('Content-Type: ' . ($isMediaVideo ? 'video/mp4' : 'image/jpeg'));
@@ -759,7 +765,7 @@ if ($platform === 'pinterest') {
     exit;
 }
 
-// ─── 2. YOUTUBE RESOLVER (PHASE 2 - PROVIDER ADAPTER) ───────────────────────
+// ─── 2. YOUTUBE RESOLVER (NATIVE DIRECT & OPEN API RESOLVER) ─────────────────
 if ($platform === 'youtube') {
 
     // ── Validate YouTube URL & extract video ID ──
@@ -797,71 +803,188 @@ if ($platform === 'youtube') {
         exit;
     }
 
-    // ── Forward to provider if configured ──
+    // Forward to custom provider if configured
     $providerUrl = getenv('DOWNLOADER_YOUTUBE_PROVIDER') ?: '';
     if (!empty($providerUrl)) {
-        // Validate provider URL is not a private/local address
         $pvHost = strtolower(parse_url($providerUrl, PHP_URL_HOST) ?? '');
-        if (isPrivateOrReservedIp($pvHost)) {
-            http_response_code(500);
-            echo json_encode(['ok' => false, 'platform' => 'youtube', 'error' => ['code' => 'PROVIDER_CONFIG_ERROR', 'message' => 'Invalid provider URL configured.']]);
-            exit;
+        if (!isPrivateOrReservedIp($pvHost)) {
+            $ch = curl_init($providerUrl);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['url' => $inputUrl, 'video_id' => $videoId, 'is_shorts' => $isShorts]));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            $resp     = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($resp !== false && $httpCode >= 200 && $httpCode < 300) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo $resp;
+                exit;
+            }
         }
-        $ch = curl_init($providerUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['url' => $inputUrl, 'video_id' => $videoId, 'is_shorts' => $isShorts]));
+    }
+
+    // Native resolution via Invidious public instance rotation
+    $invidiousInstances = [
+        "https://yt.chocolatemoo53.com",
+        "https://invidious.jing.rocks",
+        "https://invidious.nerdvpn.de",
+        "https://invidious.projectsegfau.lt"
+    ];
+
+    $ytData = null;
+    foreach ($invidiousInstances as $inst) {
+        $ch = curl_init("$inst/api/v1/videos/$videoId");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
-        $resp     = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        $raw = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-
-        if ($resp !== false && $httpCode >= 200 && $httpCode < 300) {
-            // Pass provider response directly (must match our schema)
-            header('Content-Type: application/json; charset=utf-8');
-            echo $resp;
-            exit;
+        if ($code == 200 && $raw) {
+            $parsed = json_decode($raw, true);
+            if (!empty($parsed['title']) && (!empty($parsed['adaptiveFormats']) || !empty($parsed['formatStreams']))) {
+                $ytData = $parsed;
+                break;
+            }
         }
+    }
 
-        // Provider returned error — map known status codes
-        $errCode = 'PROVIDER_ERROR';
-        $errMsg  = 'The YouTube provider service returned an error. Please try again.';
-        if ($httpCode === 503 || $httpCode === 0) {
-            $errCode = 'PROVIDER_UNAVAILABLE';
-            $errMsg  = 'YouTube provider service is temporarily unavailable.';
+    // Metadata fallback via direct m.youtube.com scrape
+    if (!$ytData) {
+        $mUrl = "https://m.youtube.com/watch?v=$videoId";
+        $ch = curl_init($mUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15');
+        $mHtml = curl_exec($ch);
+        curl_close($ch);
+        if ($mHtml && preg_match('/ytInitialPlayerResponse\s*=\s*(\{.+?\});/s', $mHtml, $mm)) {
+            $parsed = json_decode($mm[1], true);
+            if (isset($parsed['videoDetails'])) {
+                $ytData = [
+                    'title' => $parsed['videoDetails']['title'] ?? 'YouTube Video',
+                    'lengthSeconds' => $parsed['videoDetails']['lengthSeconds'] ?? 0,
+                    'adaptiveFormats' => $parsed['streamingData']['adaptiveFormats'] ?? [],
+                    'formatStreams' => $parsed['streamingData']['formats'] ?? []
+                ];
+            }
         }
-        http_response_code(502);
-        echo json_encode(['ok' => false, 'platform' => 'youtube', 'error' => ['code' => $errCode, 'message' => $errMsg]]);
+    }
+
+    if (!$ytData) {
+        http_response_code(404);
+        echo json_encode([
+            'ok' => false,
+            'platform' => 'youtube',
+            'error' => [
+                'code' => 'NOT_FOUND',
+                'message' => 'Could not resolve this YouTube video. It may be private, age-restricted, or removed.'
+            ]
+        ]);
         exit;
     }
 
-    // ── No provider configured — clean unavailable state ──
-    http_response_code(503);
+    $title = $ytData['title'] ?? 'YouTube Video';
+    $durationSec = (int)($ytData['lengthSeconds'] ?? 0);
+    $duration = $durationSec > 0 ? gmdate($durationSec > 3600 ? "H:i:s" : "i:s", $durationSec) : '';
+    $thumbnail = "https://i.ytimg.com/vi/{$videoId}/hqdefault.jpg";
+
+    $items = [];
+    $seenQualities = [];
+
+    // Combined formats (video + audio)
+    if (!empty($ytData['formatStreams'])) {
+        foreach ($ytData['formatStreams'] as $fs) {
+            $qLabel = $fs['qualityLabel'] ?? $fs['resolution'] ?? '720p';
+            $url = $fs['url'] ?? '';
+            if ($url && !isset($seenQualities[$qLabel])) {
+                $seenQualities[$qLabel] = true;
+                $items[] = [
+                    'type' => 'video',
+                    'quality' => "$qLabel HD (MP4)",
+                    'format' => 'MP4',
+                    'size' => !empty($fs['size']) ? $fs['size'] : null,
+                    'url' => $url
+                ];
+            }
+        }
+    }
+
+    // Adaptive video formats (1080p, 720p, 480p, 360p)
+    if (!empty($ytData['adaptiveFormats'])) {
+        $qualityOrder = ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p'];
+        foreach ($qualityOrder as $targetQ) {
+            foreach ($ytData['adaptiveFormats'] as $af) {
+                $type = $af['type'] ?? $af['mimeType'] ?? '';
+                $res = $af['resolution'] ?? $af['qualityLabel'] ?? '';
+                if (str_starts_with($type, 'video/mp4') && str_starts_with($res, $targetQ)) {
+                    $key = $targetQ;
+                    if (!isset($seenQualities[$key]) && !empty($af['url'])) {
+                        $seenQualities[$key] = true;
+                        $sizeMb = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : null;
+                        $label = $targetQ === '1080p' ? '1080p Full HD (MP4)' : ($targetQ === '720p' ? '720p HD (MP4)' : "$targetQ (MP4)");
+                        $items[] = [
+                            'type' => 'video',
+                            'quality' => $label,
+                            'format' => 'MP4',
+                            'size' => $sizeMb,
+                            'url' => $af['url']
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Audio formats (M4A)
+        foreach ($ytData['adaptiveFormats'] as $af) {
+            $type = $af['type'] ?? $af['mimeType'] ?? '';
+            if (str_starts_with($type, 'audio/mp4') && !empty($af['url'])) {
+                $sizeMb = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : null;
+                $items[] = [
+                    'type' => 'audio',
+                    'quality' => 'Audio Only (M4A)',
+                    'format' => 'm4a',
+                    'size' => $sizeMb,
+                    'url' => $af['url']
+                ];
+                break;
+            }
+        }
+    }
+
+    // High quality thumbnail
+    $items[] = [
+        'type' => 'image',
+        'quality' => 'HD Thumbnail (JPG)',
+        'format' => 'JPG',
+        'url' => $thumbnail
+    ];
+
     echo json_encode([
-        'ok'       => false,
+        'ok' => true,
         'platform' => 'youtube',
-        'error'    => [
-            'code'    => 'PROVIDER_UNCONFIGURED',
-            'message' => 'YouTube Downloader is temporarily unavailable. We are integrating the backend provider. Please try again soon.'
-        ]
+        'title' => $title,
+        'thumbnail' => $thumbnail,
+        'duration' => $duration,
+        'isShorts' => (bool)$isShorts,
+        'items' => $items
     ]);
     exit;
 }
 
-// ─── 3. INSTAGRAM RESOLVER (PHASE 3 - PROVIDER ADAPTER) ─────────────────────
-// ─── 3. INSTAGRAM RESOLVER (PHASE 3 - PROVIDER ADAPTER) ─────────────────────
+// ─── 3. INSTAGRAM RESOLVER (NATIVE DIRECT SOCIAL CRAWLER) ────────────────────
 if ($platform === 'instagram') {
 
     // ── Validate Instagram URL & extract shortcode ──
     $parsedIg  = parse_url($inputUrl);
-    $igHost    = strtolower($parsedIg['host'] ?? '');
     $igPath    = rtrim($parsedIg['path'] ?? '', '/');
 
     // Supported patterns: /reel/CODE, /reels/CODE, /p/CODE, /tv/CODE
     $shortcode = null;
-    $mediaType = 'reel'; // default
+    $mediaType = 'reel';
 
     if (preg_match('#^/reel(?:s)?/([A-Za-z0-9_-]+)#', $igPath, $igm)) {
         $shortcode = $igm[1];
@@ -881,63 +1004,177 @@ if ($platform === 'instagram') {
             'platform' => 'instagram',
             'error'    => [
                 'code'    => 'INVALID_URL',
-                'message' => 'Could not extract a valid Instagram shortcode. Supported: /reel/, /reels/, /p/, /tv/ URLs only.'
+                'message' => 'Could not extract a valid Instagram shortcode. Supported formats: /reel/, /reels/, /p/, /tv/ URLs.'
             ]
         ]);
         exit;
     }
 
-    // ── Reject private/login-required upfront message ──
-    // (Actual check happens at provider level; we give a clean stub here)
-
-    // ── Forward to provider if configured ──
+    // Forward to custom provider if configured
     $providerUrl = getenv('DOWNLOADER_INSTAGRAM_PROVIDER') ?: '';
     if (!empty($providerUrl)) {
         $pvHost = strtolower(parse_url($providerUrl, PHP_URL_HOST) ?? '');
-        if (isPrivateOrReservedIp($pvHost)) {
-            http_response_code(500);
-            echo json_encode(['ok' => false, 'platform' => 'instagram', 'error' => ['code' => 'PROVIDER_CONFIG_ERROR', 'message' => 'Invalid provider URL configured.']]);
-            exit;
+        if (!isPrivateOrReservedIp($pvHost)) {
+            $ch = curl_init($providerUrl);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                'url'        => $inputUrl,
+                'shortcode'  => $shortcode,
+                'media_type' => $mediaType
+            ]));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            $resp     = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($resp !== false && $httpCode >= 200 && $httpCode < 300) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo $resp;
+                exit;
+            }
         }
-        $ch = curl_init($providerUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-            'url'        => $inputUrl,
-            'shortcode'  => $shortcode,
-            'media_type' => $mediaType
-        ]));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
-        $resp     = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+    }
 
-        if ($resp !== false && $httpCode >= 200 && $httpCode < 300) {
-            header('Content-Type: application/json; charset=utf-8');
-            echo $resp;
-            exit;
-        }
+    // Native resolution using FacebookExternalHit crawler emulation
+    $fetchUrl = "https://www.instagram.com/reel/{$shortcode}/";
+    $ch = curl_init($fetchUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)');
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language: en-US,en;q=0.9'
+    ]);
+    $html = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
 
-        $errCode = ($httpCode === 503 || $httpCode === 0) ? 'PROVIDER_UNAVAILABLE' : 'PROVIDER_ERROR';
-        $errMsg  = ($httpCode === 503 || $httpCode === 0)
-            ? 'Instagram provider service is temporarily unavailable.'
-            : 'The Instagram provider service returned an error. Please try again.';
-        http_response_code(502);
-        echo json_encode(['ok' => false, 'platform' => 'instagram', 'error' => ['code' => $errCode, 'message' => $errMsg]]);
+    if ($httpCode < 200 || $httpCode >= 400 || empty($html)) {
+        http_response_code(404);
+        echo json_encode([
+            'ok' => false,
+            'platform' => 'instagram',
+            'error' => [
+                'code' => 'NOT_FOUND',
+                'message' => 'Could not load this Instagram post. The account or reel may be private or deleted.'
+            ]
+        ]);
         exit;
     }
 
-    // ── No provider configured — clean unavailable state ──
-    http_response_code(503);
+    // Check if redirected to login page without media
+    if (str_contains($html, 'login') && !str_contains($html, 'og:image')) {
+        http_response_code(403);
+        echo json_encode([
+            'ok' => false,
+            'platform' => 'instagram',
+            'error' => [
+                'code' => 'PRIVATE_CONTENT',
+                'message' => 'This reel is from a private account or requires an Instagram login to view.'
+            ]
+        ]);
+        exit;
+    }
+
+    // Extract Title / Caption
+    $title = '';
+    if (preg_match('/<meta[^>]+(?:property|name)=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $tm)) {
+        $title = $tm[1];
+    } elseif (preg_match('/<title>([^<]+)<\/title>/i', $html, $tm)) {
+        $title = $tm[1];
+    }
+    $title = html_entity_decode(trim(preg_replace('/\s*[\-\|]\s*Instagram.*$/i', '', $title)), ENT_QUOTES, 'UTF-8');
+    if (!$title) {
+        $title = "Instagram Reel ({$shortcode})";
+    }
+
+    // Extract Cover Thumbnail
+    $thumbnail = '';
+    if (preg_match('/<meta[^>]+(?:property|name)=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $im)) {
+        $thumbnail = html_entity_decode($im[1], ENT_QUOTES, 'UTF-8');
+    }
+
+    // Extract Video MP4
+    $videoUrl = '';
+    $videoSize = null;
+    $videoCandidates = [];
+    if (preg_match_all('/https?:\\\\?\/\\\\?[^"\'<>\s]+\.mp4[^"\'<>\s]*/i', $html, $allMp4)) {
+        foreach ($allMp4[0] as $raw) {
+            $cleaned = stripslashes($raw);
+            $cleaned = html_entity_decode($cleaned, ENT_QUOTES, 'UTF-8');
+            $cleaned = str_replace('\u0026', '&', $cleaned);
+            $cleaned = preg_replace('/(\\\\?u003c|<\/)[a-zA-Z0-9_\-]+.*$/i', '', $cleaned);
+            if (str_contains($cleaned, 'progressive') || str_contains($cleaned, 'xpv_progressive')) {
+                array_unshift($videoCandidates, $cleaned);
+            } else {
+                $videoCandidates[] = $cleaned;
+            }
+        }
+        $videoCandidates = array_values(array_unique(array_filter($videoCandidates)));
+
+        foreach ($videoCandidates as $cand) {
+            $head = curl_init($cand);
+            curl_setopt($head, CURLOPT_NOBODY, true);
+            curl_setopt($head, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($head, CURLOPT_TIMEOUT, 4);
+            curl_setopt($head, CURLOPT_USERAGENT, 'Mozilla/5.0');
+            curl_exec($head);
+            $hCode = curl_getinfo($head, CURLINFO_HTTP_CODE);
+            $hSize = curl_getinfo($head, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+            curl_close($head);
+            if ($hCode >= 200 && $hCode < 400 && $hSize > 100000) {
+                $videoUrl = $cand;
+                $videoSize = round($hSize / (1024 * 1024), 1) . ' MB';
+                break;
+            }
+        }
+
+        if (empty($videoUrl) && !empty($videoCandidates)) {
+            $videoUrl = $videoCandidates[0];
+        }
+    }
+
+    // Build items list (Video first, then Cover)
+    $items = [];
+    if (!empty($videoUrl)) {
+        $items[] = [
+            'type' => 'video',
+            'quality' => 'HD Video (MP4)',
+            'format' => 'MP4',
+            'size' => $videoSize,
+            'url' => $videoUrl
+        ];
+    }
+    if (!empty($thumbnail)) {
+        $items[] = [
+            'type' => 'image',
+            'quality' => 'Cover Thumbnail (JPG)',
+            'format' => 'JPG',
+            'url' => $thumbnail
+        ];
+    }
+
+    if (empty($items)) {
+        http_response_code(404);
+        echo json_encode([
+            'ok' => false,
+            'platform' => 'instagram',
+            'error' => [
+                'code' => 'NOT_FOUND',
+                'message' => 'No downloadable video or photo found for this Instagram link. The post may be private or deleted.'
+            ]
+        ]);
+        exit;
+    }
+
     echo json_encode([
-        'ok'       => false,
+        'ok' => true,
         'platform' => 'instagram',
-        'error'    => [
-            'code'    => 'PROVIDER_UNCONFIGURED',
-            'message' => 'Instagram Reels Downloader is temporarily unavailable. We are integrating the backend provider. Please try again soon.'
-        ]
+        'title' => $title,
+        'thumbnail' => $thumbnail,
+        'items' => $items
     ]);
     exit;
 }
