@@ -195,48 +195,39 @@ export default function YouTubeVideoDownloader() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webAppSchema) }} />
 
       {/* ── TOOL INPUT CARD ── */}
-      <div className="card" style={{ padding: 'clamp(1.25rem, 3vw, 2rem)', marginBottom: '2rem' }}>
+      <div className="downloader-hero-card">
         <form onSubmit={handleFetchMedia}>
-          <div style={{ marginBottom: '1.25rem' }}>
+          <div>
             <label
               htmlFor="yt-url-input"
-              style={{ display: 'block', fontWeight: 600, color: 'var(--text-color)', marginBottom: '0.5rem', fontSize: '1rem' }}
+              className="downloader-label"
             >
               Paste YouTube Video or Shorts Link
             </label>
-            <div className="pinterest-input-row">
-              <div className="pinterest-input-wrapper">
+            <div className="downloader-input-row">
+              <div className="downloader-input-wrapper">
                 <input
                   id="yt-url-input"
                   type="url"
-                  className="input"
+                  className="downloader-input"
                   value={inputUrl}
                   onChange={e => setInputUrl(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/... or /shorts/..."
-                  style={{ width: '100%', height: '50px', fontSize: '0.95rem', paddingRight: '90px' }}
+                  placeholder="Paste YouTube or Shorts URL (e.g. youtube.com/shorts/...)"
                   required
                 />
                 <button
                   type="button"
                   onClick={handlePaste}
                   title="Paste from clipboard"
-                  style={{
-                    position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
-                    background: pastedFeedback ? 'var(--success-color, #22c55e)' : 'var(--primary-color, #6366f1)',
-                    color: '#fff', border: 'none', borderRadius: '8px',
-                    padding: '6px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                    gap: '5px', fontSize: '0.82rem', fontWeight: 600, transition: 'background 0.2s',
-                    whiteSpace: 'nowrap'
-                  }}
+                  className={`downloader-paste-btn ${pastedFeedback ? 'active' : 'idle'}`}
                 >
                   {pastedFeedback ? <><Check size={14} /> Pasted</> : <><Clipboard size={14} /> Paste</>}
                 </button>
               </div>
               <button
                 type="submit"
-                className="btn btn-primary pinterest-submit-btn"
+                className="btn btn-primary downloader-submit-btn"
                 disabled={isLoading}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '50px', whiteSpace: 'nowrap' }}
               >
                 {isLoading
                   ? <><RefreshCw size={16} className="spin-icon" /> Fetching…</>
@@ -251,7 +242,7 @@ export default function YouTubeVideoDownloader() {
               role="alert"
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: '10px',
-                padding: '12px 16px', borderRadius: '10px', marginTop: '10px',
+                padding: '12px 16px', borderRadius: '12px', marginTop: '14px',
                 background: errorCode === 'PROVIDER_UNCONFIGURED'
                   ? 'rgba(234,179,8,0.08)' : 'rgba(239,68,68,0.08)',
                 border: `1px solid ${errorCode === 'PROVIDER_UNCONFIGURED' ? '#fbbf24' : '#fca5a5'}`,
@@ -270,9 +261,9 @@ export default function YouTubeVideoDownloader() {
           {isLoading && (
             <div style={{ marginTop: '1.5rem' }}>
               <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                <div style={{ width: 200, height: 112, background: '#e2e8f0', borderRadius: 10, animation: 'pulse 1.5s infinite' }} />
+                <div style={{ width: 220, height: 124, background: '#e2e8f0', borderRadius: 12, animation: 'pulse 1.5s infinite' }} />
                 <div style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ height: 20, background: '#e2e8f0', borderRadius: 6, marginBottom: 10, animation: 'pulse 1.5s infinite' }} />
+                  <div style={{ height: 22, background: '#e2e8f0', borderRadius: 6, marginBottom: 10, animation: 'pulse 1.5s infinite' }} />
                   <div style={{ height: 14, background: '#e2e8f0', borderRadius: 6, width: '70%', animation: 'pulse 1.5s infinite' }} />
                   <div style={{ height: 14, background: '#e2e8f0', borderRadius: 6, width: '50%', marginTop: 8, animation: 'pulse 1.5s infinite' }} />
                 </div>
@@ -283,53 +274,51 @@ export default function YouTubeVideoDownloader() {
 
         {/* ── RESULT CARD ── */}
         {result && result.ok && (
-          <div style={{ marginTop: '1.75rem' }}>
+          <div className="downloader-result-box">
             {/* Video info row */}
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+            <div className="downloader-media-header">
               {result.thumbnail && (
-                <div style={{ flexShrink: 0 }}>
+                <div className="downloader-thumb-wrap" style={{ width: 'clamp(160px, 32%, 240px)' }}>
                   <img
                     src={result.thumbnail}
                     alt={result.title || 'YouTube video thumbnail'}
                     style={{
-                      width: 'clamp(140px, 30%, 240px)',
+                      width: '100%',
                       aspectRatio: '16/9',
                       objectFit: 'cover',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-color, #e2e8f0)',
                       display: 'block'
                     }}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 </div>
               )}
-              <div style={{ flex: 1, minWidth: 160 }}>
+              <div className="downloader-meta-box">
                 {result.title && (
-                  <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-color)', margin: '0 0 8px', lineHeight: 1.4 }}>
+                  <h3 className="downloader-video-title">
                     {result.title}
-                  </p>
+                  </h3>
                 )}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                <div className="downloader-badges-row">
                   {isShorts(inputUrl) && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fef2f2', color: '#dc2626', padding: '3px 10px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 600 }}>
+                    <span className="downloader-badge-pill" style={{ background: '#fef2f2', color: '#dc2626' }}>
                       <Film size={12} /> Shorts
                     </span>
                   )}
                   {result.duration && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--primary-bg, #eef2ff)', color: 'var(--primary-color, #6366f1)', padding: '3px 10px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 600 }}>
+                    <span className="downloader-badge-pill" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#4f46e5' }}>
                       <Clock size={12} /> {result.duration}
                     </span>
                   )}
                   {videoItems.length > 0 && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f0fdf4', color: '#16a34a', padding: '3px 10px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 600 }}>
-                      <Eye size={12} /> {videoItems.length} quality option{videoItems.length > 1 ? 's' : ''}
+                    <span className="downloader-badge-pill" style={{ background: '#f0fdf4', color: '#16a34a' }}>
+                      <Eye size={12} /> {videoItems.length} quality options
                     </span>
                   )}
                 </div>
                 {/* Video ID badge */}
                 {extractVideoId(inputUrl) && (
-                  <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>
-                    Video ID: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>{extractVideoId(inputUrl)}</code>
+                  <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '4px 0 0' }}>
+                    Video ID: <code style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 6, color: '#475569' }}>{extractVideoId(inputUrl)}</code>
                   </p>
                 )}
               </div>
@@ -337,11 +326,11 @@ export default function YouTubeVideoDownloader() {
 
             {/* Quality selection — Video */}
             {videoItems.length > 0 && (
-              <div style={{ marginBottom: '1.25rem' }}>
-                <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-color)', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Film size={15} /> Video Quality
+              <div className="downloader-quality-section">
+                <p className="downloader-section-title">
+                  <Film size={16} /> Available Video Qualities
                 </p>
-                <div className="pinterest-result-grid" style={{ gap: '10px' }}>
+                <div className="downloader-quality-grid">
                   {videoItems.map((item, idx) => {
                     const isSelected = selectedQuality === item.quality;
                     const isDownloading = downloadingUrl === item.url;
@@ -349,37 +338,27 @@ export default function YouTubeVideoDownloader() {
                       <div
                         key={idx}
                         onClick={() => setSelectedQuality(item.quality)}
-                        style={{
-                          border: `2px solid ${isSelected ? 'var(--primary-color, #6366f1)' : 'var(--border-color, #e2e8f0)'}`,
-                          borderRadius: '10px',
-                          padding: '12px 14px',
-                          cursor: 'pointer',
-                          background: isSelected ? 'var(--primary-bg, #eef2ff)' : 'var(--card-bg, #fff)',
-                          transition: 'all 0.15s',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '6px',
-                          minWidth: 0,
-                        }}
+                        className={`downloader-quality-card ${isSelected ? 'selected' : ''}`}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: isSelected ? 'var(--primary-color, #6366f1)' : 'var(--text-color)' }}>
-                            {item.quality}
-                          </span>
-                          <span style={{ fontSize: '0.75rem', background: '#f1f5f9', padding: '2px 7px', borderRadius: 12, color: '#475569', textTransform: 'uppercase', fontWeight: 600 }}>
-                            {item.format}
-                          </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="downloader-quality-header">
+                            <span className="downloader-quality-name">
+                              {item.quality}
+                            </span>
+                            <span className="downloader-format-tag">
+                              {item.format}
+                            </span>
+                          </div>
+                          {item.size && <div className="downloader-quality-size">{item.size}</div>}
                         </div>
-                        {item.size && <span style={{ fontSize: '0.78rem', color: '#64748b' }}>{item.size}</span>}
                         <button
                           type="button"
-                          className="btn btn-primary"
+                          className="btn btn-primary downloader-download-btn"
                           onClick={e => { e.stopPropagation(); handleDownload(item); }}
                           disabled={isDownloading}
-                          style={{ marginTop: '4px', height: '34px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                         >
                           {isDownloading
-                            ? <><RefreshCw size={13} className="spin-icon" /> {downloadStatus || 'Downloading…'}</>
+                            ? <><RefreshCw size={13} className="spin-icon" /> {downloadStatus || 'Saving…'}</>
                             : <><Download size={13} /> Download</>}
                         </button>
                       </div>
@@ -391,42 +370,38 @@ export default function YouTubeVideoDownloader() {
 
             {/* Audio items */}
             {audioItems.length > 0 && (
-              <div style={{ marginBottom: '0.5rem' }}>
-                <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-color)', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Music size={15} /> Audio Only
+              <div style={{ marginTop: '1.25rem' }}>
+                <p className="downloader-section-title">
+                  <Music size={16} /> Audio Track
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                <div className="downloader-audio-grid">
                   {audioItems.map((item, idx) => {
                     const isDownloading = downloadingUrl === item.url;
                     return (
                       <div
                         key={idx}
-                        style={{
-                          border: '1px solid var(--border-color, #e2e8f0)',
-                          borderRadius: '10px',
-                          padding: '12px 16px',
-                          background: 'var(--card-bg, #fff)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          flexWrap: 'wrap',
-                        }}
+                        className="downloader-audio-card"
                       >
-                        <Music size={16} color="#6366f1" />
-                        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-color)' }}>{item.quality}</span>
-                        <span style={{ fontSize: '0.75rem', background: '#f1f5f9', padding: '2px 7px', borderRadius: 12, color: '#475569', textTransform: 'uppercase', fontWeight: 600 }}>
-                          {item.format}
-                        </span>
-                        {item.size && <span style={{ fontSize: '0.78rem', color: '#64748b' }}>{item.size}</span>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(99, 102, 241, 0.1)', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Music size={16} />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>{item.quality}</div>
+                            <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                              Format: <strong style={{ textTransform: 'uppercase' }}>{item.format}</strong> {item.size ? `• ${item.size}` : ''}
+                            </div>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           className="btn btn-secondary"
                           onClick={() => handleDownload(item)}
                           disabled={isDownloading}
-                          style={{ height: '34px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+                          style={{ height: '36px', fontSize: '0.82rem', padding: '0 14px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}
                         >
                           {isDownloading
-                            ? <><RefreshCw size={13} className="spin-icon" /> {downloadStatus || 'Downloading…'}</>
+                            ? <><RefreshCw size={13} className="spin-icon" /> {downloadStatus || 'Saving…'}</>
                             : <><Download size={13} /> Download {item.format.toUpperCase()}</>}
                         </button>
                       </div>
@@ -438,7 +413,7 @@ export default function YouTubeVideoDownloader() {
 
             {/* No items fallback */}
             {videoItems.length === 0 && audioItems.length === 0 && (
-              <div style={{ padding: '16px', background: 'rgba(234,179,8,0.08)', borderRadius: '10px', border: '1px solid #fbbf24', color: '#92400e', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ padding: '16px', background: 'rgba(234,179,8,0.08)', borderRadius: '12px', border: '1px solid #fbbf24', color: '#92400e', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Info size={16} /> No downloadable streams found for this video.
               </div>
             )}
@@ -447,19 +422,17 @@ export default function YouTubeVideoDownloader() {
       </div>
 
       {/* ── FEATURES ROW ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+      <div className="downloader-features-grid">
         {[
-          { icon: <Film size={22} color="#6366f1" />, title: 'HD Quality', desc: 'Up to 1080p MP4' },
-          { icon: <Music size={22} color="#6366f1" />, title: 'Audio Only', desc: 'MP3 & M4A formats' },
-          { icon: <Sparkles size={22} color="#6366f1" />, title: 'Shorts Support', desc: 'All Shorts URLs' },
-          { icon: <ShieldCheck size={22} color="#6366f1" />, title: 'Public Only', desc: 'No login required' },
+          { icon: <Film size={20} />, title: 'HD Quality', desc: 'Up to 1080p MP4' },
+          { icon: <Music size={20} />, title: 'Audio Only', desc: 'MP3 & M4A tracks' },
+          { icon: <Sparkles size={20} />, title: 'Shorts Support', desc: 'Fast shorts extraction' },
+          { icon: <ShieldCheck size={20} />, title: 'Public & Safe', desc: 'No login required' },
         ].map((f, i) => (
-          <div key={i} className="card" style={{ padding: '1.1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ flexShrink: 0 }}>{f.icon}</div>
-            <div>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-color)' }}>{f.title}</p>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>{f.desc}</p>
-            </div>
+          <div key={i} className="downloader-feature-card">
+            <div className="downloader-feature-icon-wrap">{f.icon}</div>
+            <p className="downloader-feature-title">{f.title}</p>
+            <p className="downloader-feature-desc">{f.desc}</p>
           </div>
         ))}
       </div>

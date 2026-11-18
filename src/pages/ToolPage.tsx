@@ -1,6 +1,6 @@
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
-import { getToolBySlug, getCategoryInfo, getToolsByCategory, categories } from '../data/toolRegistry';
+import { getToolBySlug, getToolById, getCategoryInfo, categories } from '../data/toolRegistry';
 import type { Tool } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
 import { lazy, Suspense, useEffect } from 'react';
@@ -117,7 +117,7 @@ export default function ToolPage() {
   const category = getCategoryInfo(tool.category);
   const ToolComponent = slug ? toolComponents[slug] : undefined;
   const relatedTools = tool.relatedTools
-    ?.map(id => getToolsByCategory(tool.category).find(t => t.id === id))
+    ?.map(id => getToolById(id))
     .filter(Boolean) as Tool[] | undefined;
 
   return (
@@ -194,7 +194,7 @@ export default function ToolPage() {
         {/* Related tools */}
         {relatedTools && relatedTools.length > 0 && (
           <section className="related-tools">
-            <h2 className="section-title" style={{ fontSize: '1.35rem', marginBottom: '1.25rem' }}>Related tools</h2>
+            <h2 className="related-tools-title">Related tools</h2>
             <div className="related-tools-grid">
               {relatedTools.map(rt => {
                 const Icon = getIconComponent(rt.icon);

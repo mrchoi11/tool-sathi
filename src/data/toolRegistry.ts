@@ -1190,6 +1190,10 @@ export function getToolBySlug(slug: string): Tool | undefined {
   return tools.find(t => t.slug === slug);
 }
 
+export function getToolById(id: string): Tool | undefined {
+  return tools.find(t => t.id === id);
+}
+
 export function getToolsByCategory(category: ToolCategory): Tool[] {
   return tools.filter(t => t.category === category);
 }

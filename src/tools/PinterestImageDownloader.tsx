@@ -165,58 +165,39 @@ export default function PinterestImageDownloader() {
       />
 
       {/* ── TOOL INPUT CARD ── */}
-      <div className="card" style={{ padding: 'clamp(1.25rem, 3vw, 2rem)', marginBottom: '2rem' }}>
+      <div className="downloader-hero-card">
         <form onSubmit={handleFetchMedia}>
-          <div style={{ marginBottom: '1.25rem' }}>
+          <div>
             <label
               htmlFor="pinterest-url-input"
-              style={{ display: 'block', fontWeight: 600, color: 'var(--text-color)', marginBottom: '0.5rem', fontSize: '1rem' }}
+              className="downloader-label"
             >
               Paste Pinterest Pin Link
             </label>
-            <div className="pinterest-input-row">
-              <div className="pinterest-input-wrapper">
+            <div className="downloader-input-row">
+              <div className="downloader-input-wrapper">
                 <input
                   id="pinterest-url-input"
                   type="url"
-                  className="input"
+                  className="downloader-input"
                   value={inputUrl}
                   onChange={(e) => setInputUrl(e.target.value)}
-                  placeholder="https://www.pinterest.com/pin/123456789/ or https://pin.it/abc123"
-                  style={{ width: '100%', height: '50px', fontSize: '0.95rem', paddingRight: '90px' }}
+                  placeholder="Paste Pinterest link (e.g. pinterest.com/pin/... or pin.it/...)"
                   required
                 />
                 <button
                   type="button"
                   onClick={handlePaste}
-                  style={{
-                    position: 'absolute',
-                    right: '8px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'rgba(99, 102, 241, 0.1)',
-                    border: '1px solid rgba(99, 102, 241, 0.25)',
-                    color: 'var(--primary-color, #4f46e5)',
-                    borderRadius: '8px',
-                    padding: '6px 12px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    cursor: 'pointer',
-                    minHeight: '34px'
-                  }}
+                  className={`downloader-paste-btn ${pastedFeedback ? 'active' : 'idle'}`}
                   title="Paste from clipboard"
                 >
-                  {pastedFeedback ? <Check size={14} color="#10b981" /> : <Clipboard size={14} />}
-                  <span>{pastedFeedback ? 'Pasted!' : 'Paste'}</span>
+                  {pastedFeedback ? <><Check size={14} color="#fff" /> Pasted</> : <><Clipboard size={14} /> Paste</>}
                 </button>
               </div>
 
               <button
                 type="submit"
-                className="btn btn-primary pinterest-submit-btn"
+                className="btn btn-primary downloader-submit-btn"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -227,7 +208,7 @@ export default function PinterestImageDownloader() {
                 ) : (
                   <>
                     <Download size={18} />
-                    <span>Fetch Image</span>
+                    <span>Fetch Media</span>
                   </>
                 )}
               </button>
@@ -378,30 +359,18 @@ export default function PinterestImageDownloader() {
                     result.items.map((item, idx) => (
                       <div
                         key={idx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          background: 'rgba(99, 102, 241, 0.04)',
-                          border: '1px solid rgba(99, 102, 241, 0.12)',
-                          borderRadius: '10px',
-                          padding: '12px 16px',
-                          flexWrap: 'wrap',
-                          gap: '10px'
-                        }}
+                        className="downloader-audio-card"
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          {item.type === 'video' ? (
-                            <Film size={20} color="#6366f1" />
-                          ) : (
-                            <ImageIcon size={20} color="#06b6d4" />
-                          )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ width: 38, height: 38, borderRadius: 10, background: item.type === 'video' ? 'rgba(99, 102, 241, 0.1)' : 'rgba(6, 182, 212, 0.1)', color: item.type === 'video' ? '#6366f1' : '#06b6d4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {item.type === 'video' ? <Film size={18} /> : <ImageIcon size={18} />}
+                          </div>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-color)' }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-color)' }}>
                               {item.quality}
                             </div>
                             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                              Format: <strong>{item.format}</strong> {item.type === 'video' ? '• Video Stream' : '• Still Image'}
+                              Format: <strong>{item.format}</strong> {item.type === 'video' ? '• Video Stream' : '• High-Res Image'}
                             </div>
                           </div>
                         </div>
@@ -412,11 +381,14 @@ export default function PinterestImageDownloader() {
                           disabled={downloadingUrl === item.url}
                           onClick={() => handleDownload(item, idx)}
                           style={{
-                            minHeight: '40px',
+                            minHeight: '38px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px',
-                            fontWeight: 600
+                            fontWeight: 600,
+                            borderRadius: '10px',
+                            padding: '0 16px',
+                            whiteSpace: 'nowrap'
                           }}
                         >
                           {downloadingUrl === item.url ? (
@@ -438,10 +410,11 @@ export default function PinterestImageDownloader() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
+                    style={{ borderRadius: '10px', height: '36px' }}
                     onClick={() => {
                       setResult(null);
                       setInputUrl('');
@@ -454,7 +427,7 @@ export default function PinterestImageDownloader() {
                     target="_blank"
                     rel="noreferrer"
                     className="btn btn-secondary btn-sm"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '10px', height: '36px' }}
                   >
                     <span>View on Pinterest</span>
                     <ExternalLink size={14} />
