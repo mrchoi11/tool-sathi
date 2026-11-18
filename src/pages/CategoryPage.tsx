@@ -40,7 +40,7 @@ export default function CategoryPage() {
 
         <div className="all-tools-grid">
           {activeTools.map(tool => {
-            const Icon = getIconComponent(tool.icon);
+            const Icon = getIconComponent(tool.icon, tool.id);
             return (
               <Link key={tool.id} to={`/tools/${tool.slug}`} className="tool-card">
                 <div className="tool-card-icon-wrap" style={{ background: `${category.color}15` }}>

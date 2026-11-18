@@ -66,6 +66,14 @@
   border: 1px solid rgba(255, 255, 255, 0.9);
 }
 
+.tool-page-icon svg {
+  width: 36px;
+  height: 36px;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .tool-page-title {
   font-size: 2.25rem;
   font-weight: 850;
@@ -290,10 +298,26 @@
     gap: 0.85rem;
   }
 
+  .tool-page-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .tool-page-icon svg {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
   .tool-card-icon-wrap {
     width: 44px;
     height: 44px;
     border-radius: 12px;
+  }
+
+  .tool-card-icon-wrap svg {
+    width: 24px !important;
+    height: 24px !important;
   }
 
   .tool-card-name {

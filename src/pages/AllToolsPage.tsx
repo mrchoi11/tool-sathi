@@ -91,7 +91,7 @@ export default function AllToolsPage() {
         ) : (
           <div className="all-tools-grid">
             {filteredTools.map(tool => {
-              const Icon = getIconComponent(tool.icon);
+              const Icon = getIconComponent(tool.icon, tool.id);
               const cat = categories.find(c => c.id === tool.category);
               const catColor = cat?.color || '#4f46e5';
 

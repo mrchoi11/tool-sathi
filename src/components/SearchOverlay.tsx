@@ -85,7 +85,7 @@ export default function SearchOverlay({ onClose }: SearchOverlayProps) {
             </div>
           )}
           {results.map((tool, index) => {
-            const Icon = getIconComponent(tool.icon);
+            const Icon = getIconComponent(tool.icon, tool.id);
             return (
               <button
                 key={tool.id}

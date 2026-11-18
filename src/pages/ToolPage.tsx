@@ -143,7 +143,7 @@ export default function ToolPage() {
           </Link>
           <div className="tool-page-title-row">
             <div className="tool-page-icon" style={{ background: `${category?.color || '#4f46e5'}18` }}>
-              {(() => { const Icon = getIconComponent(tool.icon); return <Icon size={32} style={{ color: category?.color || '#4f46e5' }} />; })()}
+              {(() => { const Icon = getIconComponent(tool.icon, tool.id); return <Icon size={32} style={{ color: category?.color || '#4f46e5' }} />; })()}
             </div>
             <div>
               <h1 className="tool-page-title">{tool.name}</h1>
@@ -197,7 +197,7 @@ export default function ToolPage() {
             <h2 className="related-tools-title">Related tools</h2>
             <div className="related-tools-grid">
               {relatedTools.map(rt => {
-                const Icon = getIconComponent(rt.icon);
+                const Icon = getIconComponent(rt.icon, rt.id);
                 const cat = categories.find(c => c.id === rt.category);
                 const color = cat?.color || '#4f46e5';
 

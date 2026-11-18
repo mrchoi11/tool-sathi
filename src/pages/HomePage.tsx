@@ -129,7 +129,7 @@ function ToolsCarousel3D() {
       <div className="carousel3d-stage">
         {featured.map((tool, i) => {
           const pos = getPos(i);
-          const Icon = getIconComponent(tool.icon);
+          const Icon = getIconComponent(tool.icon, tool.id);
           const cat = categories.find(c => c.id === tool.category);
           const color = cat?.color || '#6366f1';
           return (
@@ -672,12 +672,12 @@ export default function HomePage() {
                 <div className="laptop-screen-inner">
                   <div className="laptop-preview-grid">
                     {activeTools.slice(0, 9).map(tool => {
-                      const Icon = getIconComponent(tool.icon);
+                      const Icon = getIconComponent(tool.icon, tool.id);
                       const cat = categories.find(c => c.id === tool.category);
                       const color = cat?.color || '#6366f1';
                       return (
                         <div key={tool.id} className="laptop-preview-card">
-                          <Icon size={16} style={{ color }} />
+                          <Icon size={22} style={{ color }} />
                           <span>{tool.name.split(' ').slice(0, 2).join(' ')}</span>
                         </div>
                       );
