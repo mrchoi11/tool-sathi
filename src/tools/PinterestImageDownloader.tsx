@@ -71,11 +71,12 @@ export default function PinterestImageDownloader() {
   const handleDownload = async (item: DownloadItem, index: number) => {
     setDownloadingUrl(item.url);
     const ext = item.format.toLowerCase();
-    const safeTitle = (result?.title || 'pinterest_image')
+    const safeTitle = (result?.title || (item.type === 'video' ? 'pinterest_video' : 'pinterest_image'))
       .toLowerCase()
       .replace(/[^a-z0-9_-]+/g, '_')
       .substring(0, 40);
-    const filename = `${safeTitle}_${item.quality.toLowerCase().includes('original') ? 'original' : 'hd'}.${ext}`;
+    const suffix = item.type === 'video' ? 'video' : (item.quality.toLowerCase().includes('original') ? 'original' : 'hd');
+    const filename = `${safeTitle}_${suffix}.${ext}`;
 
     await downloadMediaFile(item.url, filename, (status) => {
       setDownloadStatus(status);
@@ -341,7 +342,7 @@ export default function PinterestImageDownloader() {
                   textTransform: 'uppercase',
                   marginBottom: '10px'
                 }}>
-                  Pinterest Pin
+                  {result.isVideoPin ? 'Pinterest Video Pin' : 'Pinterest Pin'}
                 </span>
 
                 <h3 style={{ margin: '0 0 12px', fontSize: '1.25rem', color: 'var(--text-color)', lineHeight: 1.4 }}>

@@ -221,14 +221,14 @@ function isAllowedDomain($url, $context = 'resolve') {
 
     // Platform input domains allowed for resolution
     $platformDomains = [
-        'pinterest.com', 'pin.it', 'www.pinterest.com', 'in.pinterest.com',
+        'pinterest.com', 'pin.it', 'www.pinterest.com', 'in.pinterest.com', 'api.pinterest.com',
         'youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be',
         'instagram.com', 'www.instagram.com'
     ];
 
     // CDN domains strictly allowed for file streaming/downloading
     $cdnDomains = [
-        'pinimg.com', 'i.pinimg.com', 'v.pinimg.com', 's.pinimg.com',
+        'pinimg.com', 'i.pinimg.com', 'v.pinimg.com', 'v1.pinimg.com', 'v2.pinimg.com', 's.pinimg.com',
         'googlevideo.com', 'ytimg.com', 'i.ytimg.com',
         'cdninstagram.com', 'fbcdn.net'
     ];
@@ -364,7 +364,7 @@ if ($action === 'stream') {
     }
 
     // Determine max file size (30MB for images, 150MB for videos)
-    $isMediaVideo = str_contains($inputUrl, '.mp4') || str_contains($inputUrl, 'v.pinimg.com') || str_contains($inputUrl, 'googlevideo');
+    $isMediaVideo = str_contains($inputUrl, '.mp4') || preg_match('/v[0-9]*\.pinimg\.com/i', $inputUrl) || str_contains($inputUrl, 'googlevideo');
     $MAX_ALLOWED_BYTES = $isMediaVideo ? 150 * 1024 * 1024 : 30 * 1024 * 1024;
 
     // Check HEAD content-length before streaming
@@ -375,7 +375,10 @@ if ($action === 'stream') {
     curl_setopt($head, CURLOPT_TIMEOUT, 6);
     curl_setopt($head, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
     curl_setopt($head, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-    curl_setopt($head, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36');
+    curl_setopt($head, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
+    if (preg_match('/pinimg\.com/i', $inputUrl)) {
+        curl_setopt($head, CURLOPT_REFERER, 'https://www.pinterest.com/');
+    }
     curl_exec($head);
     $contentLength = curl_getinfo($head, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
     $mimeType = curl_getinfo($head, CURLINFO_CONTENT_TYPE);
@@ -396,7 +399,10 @@ if ($action === 'stream') {
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
     curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
     curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36');
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
+    if (preg_match('/pinimg\.com/i', $inputUrl)) {
+        curl_setopt($ch, CURLOPT_REFERER, 'https://www.pinterest.com/');
+    }
 
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     if ($mimeType) {
@@ -431,20 +437,45 @@ if ($action === 'stream') {
     exit;
 }
 
-// Fast HEAD check helper for verifying media assets
-function verifyMediaHead(string $url, int $timeout = 3): array {
+// Fast HEAD check helper for verifying media assets (with Referer & Range fallback)
+function verifyMediaHead(string $url, int $timeout = 4): array {
     if (empty($url)) return ['ok' => false, 'code' => 0, 'type' => ''];
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_NOBODY, true);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_MAXREDIRS, 2);
+    curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
     curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
+    if (preg_match('/pinimg\.com/i', $url)) {
+        curl_setopt($ch, CURLOPT_REFERER, 'https://www.pinterest.com/');
+    }
     curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $type = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: '';
     curl_close($ch);
+
+    // If HEAD failed with 403, 405 or non-200, fallback to Range 0-100 GET
+    if ($code < 200 || $code >= 400) {
+        $ch2 = curl_init($url);
+        curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch2, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch2, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch2, CURLOPT_MAXREDIRS, 3);
+        curl_setopt($ch2, CURLOPT_RANGE, '0-100');
+        curl_setopt($ch2, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
+        if (preg_match('/pinimg\.com/i', $url)) {
+            curl_setopt($ch2, CURLOPT_REFERER, 'https://www.pinterest.com/');
+        }
+        curl_exec($ch2);
+        $code2 = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+        $type2 = curl_getinfo($ch2, CURLINFO_CONTENT_TYPE) ?: $type;
+        curl_close($ch2);
+        if ($code2 >= 200 && $code2 < 400) {
+            $code = $code2;
+            $type = $type2;
+        }
+    }
     return ['ok' => ($code >= 200 && $code < 400), 'code' => $code, 'type' => $type];
 }
 
@@ -563,36 +594,83 @@ if ($platform === 'pinterest') {
         $imgUrl = '';
     }
 
-    // Check if this pin is a video pin (Idea Pin, Story Pin, or Video Pin)
+    // Check if this pin is a video pin (various flags)
     $isVideoPin = (
         preg_match('/"isVideo":\s*true/i', $html) ||
+        preg_match('/"video_list"/i', $html) ||
         preg_match('/<meta[^>]+property=["\']og:type["\'][^>]+content=["\']video/i', $html) ||
         preg_match('/<meta[^>]+content=["\']video[^"\']*["\'][^>]+property=["\']og:type["\']/i', $html) ||
-        preg_match('/"digitalMediaSourceType":\s*"VIDEO"/i', $html)
+        preg_match('/"digitalMediaSourceType":\s*"VIDEO"/i', $html) ||
+        preg_match('/v[0-9]*\.pinimg\.com\\\\?\/videos/i', $html)
     );
 
-    // Extract Video MP4 stream if a direct public video is provided
+    // Extract Video MP4 streams (from OpenGraph, direct MP4, embedded JSON, or converted HLS)
     $videoUrl = '';
-    if (preg_match('/<meta[^>]+(?:property|name)=["\']og:video(?::secure_url)?["\'][^>]+content=["\']([^"\']+\.mp4[^"\']*)["\']/i', $html, $m)) {
-        $videoUrl = $m[1];
-    } elseif (preg_match('/<meta[^>]+content=["\']([^"\']+\.mp4[^"\']*)["\'][^>]+(?:property|name)=["\']og:video(?::secure_url)?["\']/i', $html, $m)) {
-        $videoUrl = $m[1];
-    } elseif (preg_match('/https?:\\\\?\/\\\\?\/v\.pinimg\.com\\\\?\/videos\\\\?\/[a-zA-Z0-9_\-\/]+\.mp4/i', $html, $m)) {
-        $videoUrl = stripslashes($m[0]);
+    $videoCandidates = [];
+
+    // Priority 1: OpenGraph video tags
+    if (preg_match('/<meta[^>]+(?:property|name)=["\']og:video(?::secure_url|:url)?["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
+        $videoCandidates[] = stripslashes($m[1]);
+    } elseif (preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\']og:video(?::secure_url|:url)?["\']/i', $html, $m)) {
+        $videoCandidates[] = stripslashes($m[1]);
     }
 
-    // Verify video URL actually exists and loads
-    if (!empty($videoUrl)) {
-        $vHead = verifyMediaHead($videoUrl);
-        if (!$vHead['ok']) {
-            $videoUrl = '';
+    // Priority 2: Direct 720p / 1080p MP4 from HTML or embedded JSON
+    if (preg_match_all('/https?:\\\\?\/\\\\?\/v[0-9]*\.pinimg\.com\\\\?\/videos\\\\?\/[^\s"\'<>]+\.mp4/i', $html, $mAllMp4)) {
+        foreach ($mAllMp4[0] as $rawMp4) {
+            $cleaned = stripslashes($rawMp4);
+            if (str_contains($cleaned, '720p') || str_contains($cleaned, '1080p')) {
+                array_unshift($videoCandidates, $cleaned);
+            } else {
+                $videoCandidates[] = $cleaned;
+            }
         }
     }
 
-    // If pin is a video pin but Pinterest serves fragmented HLS / client stream, notify user
+    // Priority 3: HLS stream (.m3u8) converted to 720p / exp MP4
+    if (preg_match_all('/https?:\\\\?\/\\\\?\/v[0-9]*\.pinimg\.com\\\\?\/videos\\\\?\/[^\s"\'<>]+\.m3u8/i', $html, $mAllHls)) {
+        foreach ($mAllHls[0] as $rawHls) {
+            $hls = stripslashes($rawHls);
+            // Convert /hls/ to /720p/ and .m3u8 to .mp4
+            $mp4_720 = preg_replace('/\/hls\//i', '/720p/', $hls);
+            $mp4_720 = preg_replace('/\.m3u8(\?.*)?$/i', '.mp4$1', $mp4_720);
+            $videoCandidates[] = $mp4_720;
+
+            // Fallback: /exp/
+            $mp4_exp = preg_replace('/\/hls\//i', '/exp/', $hls);
+            $mp4_exp = preg_replace('/\.m3u8(\?.*)?$/i', '.mp4$1', $mp4_exp);
+            $videoCandidates[] = $mp4_exp;
+        }
+    }
+
+    // De-duplicate candidates while preserving priority order
+    $videoCandidates = array_values(array_unique(array_filter($videoCandidates)));
+
+    // Verify candidates to pick the working video URL
+    foreach ($videoCandidates as $candidate) {
+        $vHead = verifyMediaHead($candidate, 4);
+        if ($vHead['ok']) {
+            $videoUrl = $candidate;
+            $isVideoPin = true;
+            break;
+        }
+    }
+
+    // Fallback: If verification timed out or edge blocked HEAD, but we found a valid 720p MP4 candidate, use it
+    if (empty($videoUrl) && !empty($videoCandidates)) {
+        foreach ($videoCandidates as $candidate) {
+            if (str_contains(strtolower($candidate), '.mp4')) {
+                $videoUrl = $candidate;
+                $isVideoPin = true;
+                break;
+            }
+        }
+    }
+
+    // Notice only if it was definitively identified as a video pin AND no video stream exists
     $notice = null;
     if ($isVideoPin && empty($videoUrl)) {
-        $notice = "Ye video pin hai, sirf thumbnail download ho sakta hai.";
+        $notice = "Ye video pin hai, lekin iska video stream load nahi ho saka. Sirf thumbnail image available hai.";
     }
 
     if (empty($imgUrl) && empty($videoUrl)) {
@@ -642,11 +720,20 @@ if ($platform === 'pinterest') {
         }
     }
 
+    // Build items list with Video FIRST so users see and download the video immediately
     $items = [];
+    if (!empty($videoUrl)) {
+        $items[] = [
+            'type' => 'video',
+            'quality' => 'HD Video (MP4)',
+            'format' => 'MP4',
+            'url' => $videoUrl
+        ];
+    }
     if (!empty($originalUrl)) {
         $items[] = [
             'type' => 'image',
-            'quality' => 'Original (Highest Resolution)',
+            'quality' => !empty($videoUrl) ? 'Cover Thumbnail (Original)' : 'Original (Highest Resolution)',
             'format' => $origFormat,
             'url' => $originalUrl
         ];
@@ -654,17 +741,9 @@ if ($platform === 'pinterest') {
     if (!empty($hdUrl)) {
         $items[] = [
             'type' => 'image',
-            'quality' => '736p (Standard HD)',
+            'quality' => !empty($videoUrl) ? 'Cover Thumbnail (736p HD)' : '736p (Standard HD)',
             'format' => $hdFormat,
             'url' => $hdUrl
-        ];
-    }
-    if (!empty($videoUrl)) {
-        $items[] = [
-            'type' => 'video',
-            'quality' => 'HD Video (MP4)',
-            'format' => 'MP4',
-            'url' => $videoUrl
         ];
     }
 

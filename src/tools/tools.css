@@ -338,3 +338,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
   }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-icon, .spin {
+  animation: spin 1s linear infinite;
+}
+
