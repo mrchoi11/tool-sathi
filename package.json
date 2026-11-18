@@ -34,6 +34,7 @@
     "framer-motion": "^14.3.0",
     "hls.js": "^1.7.3",
     "jszip": "^3.10.2",
+    "lottie-web": "^5.13.0",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.59.0",
     "pdf-lib": "^1.17.1",

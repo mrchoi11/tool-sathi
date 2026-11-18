@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import lottie from 'lottie-web/build/player/lottie_light.js';
 import {
   Search, ArrowRight, ChevronDown, ChevronUp,
   ChevronLeft, ChevronRight, Star, Shield, Zap,
-  CheckCircle2, Rocket
+  CheckCircle2, Rocket, Sparkles, Users
 } from 'lucide-react';
 import { categories, getFeaturedTools, getActiveTools } from '../data/toolRegistry';
 import { getIconComponent } from '../utils/iconMap';
@@ -11,7 +12,7 @@ import { usePageSeo } from '../hooks/usePageSeo';
 import NewsletterSignup from '../components/NewsletterSignup';
 import './HomePage.css';
 
-/* ── Testimonials data ── */
+/* Testimonials data: Clean, professional, zero em dashes */
 const testimonials = [
   {
     name: 'Priya Sharma',
@@ -25,7 +26,7 @@ const testimonials = [
     name: 'Rohit Mehta',
     role: 'Developer',
     avatar: 'RM',
-    text: '"A must-have toolkit for professionals. Fast, reliable, and completely free — incredible value."',
+    text: '"A must-have toolkit for professionals. Fast, reliable, and completely free with incredible value."',
     stars: 5,
     color: '#8b5cf6',
   },
@@ -47,9 +48,7 @@ const testimonials = [
   },
 ];
 
-/* ══════════════════════════════════════════════
-   3D CAROUSEL HOOK
-══════════════════════════════════════════════ */
+/* 3D Carousel Hook */
 function use3DCarousel(total: number, autoPlayMs = 0) {
   const [active, setActive] = useState(0);
   const timerRef = useRef<number | null>(null);
@@ -85,13 +84,11 @@ function use3DCarousel(total: number, autoPlayMs = 0) {
   return { active, goTo, prev, next, pause, resume };
 }
 
-/* ══════════════════════════════════════════════
-   3D TOOLS CAROUSEL
-══════════════════════════════════════════════ */
+/* 3D Tools Carousel with engaging modern card design */
 function ToolsCarousel3D() {
   const featured = getFeaturedTools().slice(0, 8);
   const total = featured.length;
-  const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 3500);
+  const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 3800);
   const touchStartX = useRef(0);
   const touchStartTime = useRef(0);
 
@@ -103,7 +100,7 @@ function ToolsCarousel3D() {
   const onTouchEnd = (e: React.TouchEvent) => {
     const diff = touchStartX.current - e.changedTouches[0].clientX;
     const dt = Date.now() - touchStartTime.current;
-    if (Math.abs(diff) > 40 && dt < 400) { diff > 0 ? next() : prev(); }
+    if (Math.abs(diff) > 35 && dt < 450) { diff > 0 ? next() : prev(); }
     resume();
   };
 
@@ -146,15 +143,33 @@ function ToolsCarousel3D() {
                 className="carousel3d-card-inner"
                 tabIndex={pos === 'center' ? 0 : -1}
                 onClick={e => { if (pos !== 'center') e.preventDefault(); }}
+                style={{ '--card-color': color } as React.CSSProperties}
               >
-                <div className="carousel3d-icon-wrap" style={{ background: `${color}18` }}>
-                  <Icon size={32} style={{ color }} />
+                {/* Top accent line */}
+                <div className="carousel3d-accent-bar" style={{ background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
+
+                {/* Top row: Icon and category badge */}
+                <div className="carousel3d-top-row">
+                  <div className="carousel3d-icon-wrap" style={{ background: `${color}15`, borderColor: `${color}30` }}>
+                    <Icon size={26} style={{ color }} />
+                  </div>
+                  <span className="carousel3d-category-badge" style={{ color, background: `${color}12`, borderColor: `${color}25` }}>
+                    {cat?.name || 'Tool'}
+                  </span>
                 </div>
+
+                {/* Body info */}
                 <div className="carousel3d-body">
                   <span className="carousel3d-name">{tool.name}</span>
                   <p className="carousel3d-desc">{tool.description}</p>
                 </div>
-                <span className="carousel3d-cta">Open Tool <ArrowRight size={13} /></span>
+
+                {/* Bottom CTA pill */}
+                <div className="carousel3d-footer">
+                  <span className="carousel3d-cta" style={{ color }}>
+                    Open Tool <ArrowRight size={14} />
+                  </span>
+                </div>
               </Link>
             </div>
           );
@@ -179,13 +194,11 @@ function ToolsCarousel3D() {
   );
 }
 
-/* ══════════════════════════════════════════════
-   3D CATEGORY CAROUSEL
-══════════════════════════════════════════════ */
+/* 3D Category Carousel with engaging modern card design */
 function CategoryCarousel3D() {
   const activeTools = getActiveTools();
   const total = categories.length;
-  const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 4000);
+  const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 4200);
   const touchStartX = useRef(0);
   const touchStartTime = useRef(0);
 
@@ -197,7 +210,7 @@ function CategoryCarousel3D() {
   const onTouchEnd = (e: React.TouchEvent) => {
     const diff = touchStartX.current - e.changedTouches[0].clientX;
     const dt = Date.now() - touchStartTime.current;
-    if (Math.abs(diff) > 40 && dt < 400) { diff > 0 ? next() : prev(); }
+    if (Math.abs(diff) > 35 && dt < 450) { diff > 0 ? next() : prev(); }
     resume();
   };
 
@@ -239,12 +252,16 @@ function CategoryCarousel3D() {
                 className="cat3d-inner"
                 tabIndex={pos === 'center' ? 0 : -1}
                 onClick={e => { if (pos !== 'center') e.preventDefault(); }}
+                style={{ '--cat-color': cat.color } as React.CSSProperties}
               >
-                <div className="cat3d-icon-wrap" style={{ background: `${cat.color}18`, borderColor: `${cat.color}30` }}>
+                <div className="cat3d-accent-bar" style={{ background: `linear-gradient(90deg, ${cat.color}, ${cat.color}55)` }} />
+                <div className="cat3d-icon-wrap" style={{ background: `${cat.color}15`, borderColor: `${cat.color}35`, boxShadow: `0 8px 20px ${cat.color}25` }}>
                   <Icon size={28} style={{ color: cat.color }} />
                 </div>
                 <span className="cat3d-name">{cat.name}</span>
-                <span className="cat3d-count">{count} tools</span>
+                <span className="cat3d-pill-badge" style={{ color: cat.color, background: `${cat.color}12`, borderColor: `${cat.color}30` }}>
+                  {count} Tools
+                </span>
               </Link>
             </div>
           );
@@ -269,7 +286,7 @@ function CategoryCarousel3D() {
   );
 }
 
-/* ── Testimonials Carousel ── */
+/* Testimonials Carousel */
 function TestimonialsCarousel() {
   const total = testimonials.length;
   const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 5000);
@@ -284,7 +301,7 @@ function TestimonialsCarousel() {
   const onTouchEnd = (e: React.TouchEvent) => {
     const diff = touchStartX.current - e.changedTouches[0].clientX;
     const dt = Date.now() - touchStartTime.current;
-    if (Math.abs(diff) > 40 && dt < 400) { diff > 0 ? next() : prev(); }
+    if (Math.abs(diff) > 35 && dt < 450) { diff > 0 ? next() : prev(); }
     resume();
   };
 
@@ -351,16 +368,164 @@ function TestimonialsCarousel() {
   );
 }
 
-/* ═══════════════════════════════════════════════════════
-   Main Page
-══════════════════════════════════════════════════════════ */
+/* SEO Content Section: Scroll-animated, humanized, zero em dashes, zero emojis */
+function SeoContentSection() {
+  const [expanded, setExpanded] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.12 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const highlights = [
+    {
+      title: 'In-Browser Processing',
+      desc: 'Sensitive tasks like PDF merging, image compression, and format conversion execute directly in your browser. Files remain strictly on your device.',
+      accent: '#4f46e5',
+    },
+    {
+      title: 'Zero Latency Performance',
+      desc: 'Built with optimized client scripts and WebAssembly to eliminate server round-trips. Conversions and edits finish in milliseconds.',
+      accent: '#0284c7',
+    },
+    {
+      title: 'Over 75 Practical Tools',
+      desc: 'A comprehensive collection spanning PDF handling, graphic optimization, video tools, developer utilities, and daily calculation needs.',
+      accent: '#059669',
+    },
+    {
+      title: 'Accessible on Every Screen',
+      desc: 'Engineered with responsive fluid layouts to deliver a clean, fast experience on smartphones, tablets, laptops, and ultra-wide desktop monitors.',
+      accent: '#d97706',
+    },
+  ];
+
+  return (
+    <section
+      className={`section seo-content-section${visible ? ' seo-visible' : ''}`}
+      id="about-protoolbox"
+      ref={sectionRef}
+    >
+      <div className="container">
+        <div className="seo-content-card">
+
+          {/* Header */}
+          <div className="seo-header seo-anim seo-anim-0">
+            <span className="seo-eyebrow">ABOUT PROTOOLBOX</span>
+            <h2 className="seo-content-title">
+              Built for People Who Just Need Tools That Work
+            </h2>
+          </div>
+
+          {/* Intro paragraph: always visible */}
+          <p className="seo-lead seo-anim seo-anim-1">
+            ProToolBox provides a free, secure suite of digital tools designed for creators, developers, students, and professionals. Whether you need to compress high-resolution images, combine multiple PDF documents, convert multimedia files, or format structured data, every utility is built to deliver immediate results without mandatory sign-ups or subscription barriers.
+          </p>
+
+          {/* Highlight grid: always visible */}
+          <div className="seo-highlights-grid seo-anim seo-anim-2">
+            {highlights.map((h, i) => (
+              <div
+                key={i}
+                className="seo-highlight-card"
+                style={{ borderTop: `3px solid ${h.accent}` }}
+              >
+                <h3 style={{ color: h.accent }}>{h.title}</h3>
+                <p>{h.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Expandable content via Read More button */}
+          <div className={`seo-expanded-content${expanded ? ' open' : ''}`}>
+            <h3>Client-Side Security and File Privacy</h3>
+            <p>
+              Traditional online conversion sites often upload sensitive files to unknown remote servers for processing, creating privacy concerns and bandwidth bottlenecks. ProToolBox approaches productivity differently by running compute-heavy tasks locally inside your browser using modern WebAssembly and JavaScript APIs. Your documents, photos, and personal data never leave your computer or smartphone, ensuring complete privacy and immediate turnaround times.
+            </p>
+
+            <h3>Comprehensive Utility Categories</h3>
+            <p>
+              Our platform organizes utilities into practical categories to help you solve everyday workflow challenges. Video tools allow convenient playback, format conversion, and media inspection. Image tools feature background removal, image resizing, lossless compression, and multi-format conversion between JPG, PNG, and WebP. Document utilities enable seamless merging, page splitting, compression, and text extraction for PDF workflows. For technical users, our developer section includes JSON formatters, Base64 encoders, URL decoders, and CSS generators.
+            </p>
+
+            <h3>Built for Daily Productivity Without Friction</h3>
+            <p>
+              We believe essential digital utilities should be open and accessible to all users. There are no daily usage caps, no forced registration forms, and no watermarks added to your finished files. With lightweight code and responsive architecture, ProToolBox loads quickly on mobile devices and desktop computers alike, helping you finish tasks and move forward with your day.
+            </p>
+          </div>
+
+          {/* Read More button and navigation links */}
+          <div className="seo-footer-row seo-anim seo-anim-3">
+            <button
+              type="button"
+              className="seo-read-more-btn"
+              onClick={() => setExpanded(prev => !prev)}
+              aria-expanded={expanded}
+            >
+              <span>{expanded ? 'Show Less' : 'Read More About ProToolBox'}</span>
+              <ChevronDown size={16} className={`seo-read-more-icon${expanded ? ' flipped' : ''}`} />
+            </button>
+            <div className="seo-cta-row">
+              <Link to="/tools" className="seo-cta-btn primary">
+                Explore All Tools <ArrowRight size={14} />
+              </Link>
+              <Link to="/about" className="seo-cta-btn secondary">
+                About Our Platform
+              </Link>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* Hero Lottie Animation Component */
+function HeroLottie() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const anim = lottie.loadAnimation({
+      container: containerRef.current,
+      renderer: 'svg',
+      loop: true,
+      autoplay: true,
+      path: '/hero-lottie.json',
+    });
+
+    return () => {
+      anim.destroy();
+    };
+  }, []);
+
+  return (
+    <div className="hero-lottie-container" ref={containerRef} aria-label="ProToolBox workspace animation" />
+  );
+}
+
+/* Main Home Page Component */
 export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
   usePageSeo(
     'page-home',
-    'ProToolBox — Free Online Tools for Video, PDF, Image & More',
+    'ProToolBox: Free Online Tools for Video, PDF, Image and More',
     '75+ free browser-based online tools: play videos, merge PDFs, compress images, generate QR codes, convert formats, and more. Fast, private, no file uploads needed.'
   );
 
@@ -383,23 +548,14 @@ export default function HomePage() {
     { q: 'Can I use ProToolBox on mobile devices?', a: 'Yes, ProToolBox is fully responsive and designed to work smoothly on mobile phones, tablets, and desktop computers.' },
   ];
 
-  const floaters = [
-    { label: 'PDF', emoji: '📄', delay: '0s',   top: '15%', right: '12%',  size: 56 },
-    { label: 'IMG', emoji: '🖼️', delay: '0.6s',  top: '55%', right: '5%',   size: 50 },
-    { label: 'VID', emoji: '🎬', delay: '1.2s',  top: '30%', right: '48%',  size: 46 },
-    { label: 'QR',  emoji: '📲', delay: '0.3s',  top: '70%', right: '32%',  size: 44 },
-    { label: 'TXT', emoji: '✍️', delay: '0.9s',  top: '8%',  right: '36%',  size: 48 },
-    { label: 'ZIP', emoji: '📦', delay: '1.5s',  top: '80%', right: '14%',  size: 42 },
-  ];
-
   return (
     <div className="home">
 
-      {/* ═══ HERO ═══ */}
+      {/* Hero Section */}
       <section className="hero hero-split">
         <div className="container hero-split-inner">
 
-          {/* LEFT */}
+          {/* Left Column */}
           <div className="hero-left animate-fade-in">
             <div className="hero-badge-wrap">
               <span className="hero-badge-pill">
@@ -414,7 +570,7 @@ export default function HomePage() {
 
             <p className="hero-subtitle">
               Discover powerful, easy-to-use online tools to simplify your work,
-              boost productivity and save time. Free, fast &amp; private.
+              boost productivity and save time. Free, fast and private.
             </p>
 
             <form className="hero-search-form" onSubmit={handleSearch}>
@@ -423,7 +579,7 @@ export default function HomePage() {
                 <input
                   type="text"
                   className="hero-search-input"
-                  placeholder="Search for tools (e.g. PDF, image, SEO…)"
+                  placeholder="Search for tools (e.g. PDF, image, SEO...)"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   aria-label="Search for a tool"
@@ -449,64 +605,23 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* RIGHT */}
+          {/* Right Column: Interactive Lottie Animation */}
           <div className="hero-right animate-fade-in-right">
-            <div className="hero-visual">
-              <div className="hero-browser-frame">
-                <div className="hero-browser-bar">
-                  <span className="hero-browser-dot red" />
-                  <span className="hero-browser-dot yellow" />
-                  <span className="hero-browser-dot green" />
-                  <div className="hero-browser-url">protoolbox.in</div>
-                </div>
-                <div className="hero-browser-body">
-                  <div className="hero-browser-grid">
-                    {featuredTools.slice(0, 6).map(tool => {
-                      const Icon = getIconComponent(tool.icon);
-                      const cat = categories.find(c => c.id === tool.category);
-                      const color = cat?.color || '#6366f1';
-                      return (
-                        <div key={tool.id} className="hero-mini-tool-card">
-                          <div className="hero-mini-icon" style={{ background: `${color}20` }}>
-                            <Icon size={18} style={{ color }} />
-                          </div>
-                          <span>{tool.name}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {floaters.map((f, i) => (
-                <div
-                  key={i}
-                  className="hero-floater"
-                  style={{
-                    top: f.top,
-                    right: f.right,
-                    animationDelay: f.delay,
-                    width: f.size,
-                    height: f.size,
-                    fontSize: f.size * 0.45,
-                  }}
-                >
-                  {f.emoji}
-                </div>
-              ))}
-              <div className="hero-orbital-ring" />
+            <div className="hero-lottie-wrapper">
+              <div className="hero-lottie-backdrop" />
+              <HeroLottie />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══ POPULAR TOOLS 3D CAROUSEL ═══ */}
+      {/* Popular Tools 3D Carousel */}
       <section className="section" id="popular-tools">
         <div className="container">
           <div className="section-header">
             <div>
               <h2 className="section-title">Explore Our Top Tools</h2>
-              <p className="section-description">Powerful tools at your fingertips.</p>
+              <p className="section-description">Handpicked utilities built for speed, privacy, and precision.</p>
             </div>
             <Link to="/tools" className="view-all-pill">
               <span>View All Tools</span>
@@ -517,12 +632,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ BROWSE BY CATEGORY ═══ */}
+      {/* Browse by Category 3D Carousel */}
       <section className="section" id="categories">
         <div className="container">
           <div className="section-header">
             <div>
               <h2 className="section-title">Browse by Category</h2>
+              <p className="section-description">Find the right utility organized by your daily workflows.</p>
             </div>
             <Link to="/tools" className="view-all-pill">
               View All Categories <ArrowRight size={15} />
@@ -532,59 +648,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ SEO CONTENT SECTION ═══ */}
-      <section className="section seo-content-section" id="about-protoolbox">
-        <div className="container">
-          <div className="seo-content-card">
-            <div className="seo-content-top">
-              <span className="seo-eyebrow">✦ Why ProToolBox?</span>
-              <h2 className="seo-content-title">Your All-in-One Digital Workspace — Free, Fast &amp; Private</h2>
-            </div>
-            <div className="seo-content-body">
-              <p>
-                Imagine having a <strong>Swiss Army knife for the digital world</strong> — except it lives in your browser, costs nothing, and never asks for your data. That's ProToolBox in a nutshell. Whether you're a student racing to meet a deadline, a designer polishing visuals at midnight, or a developer debugging on the go, we've built tools that actually fit the way real people work.
-              </p>
-              <p>
-                Every tool on ProToolBox is built with one philosophy: <em>get out of your way</em>. No sign-up walls. No "free trial" countdowns. No dark patterns nudging you toward a paid plan. Just open, use, done. That's why over <strong>50,000+ users</strong> visit ProToolBox every month — because sometimes you just need something to <em>work right now</em>.
-              </p>
-              <div className="seo-highlights-grid">
-                <div className="seo-highlight-card">
-                  <span className="seo-highlight-emoji">🔒</span>
-                  <h3>100% Private by Design</h3>
-                  <p>Most of our tools — image compressor, PDF merger, background remover — run entirely inside your browser. Your files never leave your device.</p>
-                </div>
-                <div className="seo-highlight-card">
-                  <span className="seo-highlight-emoji">⚡</span>
-                  <h3>Built for Speed</h3>
-                  <p>No heavy server roundtrips. We use WebAssembly and modern JavaScript APIs so processing happens in milliseconds, not minutes.</p>
-                </div>
-                <div className="seo-highlight-card">
-                  <span className="seo-highlight-emoji">🛠️</span>
-                  <h3>75+ Tools, One Place</h3>
-                  <p>PDF tools, image converters, video downloaders, SEO utilities, code formatters — if you need it daily, we probably have it.</p>
-                </div>
-                <div className="seo-highlight-card">
-                  <span className="seo-highlight-emoji">📱</span>
-                  <h3>Works on Every Device</h3>
-                  <p>Fully responsive from 320px mobile screens to 4K desktops. Same clean experience, every time, everywhere.</p>
-                </div>
-              </div>
-              <p>
-                From compressing a 5MB JPEG before sending it to a client, to merging dozens of PDFs for a project report, to generating a QR code for your small business flyer — ProToolBox handles the mundane tasks <strong>so you can focus on what actually matters</strong>. We're not trying to replace professional software. We're filling the gap for the moments when you need something simple, fast, and trustworthy.
-              </p>
-              <p>
-                We're constantly adding new tools based on what our community needs. Got a request? Drop us a message on our Contact page. This is a living toolkit, and it grows because <em>you</em> tell us what's missing.
-              </p>
-              <div className="seo-cta-row">
-                <Link to="/tools" className="seo-cta-btn primary">Explore All Tools <ArrowRight size={15} /></Link>
-                <Link to="/about" className="seo-cta-btn secondary">Our Story →</Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* SEO Content Section */}
+      <SeoContentSection />
 
-      {/* ═══ WHY CHOOSE ═══ */}
+      {/* Why Choose Section */}
       <section className="section why-section" id="why">
         <div className="container why-inner">
           <div className="why-left">
@@ -641,7 +708,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ TESTIMONIALS ═══ */}
+      {/* Testimonials */}
       <section className="section testimonials-section" id="testimonials">
         <div className="container">
           <div className="section-header section-header-center">
@@ -654,7 +721,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ PROMO BANNER ═══ */}
+      {/* Promo Banner */}
       <section className="section promo-banner-section">
         <div className="container">
           <div className="promo-banner">
@@ -674,13 +741,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ HOW IT WORKS ═══ */}
+      {/* How it works */}
       <section className="section" id="how-it-works">
         <div className="container">
           <div className="section-header section-header-center">
             <h2 className="section-title">Simple, Fast, and Private</h2>
             <p className="section-description" style={{ margin: '0 auto' }}>
-              Most tools work entirely in your browser — no file uploads to external servers required.
+              Most tools work entirely in your browser without requiring file uploads to external servers.
             </p>
           </div>
           <div className="steps-container">
@@ -700,7 +767,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ FAQ ═══ */}
+      {/* Frequently Asked Questions */}
       <section className="section" id="faq">
         <div className="container">
           <div className="section-header section-header-center">
@@ -731,7 +798,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ NEWSLETTER ═══ */}
+      {/* Newsletter */}
       <NewsletterSignup />
     </div>
   );
