@@ -14,151 +14,193 @@ export default function NewsletterSignup() {
   };
 
   return (
-    <section className="section newsletter-section" style={{ padding: '3rem 0 5rem' }}>
+    <section className="newsletter-section" style={{ padding: '1.5rem 0 2.5rem' }}>
       <div className="container">
-        <div style={{
-          position: 'relative',
-          borderRadius: 'var(--radius-pill)',
-          padding: '1.75rem 2.5rem',
-          background: 'rgba(255, 255, 255, 0.72)',
-          backdropFilter: 'blur(28px)',
-          WebkitBackdropFilter: 'blur(28px)',
-          border: '1px solid rgba(255, 255, 255, 0.95)',
-          boxShadow: '0 16px 42px -6px rgba(99, 102, 241, 0.12), inset 0 1px 0 #ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '2rem',
-          flexWrap: 'wrap',
-          overflow: 'hidden'
-        }}>
-          {/* Subtle paper plane decorative element */}
-          <div style={{
-            position: 'absolute',
-            top: '12px',
-            right: '28px',
-            color: '#818cf8',
-            opacity: 0.7,
-            transform: 'rotate(-15deg)',
-            pointerEvents: 'none'
-          }}>
-            <Send size={24} />
+        <div className="newsletter-card">
+          {/* Decorative element */}
+          <div className="newsletter-deco" aria-hidden="true">
+            <Send size={22} />
           </div>
 
-          {/* Left: Icon & Text */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', minWidth: '300px', flex: '1' }}>
-            <div style={{
-              width: 52,
-              height: 52,
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              boxShadow: '0 6px 18px rgba(99, 102, 241, 0.3)',
-              flexShrink: 0
-            }}>
-              <Mail size={24} />
+          {/* Icon + Text */}
+          <div className="newsletter-left">
+            <div className="newsletter-icon-wrap">
+              <Mail size={22} />
             </div>
             <div>
-              <h3 style={{
-                fontSize: '1.25rem',
-                fontWeight: 800,
-                color: '#0f172a',
-                letterSpacing: '-0.02em',
-                marginBottom: '0.2rem'
-              }}>
-                Stay Updated with ProToolBox
-              </h3>
-              <p style={{
-                fontSize: '0.875rem',
-                color: '#64748b',
-                lineHeight: 1.45,
-                margin: 0
-              }}>
-                Get the latest tools, updates and tips delivered to your inbox.
-              </p>
+              <h3 className="newsletter-title">Stay Updated with ProToolBox</h3>
+              <p className="newsletter-sub">Get the latest tools, tips &amp; updates in your inbox.</p>
             </div>
           </div>
 
-          {/* Right: Email Input & Subscribe Button */}
+          {/* Input or Success */}
           {subscribed ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.65rem',
-              color: '#059669',
-              fontWeight: 700,
-              fontSize: '0.95rem',
-              padding: '0.65rem 1.5rem',
-              background: 'rgba(16, 185, 129, 0.1)',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid rgba(16, 185, 129, 0.25)'
-            }}>
-              <CheckCircle size={18} />
+            <div className="newsletter-success">
+              <CheckCircle size={17} />
               <span>You're subscribed! Thanks for joining.</span>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.65rem',
-              background: 'rgba(255, 255, 255, 0.85)',
-              padding: '0.35rem 0.35rem 0.35rem 1.25rem',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid rgba(203, 213, 225, 0.7)',
-              boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.03)',
-              flex: '1',
-              maxWidth: '460px',
-              minWidth: '280px'
-            }}>
+            <form className="newsletter-form" onSubmit={handleSubmit}>
               <input
                 type="email"
-                placeholder="Enter your email address"
+                className="newsletter-input"
+                placeholder="Enter your email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                style={{
-                  flex: 1,
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  fontSize: '0.9rem',
-                  color: '#0f172a',
-                  fontWeight: 500
-                }}
               />
-              <button
-                type="submit"
-                style={{
-                  padding: '0.65rem 1.5rem',
-                  borderRadius: 'var(--radius-pill)',
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #7c3aed 100%)',
-                  color: '#ffffff',
-                  fontSize: '0.9rem',
-                  fontWeight: 700,
-                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)',
-                  cursor: 'pointer',
-                  border: 'none',
-                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 6px 18px rgba(99, 102, 241, 0.45)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(99, 102, 241, 0.35)';
-                }}
-              >
+              <button type="submit" className="newsletter-btn">
                 Subscribe
               </button>
             </form>
           )}
         </div>
       </div>
+
+      <style>{`
+        .newsletter-card {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+          flex-wrap: wrap;
+          padding: 1.4rem 2rem;
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.78);
+          backdrop-filter: blur(28px);
+          -webkit-backdrop-filter: blur(28px);
+          border: 1px solid rgba(255, 255, 255, 0.95);
+          box-shadow: 0 10px 32px -6px rgba(99, 102, 241, 0.1), inset 0 1px 0 #fff;
+          overflow: hidden;
+        }
+
+        .newsletter-deco {
+          position: absolute;
+          top: 10px;
+          right: 24px;
+          color: #818cf8;
+          opacity: 0.65;
+          transform: rotate(-15deg);
+          pointer-events: none;
+        }
+
+        .newsletter-left {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          flex: 1;
+          min-width: 240px;
+        }
+
+        .newsletter-icon-wrap {
+          width: 44px;
+          height: 44px;
+          border-radius: 13px;
+          background: linear-gradient(135deg, #3b82f6, #6366f1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          flex-shrink: 0;
+          box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+        }
+
+        .newsletter-title {
+          font-size: 1rem;
+          font-weight: 800;
+          color: #0f172a;
+          letter-spacing: -0.02em;
+          margin: 0 0 0.15rem;
+        }
+
+        .newsletter-sub {
+          font-size: 0.82rem;
+          color: #64748b;
+          margin: 0;
+          line-height: 1.4;
+        }
+
+        .newsletter-form {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: rgba(255, 255, 255, 0.9);
+          padding: 0.3rem 0.3rem 0.3rem 1rem;
+          border-radius: 50px;
+          border: 1px solid rgba(203, 213, 225, 0.6);
+          flex: 1;
+          max-width: 400px;
+          min-width: 240px;
+        }
+
+        .newsletter-input {
+          flex: 1;
+          border: none;
+          outline: none;
+          background: transparent;
+          font-size: 0.875rem;
+          color: #0f172a;
+          font-weight: 500;
+          min-width: 0;
+        }
+
+        .newsletter-btn {
+          padding: 0.55rem 1.25rem;
+          border-radius: 50px;
+          background: linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #7c3aed 100%);
+          color: #fff;
+          font-size: 0.875rem;
+          font-weight: 700;
+          border: none;
+          cursor: pointer;
+          white-space: nowrap;
+          box-shadow: 0 3px 12px rgba(99, 102, 241, 0.3);
+          transition: transform 0.2s, box-shadow 0.2s;
+          flex-shrink: 0;
+        }
+
+        .newsletter-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 5px 16px rgba(99, 102, 241, 0.4);
+        }
+
+        .newsletter-success {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: #059669;
+          font-weight: 700;
+          font-size: 0.875rem;
+          padding: 0.55rem 1.25rem;
+          background: rgba(16, 185, 129, 0.08);
+          border-radius: 50px;
+          border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        @media (max-width: 640px) {
+          .newsletter-card {
+            padding: 1.2rem 1.25rem;
+            gap: 1rem;
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .newsletter-left {
+            min-width: unset;
+            width: 100%;
+          }
+
+          .newsletter-form {
+            width: 100%;
+            max-width: 100%;
+            min-width: unset;
+          }
+
+          .newsletter-title { font-size: 0.95rem; }
+          .newsletter-sub { font-size: 0.8rem; }
+          .newsletter-deco { display: none; }
+        }
+      `}</style>
     </section>
   );
 }

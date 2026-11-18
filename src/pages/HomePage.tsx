@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Search, ArrowRight, ChevronDown, ChevronUp,
@@ -11,7 +11,7 @@ import { usePageSeo } from '../hooks/usePageSeo';
 import NewsletterSignup from '../components/NewsletterSignup';
 import './HomePage.css';
 
-/* ── Testimonials data (sample – editable placeholder) ── */
+/* ── Testimonials data ── */
 const testimonials = [
   {
     name: 'Priya Sharma',
@@ -47,75 +47,130 @@ const testimonials = [
   },
 ];
 
-/* ── Generic Carousel hook ── */
-function useCarousel(total: number, perView: number) {
-  const [current, setCurrent] = useState(0);
-  const maxIndex = Math.max(0, total - perView);
-  const prev = () => setCurrent(c => Math.max(0, c - 1));
-  const next = () => setCurrent(c => Math.min(maxIndex, c + 1));
-  return { current, prev, next, maxIndex };
+/* ══════════════════════════════════════════════
+   3D CAROUSEL HOOK
+══════════════════════════════════════════════ */
+function use3DCarousel(total: number, autoPlayMs = 0) {
+  const [active, setActive] = useState(0);
+  const timerRef = useRef<number | null>(null);
+
+  const goTo = useCallback((idx: number) => {
+    setActive(((idx % total) + total) % total);
+  }, [total]);
+
+  const prev = useCallback(() => setActive(a => ((a - 1) % total + total) % total), [total]);
+  const next = useCallback(() => setActive(a => (a + 1) % total), [total]);
+
+  const startTimer = useCallback(() => {
+    if (autoPlayMs <= 0) return;
+    timerRef.current = window.setInterval(() => {
+      setActive(a => (a + 1) % total);
+    }, autoPlayMs);
+  }, [autoPlayMs, total]);
+
+  const pause = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  }, []);
+
+  const resume = useCallback(() => {
+    pause();
+    startTimer();
+  }, [pause, startTimer]);
+
+  useEffect(() => {
+    startTimer();
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [startTimer]);
+
+  return { active, goTo, prev, next, pause, resume };
 }
 
-/* ── Tools Carousel ── */
-function ToolsCarousel() {
-  const featured = getFeaturedTools().slice(0, 12);
-  const perView = 4;
-  const { current, prev, next, maxIndex } = useCarousel(featured.length, perView);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const touchStart = useRef(0);
+/* ══════════════════════════════════════════════
+   3D TOOLS CAROUSEL
+══════════════════════════════════════════════ */
+function ToolsCarousel3D() {
+  const featured = getFeaturedTools().slice(0, 8);
+  const total = featured.length;
+  const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 3500);
+  const touchStartX = useRef(0);
+  const touchStartTime = useRef(0);
 
-  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartTime.current = Date.now();
+    pause();
+  };
   const onTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStart.current - e.changedTouches[0].clientX;
-    if (diff > 50) next();
-    else if (diff < -50) prev();
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    const dt = Date.now() - touchStartTime.current;
+    if (Math.abs(diff) > 40 && dt < 400) { diff > 0 ? next() : prev(); }
+    resume();
+  };
+
+  const getPos = (i: number) => {
+    const rel = ((i - active) % total + total) % total;
+    if (rel === 0) return 'center';
+    if (rel === 1) return 'right1';
+    if (rel === total - 1) return 'left1';
+    if (rel === 2) return 'right2';
+    if (rel === total - 2) return 'left2';
+    return 'hidden';
   };
 
   return (
-    <div className="carousel-wrapper">
-      <button className="carousel-arrow carousel-arrow-left" onClick={prev} disabled={current === 0} aria-label="Previous">
+    <div
+      className="carousel3d-wrapper"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onMouseEnter={pause}
+      onMouseLeave={resume}
+    >
+      <button className="carousel3d-arrow carousel3d-arrow-left" onClick={prev} aria-label="Previous">
         <ChevronLeft size={20} />
       </button>
 
-      <div className="carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        <div
-          ref={trackRef}
-          className="carousel-track"
-          style={{ transform: `translateX(-${current * (100 / perView)}%)` }}
-        >
-          {featured.map(tool => {
-            const Icon = getIconComponent(tool.icon);
-            const cat = categories.find(c => c.id === tool.category);
-            const color = cat?.color || '#6366f1';
-            return (
-              <div key={tool.id} className="carousel-slide" style={{ flex: `0 0 ${100 / perView}%` }}>
-                <Link to={`/tools/${tool.slug}`} className="tool-carousel-card">
-                  <div className="tool-carousel-icon-wrap" style={{ background: `${color}18` }}>
-                    <Icon size={28} style={{ color }} />
-                  </div>
-                  <div className="tool-carousel-body">
-                    <span className="tool-carousel-name">{tool.name}</span>
-                    <p className="tool-carousel-desc">{tool.description}</p>
-                  </div>
-                  <span className="tool-carousel-cta">Open Tool <ArrowRight size={13} /></span>
-                </Link>
-              </div>
-            );
-          })}
-        </div>
+      <div className="carousel3d-stage">
+        {featured.map((tool, i) => {
+          const pos = getPos(i);
+          const Icon = getIconComponent(tool.icon);
+          const cat = categories.find(c => c.id === tool.category);
+          const color = cat?.color || '#6366f1';
+          return (
+            <div
+              key={tool.id}
+              className={`carousel3d-card carousel3d-pos-${pos}`}
+              onClick={() => { if (pos !== 'center') goTo(i); }}
+            >
+              <Link
+                to={`/tools/${tool.slug}`}
+                className="carousel3d-card-inner"
+                tabIndex={pos === 'center' ? 0 : -1}
+                onClick={e => { if (pos !== 'center') e.preventDefault(); }}
+              >
+                <div className="carousel3d-icon-wrap" style={{ background: `${color}18` }}>
+                  <Icon size={32} style={{ color }} />
+                </div>
+                <div className="carousel3d-body">
+                  <span className="carousel3d-name">{tool.name}</span>
+                  <p className="carousel3d-desc">{tool.description}</p>
+                </div>
+                <span className="carousel3d-cta">Open Tool <ArrowRight size={13} /></span>
+              </Link>
+            </div>
+          );
+        })}
       </div>
 
-      <button className="carousel-arrow carousel-arrow-right" onClick={next} disabled={current >= maxIndex} aria-label="Next">
+      <button className="carousel3d-arrow carousel3d-arrow-right" onClick={next} aria-label="Next">
         <ChevronRight size={20} />
       </button>
 
-      {/* Dots */}
-      <div className="carousel-dots">
-        {Array.from({ length: maxIndex + 1 }).map((_, i) => (
+      <div className="carousel3d-dots">
+        {featured.map((_, i) => (
           <button
             key={i}
-            className={`carousel-dot${i === current ? ' active' : ''}`}
-            onClick={() => { /* no-op, just visual */ }}
+            className={`carousel3d-dot${i === active ? ' active' : ''}`}
+            onClick={() => goTo(i)}
             aria-label={`Slide ${i + 1}`}
           />
         ))}
@@ -124,107 +179,174 @@ function ToolsCarousel() {
   );
 }
 
-/* ── Category Carousel ── */
-function CategoryCarousel() {
+/* ══════════════════════════════════════════════
+   3D CATEGORY CAROUSEL
+══════════════════════════════════════════════ */
+function CategoryCarousel3D() {
   const activeTools = getActiveTools();
-  const perView = 5;
-  const { current, prev, next, maxIndex } = useCarousel(categories.length, perView);
-  const touchStart = useRef(0);
+  const total = categories.length;
+  const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 4000);
+  const touchStartX = useRef(0);
+  const touchStartTime = useRef(0);
 
-  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartTime.current = Date.now();
+    pause();
+  };
   const onTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStart.current - e.changedTouches[0].clientX;
-    if (diff > 50) next();
-    else if (diff < -50) prev();
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    const dt = Date.now() - touchStartTime.current;
+    if (Math.abs(diff) > 40 && dt < 400) { diff > 0 ? next() : prev(); }
+    resume();
+  };
+
+  const getPos = (i: number) => {
+    const rel = ((i - active) % total + total) % total;
+    if (rel === 0) return 'center';
+    if (rel === 1) return 'right1';
+    if (rel === total - 1) return 'left1';
+    if (rel === 2) return 'right2';
+    if (rel === total - 2) return 'left2';
+    return 'hidden';
   };
 
   return (
-    <div className="carousel-wrapper cat-carousel-wrapper">
-      <button className="carousel-arrow carousel-arrow-left" onClick={prev} disabled={current === 0} aria-label="Previous">
+    <div
+      className="carousel3d-wrapper cat3d-wrapper"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onMouseEnter={pause}
+      onMouseLeave={resume}
+    >
+      <button className="carousel3d-arrow carousel3d-arrow-left" onClick={prev} aria-label="Previous">
         <ChevronLeft size={20} />
       </button>
 
-      <div className="carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        <div
-          className="carousel-track"
-          style={{ transform: `translateX(-${current * (100 / perView)}%)` }}
-        >
-          {categories.map(cat => {
-            const Icon = getIconComponent(cat.icon);
-            const count = activeTools.filter(t => t.category === cat.id).length;
-            return (
-              <div key={cat.id} className="carousel-slide" style={{ flex: `0 0 ${100 / perView}%` }}>
-                <Link to={`/category/${cat.id}`} className="cat-carousel-card">
-                  <div className="cat-carousel-icon-wrap" style={{ background: `${cat.color}18`, borderColor: `${cat.color}25` }}>
-                    <Icon size={26} style={{ color: cat.color }} />
-                  </div>
-                  <span className="cat-carousel-name">{cat.name}</span>
-                  <span className="cat-carousel-count">{count} tools</span>
-                </Link>
-              </div>
-            );
-          })}
-        </div>
+      <div className="carousel3d-stage cat3d-stage">
+        {categories.map((cat, i) => {
+          const pos = getPos(i);
+          const Icon = getIconComponent(cat.icon);
+          const count = activeTools.filter(t => t.category === cat.id).length;
+          return (
+            <div
+              key={cat.id}
+              className={`carousel3d-card cat3d-card carousel3d-pos-${pos}`}
+              onClick={() => { if (pos !== 'center') goTo(i); }}
+            >
+              <Link
+                to={`/category/${cat.id}`}
+                className="cat3d-inner"
+                tabIndex={pos === 'center' ? 0 : -1}
+                onClick={e => { if (pos !== 'center') e.preventDefault(); }}
+              >
+                <div className="cat3d-icon-wrap" style={{ background: `${cat.color}18`, borderColor: `${cat.color}30` }}>
+                  <Icon size={28} style={{ color: cat.color }} />
+                </div>
+                <span className="cat3d-name">{cat.name}</span>
+                <span className="cat3d-count">{count} tools</span>
+              </Link>
+            </div>
+          );
+        })}
       </div>
 
-      <button className="carousel-arrow carousel-arrow-right" onClick={next} disabled={current >= maxIndex} aria-label="Next">
+      <button className="carousel3d-arrow carousel3d-arrow-right" onClick={next} aria-label="Next">
         <ChevronRight size={20} />
       </button>
+
+      <div className="carousel3d-dots">
+        {categories.map((_, i) => (
+          <button
+            key={i}
+            className={`carousel3d-dot${i === active ? ' active' : ''}`}
+            onClick={() => goTo(i)}
+            aria-label={`Category ${i + 1}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
 
 /* ── Testimonials Carousel ── */
 function TestimonialsCarousel() {
-  const perView = 3;
-  const { current, prev, next, maxIndex } = useCarousel(testimonials.length, perView);
-  const touchStart = useRef(0);
+  const total = testimonials.length;
+  const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 5000);
+  const touchStartX = useRef(0);
+  const touchStartTime = useRef(0);
 
-  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartTime.current = Date.now();
+    pause();
+  };
   const onTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStart.current - e.changedTouches[0].clientX;
-    if (diff > 50) next();
-    else if (diff < -50) prev();
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    const dt = Date.now() - touchStartTime.current;
+    if (Math.abs(diff) > 40 && dt < 400) { diff > 0 ? next() : prev(); }
+    resume();
+  };
+
+  const getVisible = (i: number) => {
+    const rel = ((i - active) % total + total) % total;
+    if (rel === 0) return 'tc-center';
+    if (rel === 1) return 'tc-right';
+    if (rel === total - 1) return 'tc-left';
+    return 'tc-hidden';
   };
 
   return (
-    <div className="carousel-wrapper testimonial-carousel-wrapper">
-      <button className="carousel-arrow carousel-arrow-left" onClick={prev} disabled={current === 0} aria-label="Previous">
+    <div
+      className="tc-wrapper"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onMouseEnter={pause}
+      onMouseLeave={resume}
+    >
+      <button className="carousel3d-arrow tc-arrow-left" onClick={prev} aria-label="Previous">
         <ChevronLeft size={20} />
       </button>
 
-      <div className="carousel-viewport" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        <div
-          className="carousel-track"
-          style={{ transform: `translateX(-${current * (100 / perView)}%)` }}
-        >
-          {testimonials.map((t, i) => (
-            <div key={i} className="carousel-slide" style={{ flex: `0 0 ${100 / perView}%` }}>
-              <div className="testimonial-card">
-                <div className="testimonial-stars">
-                  {Array.from({ length: t.stars }).map((_, si) => (
-                    <Star key={si} size={14} fill="#f59e0b" color="#f59e0b" />
-                  ))}
+      <div className="tc-stage">
+        {testimonials.map((t, i) => {
+          const cls = getVisible(i);
+          return (
+            <div key={i} className={`tc-card ${cls}`}>
+              <div className="testimonial-stars">
+                {Array.from({ length: t.stars }).map((_, si) => (
+                  <Star key={si} size={14} fill="#f59e0b" color="#f59e0b" />
+                ))}
+              </div>
+              <p className="testimonial-text">{t.text}</p>
+              <div className="testimonial-author">
+                <div className="testimonial-avatar" style={{ background: `linear-gradient(135deg, ${t.color}, ${t.color}99)` }}>
+                  {t.avatar}
                 </div>
-                <p className="testimonial-text">{t.text}</p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar" style={{ background: `linear-gradient(135deg, ${t.color}, ${t.color}99)` }}>
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <span className="testimonial-name">{t.name}</span>
-                    <span className="testimonial-role">{t.role}</span>
-                  </div>
+                <div>
+                  <span className="testimonial-name">{t.name}</span>
+                  <span className="testimonial-role">{t.role}</span>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      <button className="carousel-arrow carousel-arrow-right" onClick={next} disabled={current >= maxIndex} aria-label="Next">
+      <button className="carousel3d-arrow tc-arrow-right" onClick={next} aria-label="Next">
         <ChevronRight size={20} />
       </button>
+
+      <div className="carousel3d-dots tc-dots">
+        {testimonials.map((_, i) => (
+          <button
+            key={i}
+            className={`carousel3d-dot${i === active ? ' active' : ''}`}
+            onClick={() => goTo(i)}
+            aria-label={`Review ${i + 1}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -261,7 +383,6 @@ export default function HomePage() {
     { q: 'Can I use ProToolBox on mobile devices?', a: 'Yes, ProToolBox is fully responsive and designed to work smoothly on mobile phones, tablets, and desktop computers.' },
   ];
 
-  /* ── Tool icon floaters ── */
   const floaters = [
     { label: 'PDF', emoji: '📄', delay: '0s',   top: '15%', right: '12%',  size: 56 },
     { label: 'IMG', emoji: '🖼️', delay: '0.6s',  top: '55%', right: '5%',   size: 50 },
@@ -328,10 +449,9 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* RIGHT — floating tool icons visual */}
+          {/* RIGHT */}
           <div className="hero-right animate-fade-in-right">
             <div className="hero-visual">
-              {/* glass browser frame */}
               <div className="hero-browser-frame">
                 <div className="hero-browser-bar">
                   <span className="hero-browser-dot red" />
@@ -358,7 +478,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* floating icons */}
               {floaters.map((f, i) => (
                 <div
                   key={i}
@@ -375,15 +494,13 @@ export default function HomePage() {
                   {f.emoji}
                 </div>
               ))}
-
-              {/* orbital ring */}
               <div className="hero-orbital-ring" />
             </div>
           </div>
         </div>
       </section>
 
-      {/* ═══ POPULAR TOOLS CAROUSEL ═══ */}
+      {/* ═══ POPULAR TOOLS 3D CAROUSEL ═══ */}
       <section className="section" id="popular-tools">
         <div className="container">
           <div className="section-header">
@@ -396,7 +513,7 @@ export default function HomePage() {
               <ArrowRight size={15} />
             </Link>
           </div>
-          <ToolsCarousel />
+          <ToolsCarousel3D />
         </div>
       </section>
 
@@ -411,14 +528,65 @@ export default function HomePage() {
               View All Categories <ArrowRight size={15} />
             </Link>
           </div>
-          <CategoryCarousel />
+          <CategoryCarousel3D />
+        </div>
+      </section>
+
+      {/* ═══ SEO CONTENT SECTION ═══ */}
+      <section className="section seo-content-section" id="about-protoolbox">
+        <div className="container">
+          <div className="seo-content-card">
+            <div className="seo-content-top">
+              <span className="seo-eyebrow">✦ Why ProToolBox?</span>
+              <h2 className="seo-content-title">Your All-in-One Digital Workspace — Free, Fast &amp; Private</h2>
+            </div>
+            <div className="seo-content-body">
+              <p>
+                Imagine having a <strong>Swiss Army knife for the digital world</strong> — except it lives in your browser, costs nothing, and never asks for your data. That's ProToolBox in a nutshell. Whether you're a student racing to meet a deadline, a designer polishing visuals at midnight, or a developer debugging on the go, we've built tools that actually fit the way real people work.
+              </p>
+              <p>
+                Every tool on ProToolBox is built with one philosophy: <em>get out of your way</em>. No sign-up walls. No "free trial" countdowns. No dark patterns nudging you toward a paid plan. Just open, use, done. That's why over <strong>50,000+ users</strong> visit ProToolBox every month — because sometimes you just need something to <em>work right now</em>.
+              </p>
+              <div className="seo-highlights-grid">
+                <div className="seo-highlight-card">
+                  <span className="seo-highlight-emoji">🔒</span>
+                  <h3>100% Private by Design</h3>
+                  <p>Most of our tools — image compressor, PDF merger, background remover — run entirely inside your browser. Your files never leave your device.</p>
+                </div>
+                <div className="seo-highlight-card">
+                  <span className="seo-highlight-emoji">⚡</span>
+                  <h3>Built for Speed</h3>
+                  <p>No heavy server roundtrips. We use WebAssembly and modern JavaScript APIs so processing happens in milliseconds, not minutes.</p>
+                </div>
+                <div className="seo-highlight-card">
+                  <span className="seo-highlight-emoji">🛠️</span>
+                  <h3>75+ Tools, One Place</h3>
+                  <p>PDF tools, image converters, video downloaders, SEO utilities, code formatters — if you need it daily, we probably have it.</p>
+                </div>
+                <div className="seo-highlight-card">
+                  <span className="seo-highlight-emoji">📱</span>
+                  <h3>Works on Every Device</h3>
+                  <p>Fully responsive from 320px mobile screens to 4K desktops. Same clean experience, every time, everywhere.</p>
+                </div>
+              </div>
+              <p>
+                From compressing a 5MB JPEG before sending it to a client, to merging dozens of PDFs for a project report, to generating a QR code for your small business flyer — ProToolBox handles the mundane tasks <strong>so you can focus on what actually matters</strong>. We're not trying to replace professional software. We're filling the gap for the moments when you need something simple, fast, and trustworthy.
+              </p>
+              <p>
+                We're constantly adding new tools based on what our community needs. Got a request? Drop us a message on our Contact page. This is a living toolkit, and it grows because <em>you</em> tell us what's missing.
+              </p>
+              <div className="seo-cta-row">
+                <Link to="/tools" className="seo-cta-btn primary">Explore All Tools <ArrowRight size={15} /></Link>
+                <Link to="/about" className="seo-cta-btn secondary">Our Story →</Link>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ═══ WHY CHOOSE ═══ */}
       <section className="section why-section" id="why">
         <div className="container why-inner">
-          {/* LEFT text */}
           <div className="why-left">
             <h2 className="why-title">Powerful. <span className="why-accent">Fast.</span> Free.</h2>
             <p className="why-subtitle">
@@ -435,12 +603,10 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* RIGHT — laptop mockup */}
           <div className="why-right">
             <div className="laptop-mockup">
               <div className="laptop-screen">
                 <div className="laptop-screen-inner">
-                  {/* mini tools grid preview */}
                   <div className="laptop-preview-grid">
                     {activeTools.slice(0, 9).map(tool => {
                       const Icon = getIconComponent(tool.icon);
@@ -459,7 +625,6 @@ export default function HomePage() {
               <div className="laptop-base" />
               <div className="laptop-stand" />
             </div>
-            {/* floating badge cards */}
             <div className="why-badge why-badge-1">
               <Zap size={16} />
               <span>Blazing Fast</span>
@@ -485,7 +650,6 @@ export default function HomePage() {
               Join thousands of happy users who love ProToolBox.
             </p>
           </div>
-          {/* Note: testimonials below are sample/editable placeholders */}
           <TestimonialsCarousel />
         </div>
       </section>
@@ -494,18 +658,15 @@ export default function HomePage() {
       <section className="section promo-banner-section">
         <div className="container">
           <div className="promo-banner">
-            {/* rocket */}
             <div className="promo-rocket-wrap" aria-hidden="true">
               <div className="promo-cloud promo-cloud-1" />
               <div className="promo-cloud promo-cloud-2" />
               <span className="promo-rocket-emoji">🚀</span>
             </div>
-
             <div className="promo-text">
               <h2 className="promo-title">Ready to Get Started?</h2>
               <p className="promo-desc">Explore our tools and make your work easier today.</p>
             </div>
-
             <Link to="/tools" className="promo-cta-btn">
               Browse All Tools <ArrowRight size={16} />
             </Link>
@@ -522,7 +683,6 @@ export default function HomePage() {
               Most tools work entirely in your browser — no file uploads to external servers required.
             </p>
           </div>
-
           <div className="steps-container">
             {[
               { n: '1', icon: '📁', title: 'Upload or paste', desc: 'Drop a file, paste text, or use our tool instantly.' },
@@ -549,7 +709,6 @@ export default function HomePage() {
               Everything you need to know about ProToolBox and browser-based tools.
             </p>
           </div>
-
           <div className="faq-list">
             {faqs.map((faq, i) => (
               <div key={i} className={`faq-item${faqOpen === i ? ' faq-open' : ''}`}>
