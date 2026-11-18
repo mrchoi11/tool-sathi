@@ -41,7 +41,7 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 header('Access-Control-Max-Age: 86400');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
@@ -230,6 +230,7 @@ function isAllowedDomain($url, $context = 'resolve') {
     $cdnDomains = [
         'pinimg.com', 'i.pinimg.com', 'v.pinimg.com', 'v1.pinimg.com', 'v2.pinimg.com', 's.pinimg.com',
         'googlevideo.com', 'ytimg.com', 'i.ytimg.com',
+        'chocolatemoo53.com', 'jing.rocks', 'nerdvpn.de', 'projectsegfau.lt',
         'cdninstagram.com', 'fbcdn.net'
     ];
 
@@ -358,78 +359,97 @@ if ($action === 'stream') {
         exit;
     }
 
+    $streamTargetUrl = $inputUrl;
+    $inputHost = strtolower(parse_url($inputUrl, PHP_URL_HOST) ?? '');
+    // If client passes direct googlevideo.com URL, rewrite through Invidious streaming proxy
+    if (str_contains($inputHost, 'googlevideo.com')) {
+        $p = parse_url($inputUrl);
+        $streamTargetUrl = "https://yt.chocolatemoo53.com" . ($p['path'] ?? '/videoplayback') . (isset($p['query']) ? '?' . $p['query'] : '');
+    }
+
     $filename = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $_GET['filename'] ?? 'protoolbox_download');
     if (!str_contains($filename, '.')) {
         $filename .= '.jpg';
     }
 
     // Determine max file size (30MB for images, 150MB for videos/audio)
-    $isMediaVideo = str_contains($inputUrl, '.mp4') || preg_match('/v[0-9]*\.pinimg\.com/i', $inputUrl) || str_contains($inputUrl, 'googlevideo') || str_ends_with(strtolower($filename), '.mp4') || str_ends_with(strtolower($filename), '.m4a') || str_ends_with(strtolower($filename), '.mp3');
+    $isMediaVideo = str_contains($streamTargetUrl, '.mp4') || preg_match('/v[0-9]*\.pinimg\.com/i', $streamTargetUrl) || str_contains($streamTargetUrl, 'videoplayback') || str_ends_with(strtolower($filename), '.mp4') || str_ends_with(strtolower($filename), '.m4a') || str_ends_with(strtolower($filename), '.mp3');
     $MAX_ALLOWED_BYTES = $isMediaVideo ? 150 * 1024 * 1024 : 30 * 1024 * 1024;
 
-    // Check HEAD content-length before streaming
-    $head = curl_init($inputUrl);
-    curl_setopt($head, CURLOPT_NOBODY, true);
-    curl_setopt($head, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($head, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($head, CURLOPT_TIMEOUT, 6);
-    curl_setopt($head, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-    curl_setopt($head, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-    curl_setopt($head, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
-    if (preg_match('/pinimg\.com/i', $inputUrl)) {
-        curl_setopt($head, CURLOPT_REFERER, 'https://www.pinterest.com/');
-    }
-    curl_exec($head);
-    $contentLength = curl_getinfo($head, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
-    $mimeType = curl_getinfo($head, CURLINFO_CONTENT_TYPE);
-    curl_close($head);
+    $headersSent = false;
+    $upstreamStatus = 0;
+    $upstreamClen = 0;
+    $upstreamType = '';
+    $bytesTransferred = 0;
 
-    if ($contentLength > 0 && $contentLength > $MAX_ALLOWED_BYTES) {
-        http_response_code(413);
-        header('Content-Type: text/plain; charset=utf-8');
-        echo 'File exceeds maximum allowed download limit.';
-        exit;
-    }
-
-    // Stream download with Content-Disposition & in-flight byte-count enforcement
-    $ch = curl_init($inputUrl);
+    // Stream download with safe in-flight header detection & byte-count enforcement
+    $ch = curl_init($streamTargetUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+    curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
     curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
     curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
     curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
-    if (preg_match('/pinimg\.com/i', $inputUrl)) {
+    if (preg_match('/pinimg\.com/i', $streamTargetUrl)) {
         curl_setopt($ch, CURLOPT_REFERER, 'https://www.pinterest.com/');
     }
 
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    if (str_ends_with(strtolower($filename), '.mp4')) {
-        header('Content-Type: video/mp4');
-    } elseif (str_ends_with(strtolower($filename), '.m4a')) {
-        header('Content-Type: audio/mp4');
-    } elseif (str_ends_with(strtolower($filename), '.mp3')) {
-        header('Content-Type: audio/mpeg');
-    } elseif ($mimeType && !str_contains($mimeType, 'text/html')) {
-        header('Content-Type: ' . $mimeType);
-    } else {
-        header('Content-Type: ' . ($isMediaVideo ? 'video/mp4' : 'image/jpeg'));
-    }
-    if ($contentLength > 0 && $contentLength <= $MAX_ALLOWED_BYTES) {
-        header('Content-Length: ' . (int)$contentLength);
-    }
-    header('Cache-Control: public, max-age=86400');
+    // Capture response headers from upstream
+    curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($ch, $headerLine) use (&$upstreamStatus, &$upstreamClen, &$upstreamType) {
+        $len = strlen($headerLine);
+        if (preg_match('#^HTTP/[\d\.]+\s+(\d+)#i', $headerLine, $m)) {
+            $upstreamStatus = (int)$m[1];
+        } elseif (preg_match('/^Content-Length:\s*(\d+)/i', $headerLine, $m)) {
+            $upstreamClen = (int)$m[1];
+        } elseif (preg_match('/^Content-Type:\s*([^\r\n;]+)/i', $headerLine, $m)) {
+            $upstreamType = trim($m[1]);
+        }
+        return $len;
+    });
 
-    // In-flight byte counter to enforce max download limit even if Content-Length is missing or chunked
-    $bytesTransferred = 0;
-    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $data) use (&$bytesTransferred, $MAX_ALLOWED_BYTES) {
+    // Stream body only after validating upstream success
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $data) use (&$headersSent, &$upstreamStatus, &$upstreamClen, &$upstreamType, &$bytesTransferred, $MAX_ALLOWED_BYTES, $filename, $isMediaVideo) {
         $len = strlen($data);
+        if (!$headersSent) {
+            // Check if upstream returned success (200 OK or 206 Partial Content)
+            if ($upstreamStatus >= 200 && $upstreamStatus < 400) {
+                if ($upstreamClen > 0 && $upstreamClen > $MAX_ALLOWED_BYTES) {
+                    http_response_code(413);
+                    header('Content-Type: text/plain; charset=utf-8');
+                    echo 'File exceeds maximum allowed download limit.';
+                    return 0;
+                }
+
+                header('Content-Disposition: attachment; filename="' . $filename . '"');
+                if (str_ends_with(strtolower($filename), '.mp4')) {
+                    header('Content-Type: video/mp4');
+                } elseif (str_ends_with(strtolower($filename), '.m4a')) {
+                    header('Content-Type: audio/mp4');
+                } elseif (str_ends_with(strtolower($filename), '.mp3')) {
+                    header('Content-Type: audio/mpeg');
+                } elseif ($upstreamType && !str_contains($upstreamType, 'text/html')) {
+                    header('Content-Type: ' . $upstreamType);
+                } else {
+                    header('Content-Type: ' . ($isMediaVideo ? 'video/mp4' : 'image/jpeg'));
+                }
+                if ($upstreamClen > 0 && $upstreamClen <= $MAX_ALLOWED_BYTES) {
+                    header('Content-Length: ' . (int)$upstreamClen);
+                }
+                header('Cache-Control: public, max-age=86400');
+                $headersSent = true;
+            } else {
+                // Abort write if upstream returned error (4xx/5xx)
+                return 0;
+            }
+        }
+
         $bytesTransferred += $len;
         if ($bytesTransferred > $MAX_ALLOWED_BYTES) {
-            // Abort transfer immediately by returning 0 (signals CURLE_WRITE_ERROR)
+            // Abort transfer immediately if size limit is exceeded during streaming
             return 0;
         }
+
         echo $data;
         if (ob_get_level() > 0) {
             ob_flush();
@@ -438,8 +458,23 @@ if ($action === 'stream') {
         return $len;
     });
 
-    curl_exec($ch);
+    $success = curl_exec($ch);
+    $curlErr = curl_error($ch);
     curl_close($ch);
+
+    // If headers were never sent, return structured error instead of empty file
+    if (!$headersSent) {
+        http_response_code($upstreamStatus >= 400 ? $upstreamStatus : 502);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok' => false,
+            'error' => [
+                'code' => 'STREAM_FAILED',
+                'message' => 'Could not stream media file. Upstream server response code: ' . ($upstreamStatus ?: 'Connection Failed')
+            ]
+        ]);
+        exit;
+    }
     exit;
 }
 
@@ -834,6 +869,7 @@ if ($platform === 'youtube') {
     ];
 
     $ytData = null;
+    $usedInstHost = '';
     foreach ($invidiousInstances as $inst) {
         $ch = curl_init("$inst/api/v1/videos/$videoId");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -846,6 +882,7 @@ if ($platform === 'youtube') {
             $parsed = json_decode($raw, true);
             if (!empty($parsed['title']) && (!empty($parsed['adaptiveFormats']) || !empty($parsed['formatStreams']))) {
                 $ytData = $parsed;
+                $usedInstHost = parse_url($inst, PHP_URL_HOST) ?: 'yt.chocolatemoo53.com';
                 break;
             }
         }
@@ -892,6 +929,15 @@ if ($platform === 'youtube') {
     $duration = $durationSec > 0 ? gmdate($durationSec > 3600 ? "H:i:s" : "i:s", $durationSec) : '';
     $thumbnail = "https://i.ytimg.com/vi/{$videoId}/hqdefault.jpg";
 
+    $makeProxyUrl = function($rawUrl) use ($usedInstHost) {
+        if (empty($rawUrl)) return '';
+        $host = $usedInstHost ?: 'yt.chocolatemoo53.com';
+        $parts = parse_url($rawUrl);
+        $path = $parts['path'] ?? '/videoplayback';
+        $query = isset($parts['query']) ? '?' . $parts['query'] : '';
+        return "https://{$host}{$path}{$query}";
+    };
+
     $items = [];
     $seenQualities = [];
 
@@ -899,7 +945,7 @@ if ($platform === 'youtube') {
     if (!empty($ytData['formatStreams'])) {
         foreach ($ytData['formatStreams'] as $fs) {
             $qLabel = $fs['qualityLabel'] ?? $fs['resolution'] ?? '720p';
-            $url = $fs['url'] ?? '';
+            $url = $makeProxyUrl($fs['url'] ?? '');
             if ($url && !isset($seenQualities[$qLabel])) {
                 $seenQualities[$qLabel] = true;
                 $items[] = [
@@ -931,7 +977,7 @@ if ($platform === 'youtube') {
                             'quality' => $label,
                             'format' => 'MP4',
                             'size' => $sizeMb,
-                            'url' => $af['url']
+                            'url' => $makeProxyUrl($af['url'])
                         ];
                     }
                 }
@@ -948,7 +994,7 @@ if ($platform === 'youtube') {
                     'quality' => 'Audio Only (M4A)',
                     'format' => 'm4a',
                     'size' => $sizeMb,
-                    'url' => $af['url']
+                    'url' => $makeProxyUrl($af['url'])
                 ];
                 break;
             }
