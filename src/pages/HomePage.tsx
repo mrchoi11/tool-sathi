@@ -551,67 +551,63 @@ export default function HomePage() {
   return (
     <div className="home">
 
-      {/* Hero Section */}
-      <section className="hero hero-split">
-        <div className="container hero-split-inner">
+      {/* Hero Section: Centered Modern Layout with Lottie Animation under H1 */}
+      <section className="hero">
+        <div className="container hero-center-inner animate-fade-in">
 
-          {/* Left Column */}
-          <div className="hero-left animate-fade-in">
-            <div className="hero-badge-wrap">
-              <span className="hero-badge-pill">
-                <span className="hero-badge-text">Free Online Tools</span>
-              </span>
-            </div>
-
-            <h1 className="hero-title">
-              Work Smarter,<br />
-              <span className="hero-title-accent">Not Harder</span>
-            </h1>
-
-            <p className="hero-subtitle">
-              Discover powerful, easy-to-use online tools to simplify your work,
-              boost productivity and save time. Free, fast and private.
-            </p>
-
-            <form className="hero-search-form" onSubmit={handleSearch}>
-              <div className="hero-search-inner">
-                <Search size={20} className="hero-search-icon" />
-                <input
-                  type="text"
-                  className="hero-search-input"
-                  placeholder="Search for tools (e.g. PDF, image, SEO...)"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  aria-label="Search for a tool"
-                />
-                <button type="submit" className="hero-search-btn">
-                  <span>Search</span>
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </form>
-
-            <div className="hero-trust-row">
-              <span className="hero-trust-badge"><CheckCircle2 size={14} /> 100% Free</span>
-              <span className="hero-trust-badge"><CheckCircle2 size={14} /> No Signup</span>
-              <span className="hero-trust-badge"><CheckCircle2 size={14} /> Fast &amp; Secure</span>
-            </div>
-
-            <div className="hero-suggestions">
-              <span className="hero-suggestions-label">Popular:</span>
-              {['PDF Merge', 'Image Compressor', 'Video Player', 'QR Code', 'JSON Formatter'].map(s => (
-                <Link key={s} to={`/tools?q=${encodeURIComponent(s)}`} className="hero-suggestion-pill">{s}</Link>
-              ))}
-            </div>
+          {/* Badge Pill */}
+          <div className="hero-badge-wrap">
+            <span className="hero-badge-pill">
+              <span className="hero-badge-text">Free Online Tools</span>
+            </span>
           </div>
 
-          {/* Right Column: Interactive Lottie Animation */}
-          <div className="hero-right animate-fade-in-right">
-            <div className="hero-lottie-wrapper">
-              <div className="hero-lottie-backdrop" />
-              <HeroLottie />
-            </div>
+          {/* Engaging Heading */}
+          <h1 className="hero-title">
+            Every Tool You Need to<br />
+            <span className="hero-title-accent">Create, Convert &amp; Edit.</span>
+          </h1>
+
+          {/* Lottie Animation: Placed directly under H1 with tight margins */}
+          <div className="hero-lottie-center-wrap">
+            <div className="hero-lottie-backdrop" />
+            <HeroLottie />
           </div>
+
+          {/* Search Form */}
+          <form className="hero-search-form" onSubmit={handleSearch}>
+            <div className="hero-search-inner">
+              <Search size={20} className="hero-search-icon" />
+              <input
+                type="text"
+                className="hero-search-input"
+                placeholder="Search for tools (e.g. PDF, image, video, QR...)"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                aria-label="Search for a tool"
+              />
+              <button type="submit" className="hero-search-btn">
+                <span>Search</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </form>
+
+          {/* Trust Badges */}
+          <div className="hero-trust-row">
+            <span className="hero-trust-badge"><CheckCircle2 size={14} /> 100% Free</span>
+            <span className="hero-trust-badge"><CheckCircle2 size={14} /> No Signup</span>
+            <span className="hero-trust-badge"><CheckCircle2 size={14} /> Fast &amp; Secure</span>
+          </div>
+
+          {/* Popular Tool Pills */}
+          <div className="hero-suggestions">
+            <span className="hero-suggestions-label">Popular:</span>
+            {['PDF Merge', 'Image Compressor', 'Video Player', 'QR Code', 'JSON Formatter'].map(s => (
+              <Link key={s} to={`/tools?q=${encodeURIComponent(s)}`} className="hero-suggestion-pill">{s}</Link>
+            ))}
+          </div>
+
         </div>
       </section>
 
