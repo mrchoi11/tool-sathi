@@ -84,111 +84,131 @@ function use3DCarousel(total: number, autoPlayMs = 0) {
   return { active, goTo, prev, next, pause, resume };
 }
 
-/* 3D Tools Carousel with engaging modern card design */
+/* Anti-Clockwise Orbital Clock Dial for Featured Tools (100% Responsive, Stays Inside Screen) */
 function ToolsCarousel3D() {
   const featured = getFeaturedTools().slice(0, 8);
   const total = featured.length;
-  const { active, goTo, prev, next, pause, resume } = use3DCarousel(total, 3800);
-  const touchStartX = useRef(0);
-  const touchStartTime = useRef(0);
+  const [active, setActive] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const pauseTimeoutRef = useRef<number | null>(null);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartTime.current = Date.now();
-    pause();
-  };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStartX.current - e.changedTouches[0].clientX;
-    const dt = Date.now() - touchStartTime.current;
-    if (Math.abs(diff) > 35 && dt < 450) { diff > 0 ? next() : prev(); }
-    resume();
+  // Auto-advance active spotlight tool in sync with anti-clockwise motion
+  useEffect(() => {
+    if (isPaused || total === 0) return;
+    const timer = window.setInterval(() => {
+      setActive(a => (a - 1 + total) % total);
+    }, 3200);
+    return () => clearInterval(timer);
+  }, [isPaused, total]);
+
+  const handlePause = () => {
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    setIsPaused(true);
   };
 
-  const getPos = (i: number) => {
-    const rel = ((i - active) % total + total) % total;
-    if (rel === 0) return 'center';
-    if (rel === 1) return 'right1';
-    if (rel === total - 1) return 'left1';
-    if (rel === 2) return 'right2';
-    if (rel === total - 2) return 'left2';
-    return 'hidden';
+  const handleResume = () => {
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    pauseTimeoutRef.current = window.setTimeout(() => {
+      setIsPaused(false);
+    }, 1500);
   };
+
+  const prev = () => setActive(a => (a - 1 + total) % total);
+  const next = () => setActive(a => (a + 1) % total);
+
+  const activeTool = featured[active] || featured[0];
 
   return (
     <div
-      className="carousel3d-wrapper"
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onMouseEnter={pause}
-      onMouseLeave={resume}
+      className="tools-orbit-wrapper"
+      onMouseEnter={handlePause}
+      onMouseLeave={handleResume}
+      onTouchStart={handlePause}
+      onTouchEnd={handleResume}
     >
-      <button className="carousel3d-arrow carousel3d-arrow-left" onClick={prev} aria-label="Previous">
-        <ChevronLeft size={20} />
-      </button>
+      <div className="tools-orbit-stage">
+        {/* Subtle decorative orbit tracks */}
+        <div className="tools-orbit-track" aria-hidden="true" />
+        <div className="tools-orbit-track-inner" aria-hidden="true" />
 
-      <div className="carousel3d-stage">
-        {featured.map((tool, i) => {
-          const pos = getPos(i);
-          const Icon = getIconComponent(tool.icon, tool.id);
-          const cat = categories.find(c => c.id === tool.category);
-          const color = cat?.color || '#6366f1';
-          return (
-            <div
-              key={tool.id}
-              className={`carousel3d-card carousel3d-pos-${pos}`}
-              onClick={() => { if (pos !== 'center') goTo(i); }}
-            >
-              <Link
-                to={`/tools/${tool.slug}`}
-                className="carousel3d-card-inner"
-                tabIndex={pos === 'center' ? 0 : -1}
-                onClick={e => { if (pos !== 'center') e.preventDefault(); }}
-                style={{ '--card-color': color } as React.CSSProperties}
+        {/* Center Spotlight Hub: Tool Name and Description ONLY (no category, no open tool) */}
+        <div className="tools-orbit-center">
+          <Link
+            to={`/tools/${activeTool.slug}`}
+            className="tools-orbit-center-link"
+            title={activeTool.name}
+          >
+            <h3 key={`name-${activeTool.id}`} className="tools-orbit-center-title">
+              {activeTool.name}
+            </h3>
+            <p key={`desc-${activeTool.id}`} className="tools-orbit-center-desc">
+              {activeTool.description}
+            </p>
+          </Link>
+        </div>
+
+        {/* Rotating Wheel: Pure CSS anti-clockwise rotation */}
+        <div className={`tools-orbit-wheel ${isPaused ? 'paused' : ''}`}>
+          {featured.map((tool, i) => {
+            const angle = (i * 360) / total;
+            const Icon = getIconComponent(tool.icon, tool.id);
+            const cat = categories.find(c => c.id === tool.category);
+            const color = cat?.color || '#6366f1';
+            const isCurrent = i === active;
+
+            return (
+              <div
+                key={tool.id}
+                className={`tools-orbit-slot ${isCurrent ? 'active-slot' : ''}`}
+                style={{ '--slot-angle': `${angle}deg`, '--tool-color': color } as React.CSSProperties}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => setActive(i)}
               >
-                {/* Top accent line */}
-                <div className="carousel3d-accent-bar" style={{ background: `linear-gradient(90deg, ${color}, ${color}55)` }} />
-
-                {/* Top row: Icon and category badge */}
-                <div className="carousel3d-top-row">
-                  <div className="carousel3d-icon-wrap" style={{ background: `${color}15`, borderColor: `${color}30` }}>
-                    <Icon size={26} style={{ color }} />
+                <Link
+                  to={`/tools/${tool.slug}`}
+                  className="tools-orbit-icon-link"
+                  title={tool.name}
+                >
+                  <div className="tools-orbit-icon-inner">
+                    <Icon size={isCurrent ? 56 : 48} style={{ color }} />
                   </div>
-                  <span className="carousel3d-category-badge" style={{ color, background: `${color}12`, borderColor: `${color}25` }}>
-                    {cat?.name || 'Tool'}
-                  </span>
-                </div>
-
-                {/* Body info */}
-                <div className="carousel3d-body">
-                  <span className="carousel3d-name">{tool.name}</span>
-                  <p className="carousel3d-desc">{tool.description}</p>
-                </div>
-
-                {/* Bottom CTA pill */}
-                <div className="carousel3d-footer">
-                  <span className="carousel3d-cta" style={{ color }}>
-                    Open Tool <ArrowRight size={14} />
-                  </span>
-                </div>
-              </Link>
-            </div>
-          );
-        })}
+                </Link>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <button className="carousel3d-arrow carousel3d-arrow-right" onClick={next} aria-label="Next">
-        <ChevronRight size={20} />
-      </button>
+      {/* Navigation Controls: Anti-clockwise and clockwise controls with dots */}
+      <div className="tools-orbit-controls">
+        <button
+          className="tools-orbit-arrow"
+          onClick={prev}
+          aria-label="Previous tool (anti-clockwise)"
+          title="Previous (anti-clockwise)"
+        >
+          <ChevronLeft size={18} />
+        </button>
 
-      <div className="carousel3d-dots">
-        {featured.map((_, i) => (
-          <button
-            key={i}
-            className={`carousel3d-dot${i === active ? ' active' : ''}`}
-            onClick={() => goTo(i)}
-            aria-label={`Slide ${i + 1}`}
-          />
-        ))}
+        <div className="tools-orbit-dots">
+          {featured.map((tool, i) => (
+            <button
+              key={tool.id}
+              className={`tools-orbit-dot ${i === active ? 'active' : ''}`}
+              onClick={() => setActive(i)}
+              aria-label={tool.name}
+            />
+          ))}
+        </div>
+
+        <button
+          className="tools-orbit-arrow"
+          onClick={next}
+          aria-label="Next tool (clockwise)"
+          title="Next (clockwise)"
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
     </div>
   );
