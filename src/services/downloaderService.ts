@@ -9,6 +9,10 @@ export interface DownloadItem {
   format: string;
   size?: string;
   url: string;
+  audioUrl?: string;
+  hasAudio?: boolean;
+  needsMerge?: boolean;
+  isHighest?: boolean;
 }
 
 export interface DownloadResult {
@@ -69,7 +73,7 @@ export async function resolveMediaUrl(urlInput: string): Promise<DownloadResult>
 
   const endpoint = getGatewayEndpoint();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 18000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const res = await fetch(`${endpoint}?action=resolve&url=${encodeURIComponent(trimmed)}`, {
@@ -123,16 +127,137 @@ export async function resolveMediaUrl(urlInput: string): Promise<DownloadResult>
   }
 }
 
+// In-browser WebAssembly single-thread FFmpeg loader for lossless client-side remux
+let ffmpegInstance: any = null;
+async function getFFmpegWasm(): Promise<any> {
+  if (ffmpegInstance) return ffmpegInstance;
+  if (!(window as any).FFmpeg) {
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Failed to load in-browser audio-video merger.'));
+      document.head.appendChild(script);
+    });
+  }
+  const { createFFmpeg } = (window as any).FFmpeg;
+  ffmpegInstance = createFFmpeg({
+    log: false,
+    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+  });
+  await ffmpegInstance.load();
+  return ffmpegInstance;
+}
+
 /**
- * Trigger genuine file download via browser blob / attachment stream
+ * Client-side lossless transmux to combine video stream and audio stream into MP4
+ */
+async function mergeAndDownloadClientSide(
+  videoUrl: string,
+  audioUrl: string,
+  suggestedFilename: string,
+  onProgress?: (status: string) => void
+): Promise<void> {
+  const endpoint = getGatewayEndpoint();
+  onProgress?.('Fetching video stream (1/3)...');
+  const vStream = `${endpoint}?action=stream&url=${encodeURIComponent(videoUrl)}&filename=video.mp4`;
+  const vRes = await fetch(vStream);
+  if (!vRes.ok) throw new Error('Could not fetch video stream');
+  const vBlob = await vRes.blob();
+  const vBuffer = await vBlob.arrayBuffer();
+
+  onProgress?.('Fetching voice track (2/3)...');
+  const aStream = `${endpoint}?action=stream&url=${encodeURIComponent(audioUrl)}&filename=audio.m4a`;
+  const aRes = await fetch(aStream);
+  if (!aRes.ok) throw new Error('Could not fetch audio track');
+  const aBlob = await aRes.blob();
+  const aBuffer = await aBlob.arrayBuffer();
+
+  onProgress?.('Merging video and voice tracks...');
+  const ffmpeg = await getFFmpegWasm();
+  const tag = Date.now();
+  const inV = `v_${tag}.mp4`;
+  const inA = `a_${tag}.m4a`;
+  const outF = `out_${tag}.mp4`;
+
+  ffmpeg.FS('writeFile', inV, new Uint8Array(vBuffer));
+  ffmpeg.FS('writeFile', inA, new Uint8Array(aBuffer));
+
+  await ffmpeg.run('-i', inV, '-i', inA, '-c', 'copy', '-movflags', '+faststart', outF);
+
+  const outData = ffmpeg.FS('readFile', outF);
+  const mergedBlob = new Blob([outData.buffer], { type: 'video/mp4' });
+
+  try {
+    ffmpeg.FS('unlink', inV);
+    ffmpeg.FS('unlink', inA);
+    ffmpeg.FS('unlink', outF);
+  } catch { /* ignore */ }
+
+  onProgress?.('Saving merged video...');
+  const objectUrl = URL.createObjectURL(mergedBlob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = suggestedFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+  onProgress?.('Download complete!');
+}
+
+/**
+ * Trigger genuine file download via browser blob / attachment stream,
+ * with automatic server-side or in-browser audio+video merging support.
  */
 export async function downloadMediaFile(
   mediaUrl: string,
   suggestedFilename: string,
-  onProgress?: (status: string) => void
+  onProgress?: (status: string) => void,
+  audioUrl?: string
 ): Promise<void> {
-  onProgress?.('Preparing download...');
   const endpoint = getGatewayEndpoint();
+
+  // If this item requires audio+video merging
+  if (audioUrl && audioUrl.trim().length > 0) {
+    onProgress?.('Merging video and voice...');
+    const mergeStreamUrl = `${endpoint}?action=merge_stream&video_url=${encodeURIComponent(mediaUrl)}&audio_url=${encodeURIComponent(audioUrl)}&filename=${encodeURIComponent(suggestedFilename)}`;
+
+    try {
+      const res = await fetch(mergeStreamUrl);
+      const contentType = res.headers.get('content-type') || '';
+
+      // If server successfully merged via system ffmpeg
+      if (res.ok && (contentType.includes('video/') || contentType.includes('application/octet-stream'))) {
+        onProgress?.('Saving merged video...');
+        const blob = await res.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = suggestedFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+        onProgress?.('Download complete!');
+        return;
+      }
+    } catch {
+      // Continue to client-side merge fallback
+    }
+
+    // Client-side WebAssembly merge fallback
+    try {
+      await mergeAndDownloadClientSide(mediaUrl, audioUrl, suggestedFilename, onProgress);
+      return;
+    } catch (mergeErr: any) {
+      console.warn('Client-side merge failed, attempting direct download:', mergeErr);
+    }
+  }
+
+  // Direct download (images, progressive videos, or single audio)
+  onProgress?.('Preparing download...');
   const streamUrl = `${endpoint}?action=stream&url=${encodeURIComponent(mediaUrl)}&filename=${encodeURIComponent(suggestedFilename)}`;
 
   try {
@@ -151,7 +276,7 @@ export async function downloadMediaFile(
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     onProgress?.('Download complete!');
-  } catch (err) {
+  } catch {
     // Fallback: direct navigation / anchor download
     const a = document.createElement('a');
     a.href = streamUrl;

@@ -46,6 +46,45 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     exit;
 }
 
+// ─── SAFE SYSTEM PROCESS AVAILABILITY CHECKS ────────────────────────────────
+function isShellExecAvailable(): bool {
+    if (!function_exists('shell_exec')) return false;
+    $disabled = ini_get('disable_functions');
+    if (!empty($disabled)) {
+        $arr = array_map('trim', explode(',', strtolower($disabled)));
+        if (in_array('shell_exec', $arr, true)) return false;
+    }
+    return true;
+}
+
+function isProcOpenAvailable(): bool {
+    if (!function_exists('proc_open')) return false;
+    $disabled = ini_get('disable_functions');
+    if (!empty($disabled)) {
+        $arr = array_map('trim', explode(',', strtolower($disabled)));
+        if (in_array('proc_open', $arr, true)) return false;
+    }
+    return true;
+}
+
+// Global Fatal Shutdown Handler to guarantee clean JSON response instead of empty 500
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode([
+            'ok' => false,
+            'error' => [
+                'code' => 'FATAL_SERVER_ERROR',
+                'message' => 'An unexpected server error occurred: ' . ($error['message'] ?? 'Internal Error')
+            ]
+        ]);
+    }
+});
+
 // ─── OPTIONAL SECRET CONFIG ──────────────────────────────────────────────────
 $configFile = __DIR__ . '/config.php';
 if (file_exists($configFile)) {
@@ -230,7 +269,7 @@ function isAllowedDomain($url, $context = 'resolve') {
     $cdnDomains = [
         'pinimg.com', 'i.pinimg.com', 'v.pinimg.com', 'v1.pinimg.com', 'v2.pinimg.com', 's.pinimg.com',
         'googlevideo.com', 'ytimg.com', 'i.ytimg.com',
-        'chocolatemoo53.com', 'jing.rocks', 'nerdvpn.de', 'projectsegfau.lt',
+        'chocolatemoo53.com', 'jing.rocks', 'nerdvpn.de', 'projectsegfau.lt', 'slipfox.xyz', 'nadeko.net',
         'cdninstagram.com', 'fbcdn.net'
     ];
 
@@ -349,6 +388,114 @@ if (empty($inputUrl)) {
 checkRateLimit();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─── ACTION: MERGE_STREAM (Server-side FFmpeg audio+video muxing) ────────────
+// ─────────────────────────────────────────────────────────────────────────────
+if ($action === 'merge_stream') {
+    $videoUrl = $_GET['video_url'] ?? $_POST['video_url'] ?? '';
+    $audioUrl = $_GET['audio_url'] ?? $_POST['audio_url'] ?? '';
+    $filename = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $_GET['filename'] ?? 'protoolbox_hd_video.mp4');
+    if (!str_ends_with(strtolower($filename), '.mp4')) {
+        $filename .= '.mp4';
+    }
+
+    if (empty($videoUrl) || !isAllowedDomain($videoUrl, 'stream')) {
+        http_response_code(400);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'error' => ['code' => 'INVALID_VIDEO_URL', 'message' => 'Disallowed or missing video stream URL.']]);
+        exit;
+    }
+
+    // Function to discover ffmpeg binary on the host system
+    $findFfmpeg = function(): ?string {
+        if (!isShellExecAvailable() || !isProcOpenAvailable()) {
+            return null;
+        }
+
+        $candidates = ['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/bin/ffmpeg'];
+
+        $userProfile = getenv('USERPROFILE') ?: '';
+        if ($userProfile) {
+            $ffmpegExe = glob($userProfile . '/AppData/Roaming/Python/Python*/site-packages/imageio_ffmpeg/binaries/ffmpeg-*.exe');
+            if (!empty($ffmpegExe)) {
+                foreach ($ffmpegExe as $exe) {
+                    $candidates[] = '"' . $exe . '"';
+                }
+            }
+        }
+
+        foreach ($candidates as $bin) {
+            $ver = @shell_exec("$bin -version 2>&1");
+            if ($ver && stripos($ver, 'ffmpeg version') !== false) {
+                return $bin;
+            }
+        }
+        return null;
+    };
+
+    $ffmpegBin = $findFfmpeg();
+    if (!$ffmpegBin) {
+        // Return 501 so the client automatically executes lossless client-side WebAssembly merge
+        http_response_code(501);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok' => false,
+            'error' => [
+                'code' => 'SERVER_MERGE_UNAVAILABLE',
+                'message' => 'Server FFmpeg unavailable. Client fallback will process merge.'
+            ]
+        ]);
+        exit;
+    }
+
+    // Stream merged video and audio via FFmpeg pipe (lossless stream copy)
+    header('Content-Type: video/mp4');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: public, max-age=86400');
+    if (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+
+    $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
+    $cmd = escapeshellcmd($ffmpegBin)
+         . " -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+         . " -headers " . escapeshellarg("User-Agent: $ua\r\n")
+         . " -i " . escapeshellarg($videoUrl);
+
+    if (!empty($audioUrl) && isAllowedDomain($audioUrl, 'stream')) {
+        $cmd .= " -headers " . escapeshellarg("User-Agent: $ua\r\n")
+             . " -i " . escapeshellarg($audioUrl)
+             . " -c:v copy -c:a aac -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1 2>/dev/null";
+    } else {
+        $cmd .= " -c:v copy -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1 2>/dev/null";
+    }
+
+    $proc = proc_open($cmd, [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w']
+    ], $pipes);
+
+    if (is_resource($proc)) {
+        fclose($pipes[0]);
+        fclose($pipes[2]);
+        while (!feof($pipes[1])) {
+            $data = fread($pipes[1], 65536);
+            if ($data !== false && strlen($data) > 0) {
+                echo $data;
+                flush();
+            }
+        }
+        fclose($pipes[1]);
+        proc_close($proc);
+        exit;
+    }
+
+    http_response_code(500);
+    echo json_encode(['ok' => false, 'error' => ['code' => 'PROC_FAILED', 'message' => 'Could not spawn merge process.']]);
+    exit;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ─── ACTION: STREAM (Safe CDN download streaming proxy with size limits) ─────
 // ─────────────────────────────────────────────────────────────────────────────
 if ($action === 'stream') {
@@ -360,12 +507,6 @@ if ($action === 'stream') {
     }
 
     $streamTargetUrl = $inputUrl;
-    $inputHost = strtolower(parse_url($inputUrl, PHP_URL_HOST) ?? '');
-    // If client passes direct googlevideo.com URL, rewrite through Invidious streaming proxy
-    if (str_contains($inputHost, 'googlevideo.com')) {
-        $p = parse_url($inputUrl);
-        $streamTargetUrl = "https://yt.chocolatemoo53.com" . ($p['path'] ?? '/videoplayback') . (isset($p['query']) ? '?' . $p['query'] : '');
-    }
 
     $filename = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $_GET['filename'] ?? 'protoolbox_download');
     if (!str_contains($filename, '.')) {
@@ -388,6 +529,8 @@ if ($action === 'stream') {
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
     curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
     curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
@@ -863,9 +1006,9 @@ if ($platform === 'youtube') {
     // Native resolution via Invidious public instance rotation
     $invidiousInstances = [
         "https://yt.chocolatemoo53.com",
-        "https://invidious.jing.rocks",
         "https://invidious.nerdvpn.de",
-        "https://invidious.projectsegfau.lt"
+        "https://inv.nadeko.net",
+        "https://invidious.slipfox.xyz"
     ];
 
     $ytData = null;
@@ -874,6 +1017,9 @@ if ($platform === 'youtube') {
         $ch = curl_init("$inst/api/v1/videos/$videoId");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
         $raw = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -888,13 +1034,60 @@ if ($platform === 'youtube') {
         }
     }
 
-    // Metadata fallback via direct m.youtube.com scrape
+    // Direct Google Innertube API fallback with official ANDROID client
+    if (!$ytData) {
+        $ch = curl_init('https://www.youtube.com/youtubei/v1/player?prettyPrint=false');
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+            'videoId' => $videoId,
+            'contentCheckOk' => true,
+            'racyCheckOk' => true,
+            'context' => [
+                'client' => [
+                    'clientName' => 'ANDROID',
+                    'clientVersion' => '21.26.364',
+                    'androidSdkVersion' => 30,
+                    'osName' => 'Android',
+                    'osVersion' => '11',
+                    'hl' => 'en',
+                    'gl' => 'US'
+                ]
+            ]
+        ]));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'User-Agent: com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip'
+        ]);
+        $raw = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($code === 200 && $raw) {
+            $parsed = json_decode($raw, true);
+            if (($parsed['playabilityStatus']['status'] ?? '') === 'OK' && !empty($parsed['videoDetails'])) {
+                $ytData = [
+                    'title' => $parsed['videoDetails']['title'] ?? 'YouTube Video',
+                    'lengthSeconds' => $parsed['videoDetails']['lengthSeconds'] ?? 0,
+                    'adaptiveFormats' => $parsed['streamingData']['adaptiveFormats'] ?? [],
+                    'formatStreams' => $parsed['streamingData']['formats'] ?? []
+                ];
+                $usedInstHost = ''; // Direct google URLs
+            }
+        }
+    }
+
+    // Secondary metadata fallback via direct m.youtube.com scrape
     if (!$ytData) {
         $mUrl = "https://m.youtube.com/watch?v=$videoId";
         $ch = curl_init($mUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15');
         $mHtml = curl_exec($ch);
         curl_close($ch);
@@ -907,6 +1100,7 @@ if ($platform === 'youtube') {
                     'adaptiveFormats' => $parsed['streamingData']['adaptiveFormats'] ?? [],
                     'formatStreams' => $parsed['streamingData']['formats'] ?? []
                 ];
+                $usedInstHost = '';
             }
         }
     }
@@ -931,37 +1125,44 @@ if ($platform === 'youtube') {
 
     $makeProxyUrl = function($rawUrl) use ($usedInstHost) {
         if (empty($rawUrl)) return '';
-        $host = $usedInstHost ?: 'yt.chocolatemoo53.com';
+        if (empty($usedInstHost)) return $rawUrl; // Direct Google Video URL
         $parts = parse_url($rawUrl);
         $path = $parts['path'] ?? '/videoplayback';
         $query = isset($parts['query']) ? '?' . $parts['query'] : '';
-        return "https://{$host}{$path}{$query}";
+        return "https://{$usedInstHost}{$path}{$query}";
     };
 
     $items = [];
     $seenQualities = [];
+    $hasMarkedHighest = false;
 
-    // Combined formats (video + audio)
-    if (!empty($ytData['formatStreams'])) {
-        foreach ($ytData['formatStreams'] as $fs) {
-            $qLabel = $fs['qualityLabel'] ?? $fs['resolution'] ?? '720p';
-            $url = $makeProxyUrl($fs['url'] ?? '');
-            if ($url && !isset($seenQualities[$qLabel])) {
-                $seenQualities[$qLabel] = true;
-                $items[] = [
-                    'type' => 'video',
-                    'quality' => "$qLabel HD (MP4)",
-                    'format' => 'MP4',
-                    'size' => !empty($fs['size']) ? $fs['size'] : null,
-                    'url' => $url
-                ];
+    // ── 1. Discover Best Audio Stream ──
+    $bestAudioUrl = null;
+    $bestAudioSize = null;
+    if (!empty($ytData['adaptiveFormats'])) {
+        foreach ($ytData['adaptiveFormats'] as $af) {
+            $type = $af['type'] ?? $af['mimeType'] ?? '';
+            if ((str_starts_with($type, 'audio/mp4') || str_contains($type, 'mp4a')) && !empty($af['url'])) {
+                $bestAudioUrl = $makeProxyUrl($af['url']);
+                $bestAudioSize = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : (!empty($af['contentLength']) ? round((int)$af['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
+                break;
+            }
+        }
+        if (!$bestAudioUrl) {
+            foreach ($ytData['adaptiveFormats'] as $af) {
+                $type = $af['type'] ?? $af['mimeType'] ?? '';
+                if (str_starts_with($type, 'audio/') && !empty($af['url'])) {
+                    $bestAudioUrl = $makeProxyUrl($af['url']);
+                    $bestAudioSize = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : (!empty($af['contentLength']) ? round((int)$af['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
+                    break;
+                }
             }
         }
     }
 
-    // Adaptive video formats (1080p, 720p, 480p, 360p)
+    // ── 2. Adaptive Video Formats with Audio Merging (1080p Full HD, 720p HD, etc.) ──
     if (!empty($ytData['adaptiveFormats'])) {
-        $qualityOrder = ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p'];
+        $qualityOrder = ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p'];
         foreach ($qualityOrder as $targetQ) {
             foreach ($ytData['adaptiveFormats'] as $af) {
                 $type = $af['type'] ?? $af['mimeType'] ?? '';
@@ -970,43 +1171,79 @@ if ($platform === 'youtube') {
                     $key = $targetQ;
                     if (!isset($seenQualities[$key]) && !empty($af['url'])) {
                         $seenQualities[$key] = true;
-                        $sizeMb = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : null;
-                        $label = $targetQ === '1080p' ? '1080p Full HD (MP4)' : ($targetQ === '720p' ? '720p HD (MP4)' : "$targetQ (MP4)");
+                        $sizeMb = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : (!empty($af['contentLength']) ? round((int)$af['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
+                        $isHighest = !$hasMarkedHighest;
+                        $hasMarkedHighest = true;
+
+                        $label = ($targetQ === '1080p' || $targetQ === '2160p' || $targetQ === '1440p')
+                            ? "$targetQ Full HD (Merged Video + Voice)"
+                            : "$targetQ (Merged Video + Voice)";
+
                         $items[] = [
                             'type' => 'video',
                             'quality' => $label,
                             'format' => 'MP4',
                             'size' => $sizeMb,
-                            'url' => $makeProxyUrl($af['url'])
+                            'url' => $makeProxyUrl($af['url']),
+                            'audioUrl' => $bestAudioUrl,
+                            'hasAudio' => true,
+                            'needsMerge' => !empty($bestAudioUrl),
+                            'isHighest' => $isHighest
                         ];
                     }
                 }
             }
         }
+    }
 
-        // Audio formats (M4A)
-        foreach ($ytData['adaptiveFormats'] as $af) {
-            $type = $af['type'] ?? $af['mimeType'] ?? '';
-            if (str_starts_with($type, 'audio/mp4') && !empty($af['url'])) {
-                $sizeMb = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : null;
+    // ── 3. Combined Progressive Formats (Video + Voice Pre-mixed by YouTube) ──
+    if (!empty($ytData['formatStreams'])) {
+        foreach ($ytData['formatStreams'] as $fs) {
+            $qLabel = $fs['qualityLabel'] ?? $fs['resolution'] ?? '360p';
+            $url = $makeProxyUrl($fs['url'] ?? '');
+            if ($url && !isset($seenQualities[$qLabel])) {
+                $seenQualities[$qLabel] = true;
+                $isHighest = !$hasMarkedHighest;
+                $hasMarkedHighest = true;
+                $sizeMb = !empty($fs['size']) ? $fs['size'] : (!empty($fs['contentLength']) ? round((int)$fs['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
+
                 $items[] = [
-                    'type' => 'audio',
-                    'quality' => 'Audio Only (M4A)',
-                    'format' => 'm4a',
+                    'type' => 'video',
+                    'quality' => "$qLabel (Video + Voice)",
+                    'format' => 'MP4',
                     'size' => $sizeMb,
-                    'url' => $makeProxyUrl($af['url'])
+                    'url' => $url,
+                    'hasAudio' => true,
+                    'needsMerge' => false,
+                    'isHighest' => $isHighest
                 ];
-                break;
             }
         }
     }
 
-    // High quality thumbnail
+    // ── 4. Audio-Only Track (M4A / MP3) ──
+    if (!empty($bestAudioUrl)) {
+        $items[] = [
+            'type' => 'audio',
+            'quality' => 'Audio Only (MP3 / M4A)',
+            'format' => 'm4a',
+            'size' => $bestAudioSize,
+            'url' => $bestAudioUrl,
+            'hasAudio' => true,
+            'needsMerge' => false,
+            'isHighest' => false
+        ];
+    }
+
+    // ── 5. High Quality Thumbnail ──
     $items[] = [
         'type' => 'image',
         'quality' => 'HD Thumbnail (JPG)',
         'format' => 'JPG',
-        'url' => $thumbnail
+        'url' => $thumbnail,
+        'hasAudio' => false,
+        'needsMerge' => false,
+        'isHighest' => false
     ];
 
     echo json_encode([

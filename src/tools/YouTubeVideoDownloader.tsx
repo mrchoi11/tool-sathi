@@ -119,7 +119,7 @@ export default function YouTubeVideoDownloader() {
 
     await downloadMediaFile(item.url, filename, (status) => {
       setDownloadStatus(status);
-    });
+    }, item.audioUrl);
 
     setTimeout(() => {
       setDownloadingUrl(null);
@@ -345,9 +345,16 @@ export default function YouTubeVideoDownloader() {
                             <span className="downloader-quality-name">
                               {item.quality}
                             </span>
-                            <span className="downloader-format-tag">
-                              {item.format}
-                            </span>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              {item.isHighest && (
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ede9fe', color: '#6d28d9', padding: '2px 8px', borderRadius: 9999 }}>
+                                  Highest Quality
+                                </span>
+                              )}
+                              <span className="downloader-format-tag">
+                                {item.format}
+                              </span>
+                            </div>
                           </div>
                           {item.size && <div className="downloader-quality-size">{item.size}</div>}
                         </div>
