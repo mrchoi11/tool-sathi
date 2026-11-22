@@ -184,7 +184,12 @@ async function mergeAndDownloadClientSide(
   ffmpeg.FS('writeFile', inV, new Uint8Array(vBuffer));
   ffmpeg.FS('writeFile', inA, new Uint8Array(aBuffer));
 
-  await ffmpeg.run('-i', inV, '-i', inA, '-c', 'copy', '-movflags', '+faststart', outF);
+  try {
+    await ffmpeg.run('-i', inV, '-i', inA, '-c', 'copy', '-movflags', '+faststart', outF);
+  } catch (copyErr) {
+    console.warn('Direct stream copy failed, falling back to AAC transcode:', copyErr);
+    await ffmpeg.run('-i', inV, '-i', inA, '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', outF);
+  }
 
   const outData = ffmpeg.FS('readFile', outF);
   const mergedBlob = new Blob([outData.buffer], { type: 'video/mp4' });

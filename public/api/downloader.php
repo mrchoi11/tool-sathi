@@ -554,9 +554,14 @@ if ($action === 'stream') {
     // Stream body only after validating upstream success
     curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $data) use (&$headersSent, &$upstreamStatus, &$upstreamClen, &$upstreamType, &$bytesTransferred, $MAX_ALLOWED_BYTES, $filename, $isMediaVideo) {
         $len = strlen($data);
+        if ($upstreamStatus >= 300 && $upstreamStatus < 400) {
+            // Upstream redirect in progress (e.g. 302 Found) - skip intermediate redirect body
+            return $len;
+        }
+
         if (!$headersSent) {
             // Check if upstream returned success (200 OK or 206 Partial Content)
-            if ($upstreamStatus >= 200 && $upstreamStatus < 400) {
+            if ($upstreamStatus === 200 || $upstreamStatus === 206) {
                 if ($upstreamClen > 0 && $upstreamClen > $MAX_ALLOWED_BYTES) {
                     http_response_code(413);
                     header('Content-Type: text/plain; charset=utf-8');
@@ -1125,74 +1130,121 @@ if ($platform === 'youtube') {
 
     $makeProxyUrl = function($rawUrl) use ($usedInstHost) {
         if (empty($rawUrl)) return '';
-        if (empty($usedInstHost)) return $rawUrl; // Direct Google Video URL
-        $parts = parse_url($rawUrl);
-        $path = $parts['path'] ?? '/videoplayback';
-        $query = isset($parts['query']) ? '?' . $parts['query'] : '';
-        return "https://{$usedInstHost}{$path}{$query}";
+        // If it is already a direct absolute URL (e.g. googlevideo.com), keep it directly
+        if (str_starts_with($rawUrl, 'http://') || str_starts_with($rawUrl, 'https://')) {
+            return $rawUrl;
+        }
+        // If it is a relative path from an Invidious instance (e.g. /videoplayback?...)
+        if (!empty($usedInstHost)) {
+            return "https://{$usedInstHost}" . (str_starts_with($rawUrl, '/') ? '' : '/') . $rawUrl;
+        }
+        return $rawUrl;
     };
 
     $items = [];
     $seenQualities = [];
     $hasMarkedHighest = false;
 
-    // ── 1. Discover Best Audio Stream ──
+    // ── 1. Discover Best Audio Stream (Highest Bitrate MP4/AAC) ──
     $bestAudioUrl = null;
     $bestAudioSize = null;
+    $maxAudioClen = -1;
     if (!empty($ytData['adaptiveFormats'])) {
         foreach ($ytData['adaptiveFormats'] as $af) {
             $type = $af['type'] ?? $af['mimeType'] ?? '';
+            $clen = (int)($af['clen'] ?? $af['contentLength'] ?? 0);
             if ((str_starts_with($type, 'audio/mp4') || str_contains($type, 'mp4a')) && !empty($af['url'])) {
-                $bestAudioUrl = $makeProxyUrl($af['url']);
-                $bestAudioSize = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : (!empty($af['contentLength']) ? round((int)$af['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
-                break;
+                if ($clen > $maxAudioClen || $bestAudioUrl === null) {
+                    $maxAudioClen = $clen;
+                    $bestAudioUrl = $makeProxyUrl($af['url']);
+                    $bestAudioSize = $clen > 0 ? round($clen / (1024 * 1024), 1) . ' MB' : null;
+                }
             }
         }
         if (!$bestAudioUrl) {
             foreach ($ytData['adaptiveFormats'] as $af) {
                 $type = $af['type'] ?? $af['mimeType'] ?? '';
+                $clen = (int)($af['clen'] ?? $af['contentLength'] ?? 0);
                 if (str_starts_with($type, 'audio/') && !empty($af['url'])) {
-                    $bestAudioUrl = $makeProxyUrl($af['url']);
-                    $bestAudioSize = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : (!empty($af['contentLength']) ? round((int)$af['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
-                    break;
+                    if ($clen > $maxAudioClen || $bestAudioUrl === null) {
+                        $maxAudioClen = $clen;
+                        $bestAudioUrl = $makeProxyUrl($af['url']);
+                        $bestAudioSize = $clen > 0 ? round($clen / (1024 * 1024), 1) . ' MB' : null;
+                    }
                 }
             }
         }
     }
 
+    // Helper to extract numeric vertical resolution height reliably
+    $parseHeight = function($resStr, $qualityLabel = '') {
+        $targets = [$resStr, $qualityLabel];
+        foreach ($targets as $str) {
+            if (!$str) continue;
+            if (preg_match('/x(\d+)/i', $str, $m)) return (int)$m[1];
+            if (preg_match('/(\d+)p/i', $str, $m)) return (int)$m[1];
+            if (preg_match('/^(\d+)/', $str, $m)) return (int)$m[1];
+        }
+        return 0;
+    };
+
     // ── 2. Adaptive Video Formats with Audio Merging (1080p Full HD, 720p HD, etc.) ──
     if (!empty($ytData['adaptiveFormats'])) {
-        $qualityOrder = ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p'];
-        foreach ($qualityOrder as $targetQ) {
-            foreach ($ytData['adaptiveFormats'] as $af) {
-                $type = $af['type'] ?? $af['mimeType'] ?? '';
-                $res = $af['resolution'] ?? $af['qualityLabel'] ?? '';
-                if (str_starts_with($type, 'video/mp4') && str_starts_with($res, $targetQ)) {
-                    $key = $targetQ;
-                    if (!isset($seenQualities[$key]) && !empty($af['url'])) {
-                        $seenQualities[$key] = true;
-                        $sizeMb = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : (!empty($af['contentLength']) ? round((int)$af['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
-                        $isHighest = !$hasMarkedHighest;
-                        $hasMarkedHighest = true;
-
-                        $label = ($targetQ === '1080p' || $targetQ === '2160p' || $targetQ === '1440p')
-                            ? "$targetQ Full HD (Merged Video + Voice)"
-                            : "$targetQ (Merged Video + Voice)";
-
-                        $items[] = [
-                            'type' => 'video',
-                            'quality' => $label,
-                            'format' => 'MP4',
-                            'size' => $sizeMb,
-                            'url' => $makeProxyUrl($af['url']),
-                            'audioUrl' => $bestAudioUrl,
-                            'hasAudio' => true,
-                            'needsMerge' => !empty($bestAudioUrl),
-                            'isHighest' => $isHighest
-                        ];
-                    }
-                }
+        $videoAdaptive = [];
+        foreach ($ytData['adaptiveFormats'] as $af) {
+            $type = $af['type'] ?? $af['mimeType'] ?? '';
+            $hasVideo = str_starts_with($type, 'video/mp4') || str_starts_with($type, 'video/webm');
+            if ($hasVideo && !empty($af['url'])) {
+                $videoAdaptive[] = $af;
             }
+        }
+
+        // Sort descending by numeric resolution, prioritizing MP4 over WebM when resolution is identical
+        usort($videoAdaptive, function($a, $b) use ($parseHeight) {
+            $numA = $parseHeight($a['resolution'] ?? '', $a['qualityLabel'] ?? '');
+            $numB = $parseHeight($b['resolution'] ?? '', $b['qualityLabel'] ?? '');
+            if ($numA !== $numB) {
+                return $numB <=> $numA;
+            }
+            $isMp4A = str_starts_with($a['type'] ?? $a['mimeType'] ?? '', 'video/mp4') ? 1 : 0;
+            $isMp4B = str_starts_with($b['type'] ?? $b['mimeType'] ?? '', 'video/mp4') ? 1 : 0;
+            return $isMp4B <=> $isMp4A;
+        });
+
+        foreach ($videoAdaptive as $af) {
+            $num = $parseHeight($af['resolution'] ?? '', $af['qualityLabel'] ?? '');
+            $tier = null;
+            if ($num >= 2160) $tier = '2160p 4K';
+            elseif ($num >= 1440) $tier = '1440p 2K';
+            elseif ($num >= 1000) $tier = '1080p Full HD';
+            elseif ($num >= 700)  $tier = '720p HD';
+            elseif ($num >= 480)  $tier = '480p';
+            elseif ($num >= 360)  $tier = '360p';
+            elseif ($num >= 240)  $tier = '240p';
+            else continue;
+
+            if (isset($seenQualities[$tier])) continue;
+            $seenQualities[$tier] = true;
+
+            $sizeMb = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : (!empty($af['contentLength']) ? round((int)$af['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
+            $isHighest = !$hasMarkedHighest;
+            $hasMarkedHighest = true;
+
+            $label = ($tier === '1080p Full HD' || $tier === '2160p 4K' || $tier === '1440p 2K')
+                ? "$tier (Merged Video + Voice)"
+                : "$tier (Merged Video + Voice)";
+
+            $items[] = [
+                'type' => 'video',
+                'quality' => $label,
+                'format' => 'MP4',
+                'size' => $sizeMb,
+                'url' => $makeProxyUrl($af['url']),
+                'audioUrl' => $bestAudioUrl,
+                'hasAudio' => true,
+                'needsMerge' => !empty($bestAudioUrl),
+                'isHighest' => $isHighest
+            ];
         }
     }
 
