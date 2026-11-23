@@ -1,24 +1,29 @@
 <?php
 /**
  * ProToolBox Unified Media Downloader Gateway (PHP)
- * Provides standardized resolution & download streaming for:
- *   - Pinterest Images & Videos (Phase 1)
- *   - YouTube Videos & Shorts (Phase 2 - Provider Adapter)
- *   - Instagram Reels & Photos (Phase 3 - Provider Adapter)
+ * Pinterest, YouTube (Videos + Shorts), Instagram
  *
- * Security & Hardening Features:
- *   - Strict Origin CORS: Restricted to protoolbox.in & localhost dev
- *   - SSRF Protection with Per-Hop Redirect Validation (Blocks RFC1918, 127.0.0.1, AWS metadata 169.254)
- *   - Strict Platform & CDN Domain Allowlist
- *   - Per-IP Rate Limiting (Fixed 15 req/min, stored outside web directory)
- *   - File Stream Protection: Max 30MB for images, 150MB for video with Content-Disposition
+ * Changes in this version:
+ *  1. YouTube: progressive (video + audio already combined) formats claim a quality tier first,
+ *     so 360p/720p with guaranteed sound is no longer replaced by a video-only "merged" item.
+ *  2. SSL verification is ON everywhere. CA bundle auto-detected. Escape hatch via config.php.
+ *  3. stream and merge_stream: set_time_limit(0), longer curl timeout, manual redirect hops
+ *     where every hop is validated against the CDN allowlist.
+ *  4. Separate rate limit buckets: "api" 15/min (resolve) and "dl" 40/min (stream, merge_stream).
+ *  5. Provider forwarding uses isHostPublic() (DNS based) instead of the broken IP-only check.
+ *  6. Height detection also reads width/height/size fields, uses the short side (Shorts safe).
+ *
+ * Optional config.php (same folder):
+ *   define('PTB_CA_BUNDLE', '/full/path/to/cacert.pem');
+ *   define('PTB_ALLOW_INSECURE_SSL', true); // only if your host has no CA bundle at all
  */
 
-// Global Limits & Execution Time
 @ini_set('max_execution_time', 45);
 @ini_set('memory_limit', '256M');
+@ini_set('display_errors', '0');
+error_reporting(E_ALL);
 
-// ─── 1. STRICT CORS RESTRICTION ──────────────────────────────────────────────
+// ==== 1. STRICT CORS ====
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $allowedOrigins = [
     'https://protoolbox.in',
@@ -33,7 +38,6 @@ if (in_array($origin, $allowedOrigins, true)) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Access-Control-Allow-Credentials: ' . 'true');
 } else {
-    // Default fallback to primary production domain
     header('Access-Control-Allow-Origin: https://protoolbox.in');
 }
 header('Vary: Origin');
@@ -46,7 +50,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     exit;
 }
 
-// ─── SAFE SYSTEM PROCESS AVAILABILITY CHECKS ────────────────────────────────
+// ==== SAFE SYSTEM PROCESS AVAILABILITY CHECKS ====
 function isShellExecAvailable(): bool {
     if (!function_exists('shell_exec')) return false;
     $disabled = ini_get('disable_functions');
@@ -67,8 +71,8 @@ function isProcOpenAvailable(): bool {
     return true;
 }
 
-// Global Fatal Shutdown Handler to guarantee clean JSON response instead of empty 500
-register_shutdown_function(function() {
+// Fatal errors always become JSON
+register_shutdown_function(function () {
     $error = error_get_last();
     if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
         if (!headers_sent()) {
@@ -85,13 +89,41 @@ register_shutdown_function(function() {
     }
 });
 
-// ─── OPTIONAL SECRET CONFIG ──────────────────────────────────────────────────
+// ==== OPTIONAL SECRET CONFIG ====
 $configFile = __DIR__ . '/config.php';
 if (file_exists($configFile)) {
     require_once $configFile;
 }
 
-// ─── 2. CLIENT IP & RATE LIMITING ───────────────────────────────────────────
+// ==== SSL HELPER (verification ON, CA bundle auto-detected) ====
+function applySsl($ch): void {
+    $ca = '';
+    $candidates = [];
+    if (defined('PTB_CA_BUNDLE')) $candidates[] = PTB_CA_BUNDLE;
+    $candidates[] = __DIR__ . '/cacert.pem';
+    $candidates[] = '/etc/ssl/certs/ca-certificates.crt';
+    $candidates[] = '/etc/pki/tls/certs/ca-bundle.crt';
+    $candidates[] = '/etc/ssl/cert.pem';
+    foreach ($candidates as $c) {
+        if ($c && @is_readable($c)) { $ca = $c; break; }
+    }
+    if ($ca !== '') {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($ch, CURLOPT_CAINFO, $ca);
+        return;
+    }
+    if (defined('PTB_ALLOW_INSECURE_SSL') && PTB_ALLOW_INSECURE_SSL === true) {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        return;
+    }
+    // Default: rely on PHP's own curl.cainfo, verification stays ON
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+}
+
+// ==== 2. CLIENT IP & RATE LIMITING ====
 function ipInIpv4Cidr(string $ip, string $cidr): bool {
     list($subnet, $bits) = explode('/', $cidr);
     if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) return false;
@@ -148,7 +180,6 @@ function getTrustedClientIp(): string {
     $remote = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
     $remote = trim(explode(',', $remote)[0]);
 
-    // Only trust CF-Connecting-IP if request was physically proxied through Cloudflare IP ranges
     if (isCloudflareProxyIp($remote) && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
         $cf = trim(explode(',', $_SERVER['HTTP_CF_CONNECTING_IP'])[0]);
         if (filter_var($cf, FILTER_VALIDATE_IP)) {
@@ -158,19 +189,16 @@ function getTrustedClientIp(): string {
     return $remote;
 }
 
-// Rate Limiting (Strict 15 requests / min per IP, stored outside webroot)
-function checkRateLimit() {
-    $RATE_LIMIT = 15;
+// Two buckets: "api" (resolve) and "dl" (stream, merge_stream)
+function checkRateLimit(string $bucket = 'api', int $limit = 15) {
     $WINDOW_SECONDS = 60;
-
     $ip = getTrustedClientIp();
 
-    // Stored strictly outside web-accessible directory
     $storageDir = sys_get_temp_dir() . '/ptb_security';
     if (!is_dir($storageDir)) {
         @mkdir($storageDir, 0700, true);
     }
-    $file = $storageDir . '/rate_' . md5($ip) . '.json';
+    $file = $storageDir . '/rate_' . $bucket . '_' . md5($ip) . '.json';
 
     $now = time();
     $data = ['count' => 0, 'start' => $now];
@@ -187,14 +215,14 @@ function checkRateLimit() {
         }
     }
 
-    if ($data['count'] >= $RATE_LIMIT) {
+    if ($data['count'] >= $limit) {
         http_response_code(429);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'ok' => false,
             'error' => [
                 'code' => 'RATE_LIMIT',
-                'message' => 'Rate limit exceeded (15 requests/min). Please wait a moment and try again.'
+                'message' => "Rate limit exceeded ($limit requests/min). Please wait a moment and try again."
             ]
         ]);
         exit;
@@ -204,13 +232,12 @@ function checkRateLimit() {
     @file_put_contents($file, json_encode($data), LOCK_EX);
 }
 
-// ─── 3. STRICT SSRF & HOST ALLOWLIST VALIDATION ──────────────────────────────
+// ==== 3. STRICT SSRF & HOST ALLOWLIST VALIDATION ====
 function isHostAllowlisted(string $host, array $allowedList): bool {
     $host = strtolower(trim($host));
     if (!$host) return false;
     foreach ($allowedList as $allowed) {
         $allowed = strtolower(trim($allowed));
-        // Strict exact match or subdomain with a dot
         if ($host === $allowed || str_ends_with($host, '.' . $allowed)) {
             return true;
         }
@@ -223,23 +250,19 @@ function isPrivateOrReservedIp(string $ip): bool {
     if (!filter_var($ip, FILTER_VALIDATE_IP)) {
         return true; // Not a valid IP -> block
     }
-    // PHP FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE checks both IPv4 & IPv6
     if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
         return true;
     }
     $ipLower = strtolower($ip);
-    // Explicit loopback & null checks
     if ($ipLower === '::1' || $ipLower === '0.0.0.0' || $ipLower === '::' || $ipLower === 'localhost') {
         return true;
     }
-    // IPv4-mapped IPv6 (::ffff:127.0.0.1, ::ffff:192.168.1.1, etc.)
     if (str_starts_with($ipLower, '::ffff:')) {
         $v4 = substr($ipLower, 7);
         if (!filter_var($v4, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
             return true;
         }
     }
-    // IPv6 link-local (fe80::/10) and unique local (fc00::/7)
     $bin = @inet_pton($ip);
     if ($bin !== false && strlen($bin) === 16) {
         $b0 = ord($bin[0]);
@@ -249,38 +272,52 @@ function isPrivateOrReservedIp(string $ip): bool {
     return false;
 }
 
+// True only if the host resolves and NO resolved IP is private or reserved
+function isHostPublic(string $host): bool {
+    $host = trim(strtolower($host), '[]');
+    if ($host === '') return false;
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        return !isPrivateOrReservedIp($host);
+    }
+    if ($host === 'localhost' || str_ends_with($host, '.local') || str_ends_with($host, '.internal') || str_ends_with($host, '.lan')) {
+        return false;
+    }
+    $records = @dns_get_record($host, DNS_A | DNS_AAAA);
+    if (empty($records)) return false;
+    foreach ($records as $r) {
+        $ip = $r['ip'] ?? $r['ipv6'] ?? '';
+        if ($ip && isPrivateOrReservedIp($ip)) return false;
+    }
+    return true;
+}
+
 function isAllowedDomain($url, $context = 'resolve') {
     $host = strtolower(parse_url($url, PHP_URL_HOST) ?? '');
     if (!$host) return false;
 
-    // Block obvious private hostnames
     if ($host === 'localhost' || str_ends_with($host, '.local') || str_ends_with($host, '.internal') || str_ends_with($host, '.lan')) {
         return false;
     }
 
-    // Platform input domains allowed for resolution
     $platformDomains = [
         'pinterest.com', 'pin.it', 'www.pinterest.com', 'in.pinterest.com', 'api.pinterest.com',
         'youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be',
         'instagram.com', 'www.instagram.com'
     ];
 
-    // CDN domains strictly allowed for file streaming/downloading
     $cdnDomains = [
         'pinimg.com', 'i.pinimg.com', 'v.pinimg.com', 'v1.pinimg.com', 'v2.pinimg.com', 's.pinimg.com',
         'googlevideo.com', 'ytimg.com', 'i.ytimg.com',
-        'chocolatemoo53.com', 'jing.rocks', 'nerdvpn.de', 'projectsegfau.lt', 'slipfox.xyz', 'nadeko.net',
+        'chocolatemoo53.com', 'jing.rocks', 'nerdvpn.de', 'projectsegfau.lt', 'slipfox.xyz', 'nadeko.net', 'protokolla.fi',
         'cdninstagram.com', 'fbcdn.net'
     ];
 
     $targetList = ($context === 'stream') ? $cdnDomains : $platformDomains;
 
-    // Step 1: Strict Exact or Subdomain-with-Dot check (blocks evilpinimg.com, i.pinimg.com.evil.com)
     if (!isHostAllowlisted($host, $targetList)) {
         return false;
     }
 
-    // Step 2: SSRF & IP Validation (Check IPv4 and IPv6)
     if (filter_var(trim($host, '[]'), FILTER_VALIDATE_IP)) {
         if (isPrivateOrReservedIp($host)) {
             return false;
@@ -305,7 +342,21 @@ function isAllowedDomain($url, $context = 'resolve') {
     return true;
 }
 
-// ─── 4. SAFE MULTI-HOP REDIRECT FETCHER (Validates every hop) ─────────────────
+// Resolve a Location header (absolute, protocol-relative or relative) against the current URL
+function resolveLocation(string $currentUrl, string $location): string {
+    $location = trim($location);
+    if (str_starts_with($location, '//')) {
+        return 'https:' . $location;
+    }
+    if (!preg_match('/^https?:\/\//i', $location)) {
+        $parts = parse_url($currentUrl);
+        $base = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '');
+        return $base . (str_starts_with($location, '/') ? '' : '/') . $location;
+    }
+    return $location;
+}
+
+// ==== 4. SAFE MULTI-HOP REDIRECT FETCHER (validates every hop) ====
 function safeFetchUrl($startUrl, $maxHops = 5) {
     $currentUrl = $startUrl;
     $hops = 0;
@@ -322,10 +373,10 @@ function safeFetchUrl($startUrl, $maxHops = 5) {
 
         $ch = curl_init($currentUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Strict manual inspection per hop
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
         curl_setopt($ch, CURLOPT_HEADER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 12);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        applySsl($ch);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -335,7 +386,6 @@ function safeFetchUrl($startUrl, $maxHops = 5) {
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-        $effectiveUrl = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
         curl_close($ch);
 
         if ($response === false) {
@@ -345,19 +395,10 @@ function safeFetchUrl($startUrl, $maxHops = 5) {
         $headers = substr($response, 0, $headerSize);
         $body = substr($response, $headerSize);
 
-        // Check if redirect
         if (in_array($httpCode, [301, 302, 303, 307, 308], true)) {
             if (preg_match('/^Location:\s*(.*)$/mi', $headers, $locMatches)) {
-                $location = trim($locMatches[1]);
-                if (str_starts_with($location, '//')) {
-                    $location = 'https:' . $location;
-                } elseif (!preg_match('/^https?:\/\//i', $location)) {
-                    $parts = parse_url($currentUrl);
-                    $base = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? 'pinterest.com');
-                    $location = $base . (str_starts_with($location, '/') ? '' : '/') . $location;
-                }
-                $currentUrl = $location;
-                continue; // Next hop evaluated through isAllowedDomain!
+                $currentUrl = resolveLocation($currentUrl, $locMatches[1]);
+                continue;
             }
         }
 
@@ -372,7 +413,123 @@ function safeFetchUrl($startUrl, $maxHops = 5) {
     return ['success' => false, 'error' => 'Too many redirects.', 'code' => 310];
 }
 
-// Read Request Input
+// ==== STREAM HELPER (manual redirect hops, each hop validated) ====
+function streamDownload(string $startUrl, string $filename, bool $isMediaVideo, int $maxBytes): array {
+    $url = $startUrl;
+    $res = ['sent' => false, 'status' => 0, 'tooLarge' => false, 'blockedHost' => '', 'lastHost' => ''];
+    $lower = strtolower($filename);
+
+    for ($hop = 0; $hop <= 5; $hop++) {
+        $res['lastHost'] = strtolower(parse_url($url, PHP_URL_HOST) ?? '');
+        if ($hop > 0 && !isAllowedDomain($url, 'stream')) {
+            $res['status'] = 0;
+            $res['blockedHost'] = $res['lastHost'];
+            return $res;
+        }
+
+        $status = 0;
+        $clen = 0;
+        $type = '';
+        $location = '';
+        $bytes = 0;
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 300);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        applySsl($ch);
+        curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
+        if (preg_match('/pinimg\.com/i', $url)) {
+            curl_setopt($ch, CURLOPT_REFERER, 'https://www.pinterest.com/');
+        }
+
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($c, $line) use (&$status, &$clen, &$type, &$location) {
+            $len = strlen($line);
+            if (preg_match('#^HTTP/[\d\.]+\s+(\d+)#i', $line, $m)) {
+                $status = (int)$m[1];
+                $clen = 0;
+                $type = '';
+                $location = '';
+            } elseif (preg_match('/^Content-Length:\s*(\d+)/i', $line, $m)) {
+                $clen = (int)$m[1];
+            } elseif (preg_match('/^Content-Type:\s*([^\r\n;]+)/i', $line, $m)) {
+                $type = trim($m[1]);
+            } elseif (preg_match('/^Location:\s*(\S+)/i', $line, $m)) {
+                $location = $m[1];
+            }
+            return $len;
+        });
+
+        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($c, $data) use (&$res, &$status, &$clen, &$type, &$bytes, $maxBytes, $filename, $lower, $isMediaVideo) {
+            $len = strlen($data);
+
+            // Skip bodies of redirect responses
+            if ($status >= 300 && $status < 400) {
+                return $len;
+            }
+
+            if (!$res['sent']) {
+                if ($status !== 200 && $status !== 206) {
+                    return 0; // upstream error, abort
+                }
+                if ($clen > $maxBytes) {
+                    $res['tooLarge'] = true;
+                    return 0;
+                }
+
+                header('Content-Disposition: attachment; filename="' . $filename . '"');
+                if (str_ends_with($lower, '.mp4')) {
+                    header('Content-Type: video/mp4');
+                } elseif (str_ends_with($lower, '.m4a')) {
+                    header('Content-Type: audio/mp4');
+                } elseif (str_ends_with($lower, '.mp3')) {
+                    header('Content-Type: audio/mpeg');
+                } elseif ($type && !str_contains($type, 'text/html')) {
+                    header('Content-Type: ' . $type);
+                } else {
+                    header('Content-Type: ' . ($isMediaVideo ? 'video/mp4' : 'image/jpeg'));
+                }
+                if ($clen > 0 && $clen <= $maxBytes) {
+                    header('Content-Length: ' . (int)$clen);
+                }
+                header('Cache-Control: public, max-age=86400');
+                header('X-Accel-Buffering: no');
+                $res['sent'] = true;
+            }
+
+            $bytes += $len;
+            if ($bytes > $maxBytes) {
+                return 0;
+            }
+
+            echo $data;
+            if (ob_get_level() > 0) {
+                @ob_flush();
+            }
+            flush();
+            return $len;
+        });
+
+        curl_exec($ch);
+        curl_close($ch);
+
+        $res['status'] = $status;
+
+        if ($status >= 300 && $status < 400 && $location !== '') {
+            $url = resolveLocation($url, $location);
+            continue;
+        }
+        return $res;
+    }
+
+    $res['status'] = 310;
+    return $res;
+}
+
+// ==== READ REQUEST INPUT ====
 $action = $_GET['action'] ?? $_POST['action'] ?? 'resolve';
 $inputUrl = trim($_GET['url'] ?? $_POST['url'] ?? '');
 
@@ -384,12 +541,16 @@ if (empty($inputUrl)) {
     }
 }
 
-// Enforce per-IP rate limit across all actions (15 requests/minute)
-checkRateLimit();
+// Rate limit: downloads get a bigger bucket than resolve
+if ($action === 'stream' || $action === 'merge_stream') {
+    checkRateLimit('dl', 40);
+} else {
+    checkRateLimit('api', 15);
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ─── ACTION: MERGE_STREAM (Server-side FFmpeg audio+video muxing) ────────────
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// ACTION: MERGE_STREAM (server-side FFmpeg audio + video muxing)
+// =============================================================================
 if ($action === 'merge_stream') {
     $videoUrl = $_GET['video_url'] ?? $_POST['video_url'] ?? '';
     $audioUrl = $_GET['audio_url'] ?? $_POST['audio_url'] ?? '';
@@ -405,8 +566,7 @@ if ($action === 'merge_stream') {
         exit;
     }
 
-    // Function to discover ffmpeg binary on the host system
-    $findFfmpeg = function(): ?string {
+    $findFfmpeg = function (): ?string {
         if (!isShellExecAvailable() || !isProcOpenAvailable()) {
             return null;
         }
@@ -434,7 +594,7 @@ if ($action === 'merge_stream') {
 
     $ffmpegBin = $findFfmpeg();
     if (!$ffmpegBin) {
-        // Return 501 so the client automatically executes lossless client-side WebAssembly merge
+        // 501 tells the frontend to run the client-side WebAssembly merge
         http_response_code(501);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
@@ -447,11 +607,14 @@ if ($action === 'merge_stream') {
         exit;
     }
 
-    // Stream merged video and audio via FFmpeg pipe (lossless stream copy)
+    @set_time_limit(0);
+    @ignore_user_abort(false);
+
     header('Content-Type: video/mp4');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     header('Cache-Control: public, max-age=86400');
-    if (ob_get_level() > 0) {
+    header('X-Accel-Buffering: no');
+    while (ob_get_level() > 0) {
         @ob_end_clean();
     }
 
@@ -484,6 +647,9 @@ if ($action === 'merge_stream') {
                 echo $data;
                 flush();
             }
+            if (connection_aborted()) {
+                break;
+            }
         }
         fclose($pipes[1]);
         proc_close($proc);
@@ -495,9 +661,9 @@ if ($action === 'merge_stream') {
     exit;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ─── ACTION: STREAM (Safe CDN download streaming proxy with size limits) ─────
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// ACTION: STREAM (safe CDN download proxy with size limits)
+// =============================================================================
 if ($action === 'stream') {
     if (empty($inputUrl) || !isAllowedDomain($inputUrl, 'stream')) {
         http_response_code(400);
@@ -506,6 +672,10 @@ if ($action === 'stream') {
         exit;
     }
 
+    // Validation passed: allow long downloads
+    @set_time_limit(0);
+    @ini_set('zlib.output_compression', '0');
+
     $streamTargetUrl = $inputUrl;
 
     $filename = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $_GET['filename'] ?? 'protoolbox_download');
@@ -513,120 +683,53 @@ if ($action === 'stream') {
         $filename .= '.jpg';
     }
 
-    // Determine max file size (30MB for images, 150MB for videos/audio)
-    $isMediaVideo = str_contains($streamTargetUrl, '.mp4') || preg_match('/v[0-9]*\.pinimg\.com/i', $streamTargetUrl) || str_contains($streamTargetUrl, 'videoplayback') || str_ends_with(strtolower($filename), '.mp4') || str_ends_with(strtolower($filename), '.m4a') || str_ends_with(strtolower($filename), '.mp3');
+    $isMediaVideo = str_contains($streamTargetUrl, '.mp4')
+        || preg_match('/v[0-9]*\.pinimg\.com/i', $streamTargetUrl)
+        || str_contains($streamTargetUrl, 'videoplayback')
+        || str_ends_with(strtolower($filename), '.mp4')
+        || str_ends_with(strtolower($filename), '.m4a')
+        || str_ends_with(strtolower($filename), '.mp3');
     $MAX_ALLOWED_BYTES = $isMediaVideo ? 150 * 1024 * 1024 : 30 * 1024 * 1024;
 
-    $headersSent = false;
-    $upstreamStatus = 0;
-    $upstreamClen = 0;
-    $upstreamType = '';
-    $bytesTransferred = 0;
+    $res = streamDownload($streamTargetUrl, $filename, (bool)$isMediaVideo, $MAX_ALLOWED_BYTES);
 
-    // Stream download with safe in-flight header detection & byte-count enforcement
-    $ch = curl_init($streamTargetUrl);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-    curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36');
-    if (preg_match('/pinimg\.com/i', $streamTargetUrl)) {
-        curl_setopt($ch, CURLOPT_REFERER, 'https://www.pinterest.com/');
-    }
-
-    // Capture response headers from upstream
-    curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($ch, $headerLine) use (&$upstreamStatus, &$upstreamClen, &$upstreamType) {
-        $len = strlen($headerLine);
-        if (preg_match('#^HTTP/[\d\.]+\s+(\d+)#i', $headerLine, $m)) {
-            $upstreamStatus = (int)$m[1];
-        } elseif (preg_match('/^Content-Length:\s*(\d+)/i', $headerLine, $m)) {
-            $upstreamClen = (int)$m[1];
-        } elseif (preg_match('/^Content-Type:\s*([^\r\n;]+)/i', $headerLine, $m)) {
-            $upstreamType = trim($m[1]);
+    if (!$res['sent']) {
+        if ($res['tooLarge']) {
+            http_response_code(413);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => false,
+                'error' => ['code' => 'FILE_TOO_LARGE', 'message' => 'File exceeds maximum allowed download limit.']
+            ]);
+            exit;
         }
-        return $len;
-    });
-
-    // Stream body only after validating upstream success
-    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $data) use (&$headersSent, &$upstreamStatus, &$upstreamClen, &$upstreamType, &$bytesTransferred, $MAX_ALLOWED_BYTES, $filename, $isMediaVideo) {
-        $len = strlen($data);
-        if ($upstreamStatus >= 300 && $upstreamStatus < 400) {
-            // Upstream redirect in progress (e.g. 302 Found) - skip intermediate redirect body
-            return $len;
-        }
-
-        if (!$headersSent) {
-            // Check if upstream returned success (200 OK or 206 Partial Content)
-            if ($upstreamStatus === 200 || $upstreamStatus === 206) {
-                if ($upstreamClen > 0 && $upstreamClen > $MAX_ALLOWED_BYTES) {
-                    http_response_code(413);
-                    header('Content-Type: text/plain; charset=utf-8');
-                    echo 'File exceeds maximum allowed download limit.';
-                    return 0;
-                }
-
-                header('Content-Disposition: attachment; filename="' . $filename . '"');
-                if (str_ends_with(strtolower($filename), '.mp4')) {
-                    header('Content-Type: video/mp4');
-                } elseif (str_ends_with(strtolower($filename), '.m4a')) {
-                    header('Content-Type: audio/mp4');
-                } elseif (str_ends_with(strtolower($filename), '.mp3')) {
-                    header('Content-Type: audio/mpeg');
-                } elseif ($upstreamType && !str_contains($upstreamType, 'text/html')) {
-                    header('Content-Type: ' . $upstreamType);
-                } else {
-                    header('Content-Type: ' . ($isMediaVideo ? 'video/mp4' : 'image/jpeg'));
-                }
-                if ($upstreamClen > 0 && $upstreamClen <= $MAX_ALLOWED_BYTES) {
-                    header('Content-Length: ' . (int)$upstreamClen);
-                }
-                header('Cache-Control: public, max-age=86400');
-                $headersSent = true;
-            } else {
-                // Abort write if upstream returned error (4xx/5xx)
-                return 0;
-            }
-        }
-
-        $bytesTransferred += $len;
-        if ($bytesTransferred > $MAX_ALLOWED_BYTES) {
-            // Abort transfer immediately if size limit is exceeded during streaming
-            return 0;
-        }
-
-        echo $data;
-        if (ob_get_level() > 0) {
-            ob_flush();
-        }
-        flush();
-        return $len;
-    });
-
-    $success = curl_exec($ch);
-    $curlErr = curl_error($ch);
-    curl_close($ch);
-
-    // If headers were never sent, return structured error instead of empty file
-    if (!$headersSent) {
-        http_response_code($upstreamStatus >= 400 ? $upstreamStatus : 502);
+        $st = (int)$res['status'];
         header('Content-Type: application/json; charset=utf-8');
+        if (!empty($res['blockedHost'])) {
+            http_response_code(502);
+            echo json_encode([
+                'ok' => false,
+                'error' => [
+                    'code' => 'REDIRECT_BLOCKED',
+                    'message' => 'Redirect blocked by allowlist or DNS check. Host: ' . $res['blockedHost']
+                ]
+            ]);
+            exit;
+        }
+        http_response_code($st >= 400 && $st < 600 ? $st : 502);
         echo json_encode([
             'ok' => false,
             'error' => [
                 'code' => 'STREAM_FAILED',
-                'message' => 'Could not stream media file. Upstream server response code: ' . ($upstreamStatus ?: 'Connection Failed')
+                'message' => 'Could not stream media file. Upstream server response code: ' . ($st ?: 'Connection Failed')
+                    . ' (host: ' . ($res['lastHost'] ?: 'unknown') . ')'
             ]
         ]);
-        exit;
     }
     exit;
 }
 
-// Fast HEAD check helper for verifying media assets (with Referer & Range fallback)
+// Fast HEAD check helper (Referer and Range fallback)
 function verifyMediaHead(string $url, int $timeout = 4): array {
     if (empty($url)) return ['ok' => false, 'code' => 0, 'type' => ''];
     $ch = curl_init($url);
@@ -644,7 +747,6 @@ function verifyMediaHead(string $url, int $timeout = 4): array {
     $type = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: '';
     curl_close($ch);
 
-    // If HEAD failed with 403, 405 or non-200, fallback to Range 0-100 GET
     if ($code < 200 || $code >= 400) {
         $ch2 = curl_init($url);
         curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
@@ -668,9 +770,9 @@ function verifyMediaHead(string $url, int $timeout = 4): array {
     return ['ok' => ($code >= 200 && $code < 400), 'code' => $code, 'type' => $type];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ─── ACTION: RESOLVE MEDIA METADATA & DOWNLOAD LINKS ─────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// ACTION: RESOLVE MEDIA METADATA AND DOWNLOAD LINKS
+// =============================================================================
 header('Content-Type: application/json; charset=utf-8');
 
 if (empty($inputUrl)) {
@@ -697,7 +799,6 @@ if (!isAllowedDomain($inputUrl, 'resolve')) {
     exit;
 }
 
-// Detect Platform
 $host = strtolower(parse_url($inputUrl, PHP_URL_HOST) ?? '');
 $platform = 'unknown';
 if (str_contains($host, 'pinterest') || str_contains($host, 'pin.it')) {
@@ -708,7 +809,7 @@ if (str_contains($host, 'pinterest') || str_contains($host, 'pin.it')) {
     $platform = 'instagram';
 }
 
-// ─── 1. PINTEREST RESOLVER (PHASE 1) ─────────────────────────────────────────
+// ==== 1. PINTEREST RESOLVER ====
 if ($platform === 'pinterest') {
     $fetchRes = safeFetchUrl($inputUrl, 5);
 
@@ -726,7 +827,6 @@ if ($platform === 'pinterest') {
         exit;
     }
 
-    // Check if the pin redirected to the Pinterest homepage (deleted / expired short link)
     $finalUrl = rtrim($fetchRes['finalUrl'] ?? '', '/');
     if (in_array($finalUrl, ['https://pinterest.com', 'https://www.pinterest.com', 'https://in.pinterest.com'], true)) {
         http_response_code(404);
@@ -743,7 +843,6 @@ if ($platform === 'pinterest') {
 
     $html = $fetchRes['html'];
 
-    // Extract Title (attribute order independent & cleaned up)
     $title = '';
     if (preg_match('/<meta[^>]+(?:property|name)=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
         $title = $m[1];
@@ -755,35 +854,28 @@ if ($platform === 'pinterest') {
     $title = html_entity_decode(trim(preg_replace('/\s*[\-\|]\s*Pinterest.*$/i', '', $title)), ENT_QUOTES, 'UTF-8');
     if (!$title) $title = 'Pinterest Image';
 
-    // Extract Image URL
     $imgUrl = '';
-    // Priority 1: Direct original image from internal __PWS_DATA__
     if (preg_match('/"images_orig":\s*\{[^}]*"url":\s*"([^"]+)"/i', $html, $m)) {
         $imgUrl = stripslashes($m[1]);
     }
-    // Priority 2: JSON-LD image field
     if (empty($imgUrl) && preg_match('/"image":\s*"(https?:\\\\?\/\\\\?\/i\.pinimg\.com\\\\?\/originals\\\\?\/[^"]+)"/i', $html, $m)) {
         $imgUrl = stripslashes($m[1]);
     }
-    // Priority 3: Preloaded high-priority image link
     if (empty($imgUrl) && preg_match('/<link[^>]+id=["\']pin-image-preload["\'][^>]+href=["\']([^"\']+)["\']/i', $html, $m)) {
         $imgUrl = $m[1];
     } elseif (empty($imgUrl) && preg_match('/<link[^>]+href=["\']([^"\']+)["\'][^>]+id=["\']pin-image-preload["\']/i', $html, $m)) {
         $imgUrl = $m[1];
     }
-    // Priority 4: OpenGraph / Twitter meta tag
     if (empty($imgUrl) && preg_match('/<meta[^>]+(?:property|name)=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
         $imgUrl = $m[1];
     } elseif (empty($imgUrl) && preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\']og:image["\']/i', $html, $m)) {
         $imgUrl = $m[1];
     }
 
-    // Exclude Pinterest's internal UI sprite / placeholders
     if ($imgUrl && str_contains($imgUrl, 'd53b014d86a6b6761bf649a0ed813c2b')) {
         $imgUrl = '';
     }
 
-    // Check if this pin is a video pin (various flags)
     $isVideoPin = (
         preg_match('/"isVideo":\s*true/i', $html) ||
         preg_match('/"video_list"/i', $html) ||
@@ -793,18 +885,15 @@ if ($platform === 'pinterest') {
         preg_match('/v[0-9]*\.pinimg\.com\\\\?\/videos/i', $html)
     );
 
-    // Extract Video MP4 streams (from OpenGraph, direct MP4, embedded JSON, or converted HLS)
     $videoUrl = '';
     $videoCandidates = [];
 
-    // Priority 1: OpenGraph video tags
     if (preg_match('/<meta[^>]+(?:property|name)=["\']og:video(?::secure_url|:url)?["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $m)) {
         $videoCandidates[] = stripslashes($m[1]);
     } elseif (preg_match('/<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\']og:video(?::secure_url|:url)?["\']/i', $html, $m)) {
         $videoCandidates[] = stripslashes($m[1]);
     }
 
-    // Priority 2: Direct 720p / 1080p MP4 from HTML or embedded JSON
     if (preg_match_all('/https?:\\\\?\/\\\\?\/v[0-9]*\.pinimg\.com\\\\?\/videos\\\\?\/[^\s"\'<>]+\.mp4/i', $html, $mAllMp4)) {
         foreach ($mAllMp4[0] as $rawMp4) {
             $cleaned = stripslashes($rawMp4);
@@ -816,26 +905,21 @@ if ($platform === 'pinterest') {
         }
     }
 
-    // Priority 3: HLS stream (.m3u8) converted to 720p / exp MP4
     if (preg_match_all('/https?:\\\\?\/\\\\?\/v[0-9]*\.pinimg\.com\\\\?\/videos\\\\?\/[^\s"\'<>]+\.m3u8/i', $html, $mAllHls)) {
         foreach ($mAllHls[0] as $rawHls) {
             $hls = stripslashes($rawHls);
-            // Convert /hls/ to /720p/ and .m3u8 to .mp4
             $mp4_720 = preg_replace('/\/hls\//i', '/720p/', $hls);
             $mp4_720 = preg_replace('/\.m3u8(\?.*)?$/i', '.mp4$1', $mp4_720);
             $videoCandidates[] = $mp4_720;
 
-            // Fallback: /exp/
             $mp4_exp = preg_replace('/\/hls\//i', '/exp/', $hls);
             $mp4_exp = preg_replace('/\.m3u8(\?.*)?$/i', '.mp4$1', $mp4_exp);
             $videoCandidates[] = $mp4_exp;
         }
     }
 
-    // De-duplicate candidates while preserving priority order
     $videoCandidates = array_values(array_unique(array_filter($videoCandidates)));
 
-    // Verify candidates to pick the working video URL
     foreach ($videoCandidates as $candidate) {
         $vHead = verifyMediaHead($candidate, 4);
         if ($vHead['ok']) {
@@ -845,7 +929,6 @@ if ($platform === 'pinterest') {
         }
     }
 
-    // Fallback: If verification timed out or edge blocked HEAD, but we found a valid 720p MP4 candidate, use it
     if (empty($videoUrl) && !empty($videoCandidates)) {
         foreach ($videoCandidates as $candidate) {
             if (str_contains(strtolower($candidate), '.mp4')) {
@@ -856,7 +939,6 @@ if ($platform === 'pinterest') {
         }
     }
 
-    // Notice only if it was definitively identified as a video pin AND no video stream exists
     $notice = null;
     if ($isVideoPin && empty($videoUrl)) {
         $notice = "Ye video pin hai, lekin iska video stream load nahi ho saka. Sirf thumbnail image available hai.";
@@ -875,15 +957,12 @@ if ($platform === 'pinterest') {
         exit;
     }
 
-    // ── Build & Verify Original Image URL ──
     $originalUrl = preg_replace('/\/[0-9]+x[0-9]*\//', '/originals/', $imgUrl);
     $origFormat = str_ends_with(strtolower($originalUrl), '.png') ? 'PNG' : (str_ends_with(strtolower($originalUrl), '.webp') ? 'WEBP' : 'JPG');
 
-    // ── Build & Verify 736x (Standard HD) Image URL ──
     $hdUrl = '';
     $hdFormat = 'JPG';
 
-    // Check if Pinterest explicitly provided images_736x in HTML
     if (preg_match('/"images_736x":\s*\{[^}]*"url":\s*"([^"]+)"/i', $html, $m736)) {
         $hdCandidate = stripslashes($m736[1]);
     } else {
@@ -891,13 +970,11 @@ if ($platform === 'pinterest') {
     }
 
     if ($hdCandidate !== $originalUrl) {
-        // Verify HEAD 200 for 736x candidate
         $headRes = verifyMediaHead($hdCandidate);
         if ($headRes['ok']) {
             $hdUrl = $hdCandidate;
             $hdFormat = str_ends_with(strtolower($hdUrl), '.png') ? 'PNG' : (str_ends_with(strtolower($hdUrl), '.webp') ? 'WEBP' : 'JPG');
         } else {
-            // If original was .png, 736x is often generated on Pinterest as .jpg
             if (str_ends_with(strtolower($hdCandidate), '.png')) {
                 $altJpg = preg_replace('/\.png$/i', '.jpg', $hdCandidate);
                 $altHead = verifyMediaHead($altJpg);
@@ -909,7 +986,6 @@ if ($platform === 'pinterest') {
         }
     }
 
-    // Build items list with Video FIRST so users see and download the video immediately
     $items = [];
     if (!empty($videoUrl)) {
         $items[] = [
@@ -948,10 +1024,9 @@ if ($platform === 'pinterest') {
     exit;
 }
 
-// ─── 2. YOUTUBE RESOLVER (NATIVE DIRECT & OPEN API RESOLVER) ─────────────────
+// ==== 2. YOUTUBE RESOLVER ====
 if ($platform === 'youtube') {
 
-    // ── Validate YouTube URL & extract video ID ──
     $parsedYt = parse_url($inputUrl);
     $ytHost   = strtolower($parsedYt['host'] ?? '');
     $ytPath   = $parsedYt['path'] ?? '';
@@ -990,13 +1065,14 @@ if ($platform === 'youtube') {
     $providerUrl = getenv('DOWNLOADER_YOUTUBE_PROVIDER') ?: '';
     if (!empty($providerUrl)) {
         $pvHost = strtolower(parse_url($providerUrl, PHP_URL_HOST) ?? '');
-        if (!isPrivateOrReservedIp($pvHost)) {
+        if (isHostPublic($pvHost)) {
             $ch = curl_init($providerUrl);
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['url' => $inputUrl, 'video_id' => $videoId, 'is_shorts' => $isShorts]));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
             curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            applySsl($ch);
             $resp     = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
@@ -1008,83 +1084,83 @@ if ($platform === 'youtube') {
         }
     }
 
-    // Native resolution via Invidious public instance rotation
-    $invidiousInstances = [
-        "https://yt.chocolatemoo53.com",
-        "https://invidious.nerdvpn.de",
-        "https://inv.nadeko.net",
-        "https://invidious.slipfox.xyz"
-    ];
-
     $ytData = null;
     $usedInstHost = '';
-    foreach ($invidiousInstances as $inst) {
-        $ch = curl_init("$inst/api/v1/videos/$videoId");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 6);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-        $raw = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($code == 200 && $raw) {
-            $parsed = json_decode($raw, true);
-            if (!empty($parsed['title']) && (!empty($parsed['adaptiveFormats']) || !empty($parsed['formatStreams']))) {
-                $ytData = $parsed;
-                $usedInstHost = parse_url($inst, PHP_URL_HOST) ?: 'yt.chocolatemoo53.com';
-                break;
-            }
-        }
-    }
 
-    // Direct Google Innertube API fallback with official ANDROID client
-    if (!$ytData) {
-        $ch = curl_init('https://www.youtube.com/youtubei/v1/player?prettyPrint=false');
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-            'videoId' => $videoId,
-            'contentCheckOk' => true,
-            'racyCheckOk' => true,
-            'context' => [
-                'client' => [
-                    'clientName' => 'ANDROID',
-                    'clientVersion' => '21.26.364',
-                    'androidSdkVersion' => 30,
-                    'osName' => 'Android',
-                    'osVersion' => '11',
-                    'hl' => 'en',
-                    'gl' => 'US'
-                ]
+    // Primary: Direct Google Innertube API with ANDROID client (directly signs URLs for this server's IP)
+    $ch = curl_init('https://www.youtube.com/youtubei/v1/player?prettyPrint=false');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'videoId' => $videoId,
+        'contentCheckOk' => true,
+        'racyCheckOk' => true,
+        'context' => [
+            'client' => [
+                'clientName' => 'ANDROID',
+                'clientVersion' => '21.26.364',
+                'androidSdkVersion' => 30,
+                'osName' => 'Android',
+                'osVersion' => '11',
+                'hl' => 'en',
+                'gl' => 'US'
             ]
-        ]));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'User-Agent: com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip'
-        ]);
-        $raw = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($code === 200 && $raw) {
-            $parsed = json_decode($raw, true);
-            if (($parsed['playabilityStatus']['status'] ?? '') === 'OK' && !empty($parsed['videoDetails'])) {
-                $ytData = [
-                    'title' => $parsed['videoDetails']['title'] ?? 'YouTube Video',
-                    'lengthSeconds' => $parsed['videoDetails']['lengthSeconds'] ?? 0,
-                    'adaptiveFormats' => $parsed['streamingData']['adaptiveFormats'] ?? [],
-                    'formatStreams' => $parsed['streamingData']['formats'] ?? []
-                ];
-                $usedInstHost = ''; // Direct google URLs
+        ]
+    ]));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+    applySsl($ch);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'User-Agent: com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip'
+    ]);
+    $raw = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code === 200 && $raw) {
+        $parsed = json_decode($raw, true);
+        if (($parsed['playabilityStatus']['status'] ?? '') === 'OK' && !empty($parsed['videoDetails'])) {
+            $ytData = [
+                'title' => $parsed['videoDetails']['title'] ?? 'YouTube Video',
+                'lengthSeconds' => $parsed['videoDetails']['lengthSeconds'] ?? 0,
+                'adaptiveFormats' => $parsed['streamingData']['adaptiveFormats'] ?? [],
+                'formatStreams' => $parsed['streamingData']['formats'] ?? []
+            ];
+            $usedInstHost = '';
+        }
+    }
+
+    // Secondary fallback: Native resolution via Invidious public instance rotation
+    if (!$ytData) {
+        $invidiousInstances = [
+            "https://yt.chocolatemoo53.com",
+            "https://invidious.nerdvpn.de",
+            "https://inv.nadeko.net",
+            "https://invidious.slipfox.xyz"
+        ];
+        foreach ($invidiousInstances as $inst) {
+            $ch = curl_init("$inst/api/v1/videos/$videoId");
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+            applySsl($ch);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+            $raw = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($code == 200 && $raw) {
+                $parsed = json_decode($raw, true);
+                if (!empty($parsed['title']) && (!empty($parsed['adaptiveFormats']) || !empty($parsed['formatStreams']))) {
+                    $ytData = $parsed;
+                    $usedInstHost = parse_url($inst, PHP_URL_HOST) ?: 'yt.chocolatemoo53.com';
+                    break;
+                }
             }
         }
     }
 
-    // Secondary metadata fallback via direct m.youtube.com scrape
+    // Secondary fallback via m.youtube.com scrape
     if (!$ytData) {
         $mUrl = "https://m.youtube.com/watch?v=$videoId";
         $ch = curl_init($mUrl);
@@ -1092,7 +1168,7 @@ if ($platform === 'youtube') {
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 6);
         curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        applySsl($ch);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15');
         $mHtml = curl_exec($ch);
         curl_close($ch);
@@ -1128,24 +1204,50 @@ if ($platform === 'youtube') {
     $duration = $durationSec > 0 ? gmdate($durationSec > 3600 ? "H:i:s" : "i:s", $durationSec) : '';
     $thumbnail = "https://i.ytimg.com/vi/{$videoId}/hqdefault.jpg";
 
-    $makeProxyUrl = function($rawUrl) use ($usedInstHost) {
+    $makeProxyUrl = function ($rawUrl) use ($usedInstHost) {
         if (empty($rawUrl)) return '';
-        // If it is already a direct absolute URL (e.g. googlevideo.com), keep it directly
         if (str_starts_with($rawUrl, 'http://') || str_starts_with($rawUrl, 'https://')) {
             return $rawUrl;
         }
-        // If it is a relative path from an Invidious instance (e.g. /videoplayback?...)
         if (!empty($usedInstHost)) {
             return "https://{$usedInstHost}" . (str_starts_with($rawUrl, '/') ? '' : '/') . $rawUrl;
         }
         return $rawUrl;
     };
 
-    $items = [];
-    $seenQualities = [];
-    $hasMarkedHighest = false;
+    // Vertical resolution of a format. Uses quality label first, then size/width/height (short side).
+    $heightOf = function (array $f): int {
+        foreach ([$f['qualityLabel'] ?? '', $f['resolution'] ?? ''] as $str) {
+            if ($str && preg_match('/(\d{3,4})p/i', $str, $m)) return (int)$m[1];
+        }
+        if (!empty($f['width']) && !empty($f['height'])) {
+            return min((int)$f['width'], (int)$f['height']);
+        }
+        if (!empty($f['size']) && preg_match('/(\d+)x(\d+)/i', (string)$f['size'], $m)) {
+            return min((int)$m[1], (int)$m[2]);
+        }
+        if (!empty($f['resolution']) && preg_match('/x(\d+)/i', $f['resolution'], $m)) return (int)$m[1];
+        return 0;
+    };
 
-    // ── 1. Discover Best Audio Stream (Highest Bitrate MP4/AAC) ──
+    $tierOf = function (int $h): ?string {
+        if ($h >= 2160) return '2160p 4K';
+        if ($h >= 1440) return '1440p 2K';
+        if ($h >= 1000) return '1080p Full HD';
+        if ($h >= 700)  return '720p HD';
+        if ($h >= 480)  return '480p';
+        if ($h >= 360)  return '360p';
+        if ($h >= 240)  return '240p';
+        return null;
+    };
+
+    $mbOf = function (array $f): ?string {
+        $n = (int)($f['clen'] ?? $f['contentLength'] ?? 0);
+        if ($n > 0) return round($n / (1024 * 1024), 1) . ' MB';
+        return !empty($f['size']) && !preg_match('/x/', (string)$f['size']) ? (string)$f['size'] : null;
+    };
+
+    // ---- Best audio stream (largest MP4/AAC) ----
     $bestAudioUrl = null;
     $bestAudioSize = null;
     $maxAudioClen = -1;
@@ -1176,104 +1278,116 @@ if ($platform === 'youtube') {
         }
     }
 
-    // Helper to extract numeric vertical resolution height reliably
-    $parseHeight = function($resStr, $qualityLabel = '') {
-        $targets = [$resStr, $qualityLabel];
-        foreach ($targets as $str) {
-            if (!$str) continue;
-            if (preg_match('/x(\d+)/i', $str, $m)) return (int)$m[1];
-            if (preg_match('/(\d+)p/i', $str, $m)) return (int)$m[1];
-            if (preg_match('/^(\d+)/', $str, $m)) return (int)$m[1];
-        }
-        return 0;
+    $checkHasAudio = function (array $f): bool {
+        $type = $f['type'] ?? $f['mimeType'] ?? '';
+        return (
+            str_contains($type, 'mp4a') ||
+            str_contains($type, 'opus') ||
+            str_contains($type, 'vorbis') ||
+            str_starts_with($type, 'audio/') ||
+            !empty($f['audioChannels']) ||
+            !empty($f['audioSampleRate']) ||
+            !empty($f['audioBitrate'])
+        );
     };
 
-    // ── 2. Adaptive Video Formats with Audio Merging (1080p Full HD, 720p HD, etc.) ──
-    if (!empty($ytData['adaptiveFormats'])) {
+    $videoItems = [];      // each: ['h' => int, 'item' => array]
+    $seenQualities = [];
+    $hasRecommended = false;
+
+    // ---- STEP 1: Progressive formats FIRST (video + audio already combined, always has sound) ----
+    if (!empty($ytData['formatStreams'])) {
+        foreach ($ytData['formatStreams'] as $fs) {
+            $type = $fs['type'] ?? $fs['mimeType'] ?? '';
+            if ($type !== '' && !str_starts_with($type, 'video/mp4')) continue;
+            $url = $makeProxyUrl($fs['url'] ?? '');
+            if (!$url) continue;
+
+            $h = $heightOf($fs);
+            $tier = $tierOf($h);
+            if ($tier === null || isset($seenQualities[$tier])) continue;
+            $seenQualities[$tier] = true;
+
+            $hasAudio = $checkHasAudio($fs);
+            $isRec = !$hasRecommended;
+            if ($isRec) $hasRecommended = true;
+
+            $videoItems[] = [
+                'h' => $h,
+                'item' => [
+                    'type' => 'video',
+                    'quality' => "$tier (Video + Voice)",
+                    'format' => 'MP4',
+                    'size' => $mbOf($fs),
+                    'url' => $url,
+                    'hasAudio' => $hasAudio,
+                    'needsMerge' => false,
+                    'recommended' => $isRec,
+                    'isHighest' => false
+                ]
+            ];
+        }
+    }
+
+    // ---- STEP 2: Adaptive (video-only) formats for tiers that progressive did not cover ----
+    if (!empty($ytData['adaptiveFormats']) && !empty($bestAudioUrl)) {
         $videoAdaptive = [];
         foreach ($ytData['adaptiveFormats'] as $af) {
             $type = $af['type'] ?? $af['mimeType'] ?? '';
-            $hasVideo = str_starts_with($type, 'video/mp4') || str_starts_with($type, 'video/webm');
-            if ($hasVideo && !empty($af['url'])) {
+            $isVideo = str_starts_with($type, 'video/mp4') || str_starts_with($type, 'video/webm');
+            if ($isVideo && !empty($af['url'])) {
                 $videoAdaptive[] = $af;
             }
         }
 
-        // Sort descending by numeric resolution, prioritizing MP4 over WebM when resolution is identical
-        usort($videoAdaptive, function($a, $b) use ($parseHeight) {
-            $numA = $parseHeight($a['resolution'] ?? '', $a['qualityLabel'] ?? '');
-            $numB = $parseHeight($b['resolution'] ?? '', $b['qualityLabel'] ?? '');
-            if ($numA !== $numB) {
-                return $numB <=> $numA;
-            }
+        // Highest resolution first, MP4 preferred over WebM at the same resolution
+        usort($videoAdaptive, function ($a, $b) use ($heightOf) {
+            $numA = $heightOf($a);
+            $numB = $heightOf($b);
+            if ($numA !== $numB) return $numB <=> $numA;
             $isMp4A = str_starts_with($a['type'] ?? $a['mimeType'] ?? '', 'video/mp4') ? 1 : 0;
             $isMp4B = str_starts_with($b['type'] ?? $b['mimeType'] ?? '', 'video/mp4') ? 1 : 0;
             return $isMp4B <=> $isMp4A;
         });
 
         foreach ($videoAdaptive as $af) {
-            $num = $parseHeight($af['resolution'] ?? '', $af['qualityLabel'] ?? '');
-            $tier = null;
-            if ($num >= 2160) $tier = '2160p 4K';
-            elseif ($num >= 1440) $tier = '1440p 2K';
-            elseif ($num >= 1000) $tier = '1080p Full HD';
-            elseif ($num >= 700)  $tier = '720p HD';
-            elseif ($num >= 480)  $tier = '480p';
-            elseif ($num >= 360)  $tier = '360p';
-            elseif ($num >= 240)  $tier = '240p';
-            else continue;
-
-            if (isset($seenQualities[$tier])) continue;
+            $h = $heightOf($af);
+            $tier = $tierOf($h);
+            if ($tier === null || isset($seenQualities[$tier])) continue;
             $seenQualities[$tier] = true;
 
-            $sizeMb = !empty($af['clen']) ? round((int)$af['clen'] / (1024 * 1024), 1) . ' MB' : (!empty($af['contentLength']) ? round((int)$af['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
-            $isHighest = !$hasMarkedHighest;
-            $hasMarkedHighest = true;
+            $hasAudio = $checkHasAudio($af);
 
-            $label = ($tier === '1080p Full HD' || $tier === '2160p 4K' || $tier === '1440p 2K')
-                ? "$tier (Merged Video + Voice)"
-                : "$tier (Merged Video + Voice)";
-
-            $items[] = [
-                'type' => 'video',
-                'quality' => $label,
-                'format' => 'MP4',
-                'size' => $sizeMb,
-                'url' => $makeProxyUrl($af['url']),
-                'audioUrl' => $bestAudioUrl,
-                'hasAudio' => true,
-                'needsMerge' => !empty($bestAudioUrl),
-                'isHighest' => $isHighest
+            $videoItems[] = [
+                'h' => $h,
+                'item' => [
+                    'type' => 'video',
+                    'quality' => "$tier (Merged Video + Voice)",
+                    'format' => 'MP4',
+                    'size' => $mbOf($af),
+                    'url' => $makeProxyUrl($af['url']),
+                    'audioUrl' => $bestAudioUrl,
+                    'hasAudio' => $hasAudio,
+                    'needsMerge' => true,
+                    'recommended' => false,
+                    'isHighest' => false
+                ]
             ];
         }
     }
 
-    // ── 3. Combined Progressive Formats (Video + Voice Pre-mixed by YouTube) ──
-    if (!empty($ytData['formatStreams'])) {
-        foreach ($ytData['formatStreams'] as $fs) {
-            $qLabel = $fs['qualityLabel'] ?? $fs['resolution'] ?? '360p';
-            $url = $makeProxyUrl($fs['url'] ?? '');
-            if ($url && !isset($seenQualities[$qLabel])) {
-                $seenQualities[$qLabel] = true;
-                $isHighest = !$hasMarkedHighest;
-                $hasMarkedHighest = true;
-                $sizeMb = !empty($fs['size']) ? $fs['size'] : (!empty($fs['contentLength']) ? round((int)$fs['contentLength'] / (1024 * 1024), 1) . ' MB' : null);
+    // ---- Sort video cards high to low and mark the top one ----
+    usort($videoItems, function ($a, $b) {
+        return $b['h'] <=> $a['h'];
+    });
 
-                $items[] = [
-                    'type' => 'video',
-                    'quality' => "$qLabel (Video + Voice)",
-                    'format' => 'MP4',
-                    'size' => $sizeMb,
-                    'url' => $url,
-                    'hasAudio' => true,
-                    'needsMerge' => false,
-                    'isHighest' => $isHighest
-                ];
-            }
-        }
+    $items = [];
+    foreach ($videoItems as $i => $vi) {
+        $vi['item']['isHighest'] = ($i === 0);
+        $items[] = $vi['item'];
     }
 
-    // ── 4. Audio-Only Track (M4A / MP3) ──
+    // ---- Audio-only ----
     if (!empty($bestAudioUrl)) {
         $items[] = [
             'type' => 'audio',
@@ -1287,7 +1401,7 @@ if ($platform === 'youtube') {
         ];
     }
 
-    // ── 5. High Quality Thumbnail ──
+    // ---- Thumbnail ----
     $items[] = [
         'type' => 'image',
         'quality' => 'HD Thumbnail (JPG)',
@@ -1305,19 +1419,18 @@ if ($platform === 'youtube') {
         'thumbnail' => $thumbnail,
         'duration' => $duration,
         'isShorts' => (bool)$isShorts,
+        'source' => $usedInstHost !== '' ? ('invidious:' . $usedInstHost) : 'direct-youtube',
         'items' => $items
     ]);
     exit;
 }
 
-// ─── 3. INSTAGRAM RESOLVER (NATIVE DIRECT SOCIAL CRAWLER) ────────────────────
+// ==== 3. INSTAGRAM RESOLVER ====
 if ($platform === 'instagram') {
 
-    // ── Validate Instagram URL & extract shortcode ──
     $parsedIg  = parse_url($inputUrl);
     $igPath    = rtrim($parsedIg['path'] ?? '', '/');
 
-    // Supported patterns: /reel/CODE, /reels/CODE, /p/CODE, /tv/CODE
     $shortcode = null;
     $mediaType = 'reel';
 
@@ -1345,11 +1458,10 @@ if ($platform === 'instagram') {
         exit;
     }
 
-    // Forward to custom provider if configured
     $providerUrl = getenv('DOWNLOADER_INSTAGRAM_PROVIDER') ?: '';
     if (!empty($providerUrl)) {
         $pvHost = strtolower(parse_url($providerUrl, PHP_URL_HOST) ?? '');
-        if (!isPrivateOrReservedIp($pvHost)) {
+        if (isHostPublic($pvHost)) {
             $ch = curl_init($providerUrl);
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
@@ -1360,6 +1472,7 @@ if ($platform === 'instagram') {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
             curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            applySsl($ch);
             $resp     = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
@@ -1371,12 +1484,12 @@ if ($platform === 'instagram') {
         }
     }
 
-    // Native resolution using FacebookExternalHit crawler emulation
     $fetchUrl = "https://www.instagram.com/reel/{$shortcode}/";
     $ch = curl_init($fetchUrl);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+    applySsl($ch);
     curl_setopt($ch, CURLOPT_USERAGENT, 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)');
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -1399,7 +1512,6 @@ if ($platform === 'instagram') {
         exit;
     }
 
-    // Check if redirected to login page without media
     if (str_contains($html, 'login') && !str_contains($html, 'og:image')) {
         http_response_code(403);
         echo json_encode([
@@ -1413,7 +1525,6 @@ if ($platform === 'instagram') {
         exit;
     }
 
-    // Extract Title / Caption
     $title = '';
     if (preg_match('/<meta[^>]+(?:property|name)=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $tm)) {
         $title = $tm[1];
@@ -1425,13 +1536,11 @@ if ($platform === 'instagram') {
         $title = "Instagram Reel ({$shortcode})";
     }
 
-    // Extract Cover Thumbnail
     $thumbnail = '';
     if (preg_match('/<meta[^>]+(?:property|name)=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']/i', $html, $im)) {
         $thumbnail = html_entity_decode($im[1], ENT_QUOTES, 'UTF-8');
     }
 
-    // Extract Video MP4
     $videoUrl = '';
     $videoSize = null;
     $videoCandidates = [];
@@ -1471,7 +1580,6 @@ if ($platform === 'instagram') {
         }
     }
 
-    // Build items list (Video first, then Cover)
     $items = [];
     if (!empty($videoUrl)) {
         $items[] = [
@@ -1513,3 +1621,10 @@ if ($platform === 'instagram') {
     ]);
     exit;
 }
+
+// Unknown platform fallthrough
+http_response_code(400);
+echo json_encode([
+    'ok' => false,
+    'error' => ['code' => 'UNSUPPORTED_PLATFORM', 'message' => 'Unsupported platform.']
+]);

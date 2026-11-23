@@ -37,10 +37,12 @@ function isShorts(url: string): boolean {
 
 export default function YouTubeVideoDownloader() {
   const [inputUrl, setInputUrl] = useState<string>('');
+  const [resolvedUrl, setResolvedUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [result, setResult] = useState<DownloadResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
   const [downloadStatus, setDownloadStatus] = useState<string>('');
   const [pastedFeedback, setPastedFeedback] = useState<boolean>(false);
@@ -78,6 +80,7 @@ export default function YouTubeVideoDownloader() {
     setIsLoading(true);
     setErrorMessage(null);
     setErrorCode(null);
+    setDownloadError(null);
     setResult(null);
     setSelectedQuality(null);
 
@@ -86,9 +89,12 @@ export default function YouTubeVideoDownloader() {
 
     if (res.ok) {
       setResult(res);
-      // Auto-select first video item
-      const firstVideo = res.items?.find(i => i.type === 'video');
-      if (firstVideo) setSelectedQuality(firstVideo.quality);
+      setResolvedUrl(cleanUrl);
+      // Auto-select the sound-guaranteed option, else the first video
+      const preferred =
+        res.items?.find(i => i.type === 'video' && i.recommended) ??
+        res.items?.find(i => i.type === 'video');
+      if (preferred) setSelectedQuality(preferred.quality);
     } else {
       const code = res.error?.code ?? 'UNKNOWN';
       setErrorCode(code);
@@ -102,6 +108,7 @@ export default function YouTubeVideoDownloader() {
         NOT_FOUND: 'This video was not found. It may have been deleted or made private.',
         RATE_LIMIT: 'Too many requests. Please wait a minute and try again.',
         UNSUPPORTED_DOMAIN: 'Only YouTube links (youtube.com, youtu.be) are supported.',
+        TIMEOUT: 'The request took too long. Please try again in a moment.',
       };
       setErrorMessage(msgMap[code] ?? (res.error?.message || 'Failed to process this YouTube link. Please verify the URL and try again.'));
     }
@@ -109,32 +116,56 @@ export default function YouTubeVideoDownloader() {
 
   const handleDownload = async (item: DownloadItem) => {
     setDownloadingUrl(item.url);
+    setDownloadError(null);
+
     const ext = item.format.toLowerCase();
     const safeTitle = (result?.title || 'youtube_video')
       .toLowerCase()
       .replace(/[^a-z0-9_-]+/g, '_')
       .substring(0, 40);
-    const qualityTag = item.quality.toLowerCase().replace(/\s+/g, '_');
+    // Clean quality tag: drop brackets and "+" so the filename stays tidy
+    const qualityTag = item.quality
+      .toLowerCase()
+      .replace(/\(.*?\)/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
     const filename = `${safeTitle}_${qualityTag}.${ext}`;
 
-    await downloadMediaFile(item.url, filename, (status) => {
-      setDownloadStatus(status);
-    }, item.audioUrl);
+    // Only merge-needed items carry an audioUrl, so progressive files download directly
+    const outcome = await downloadMediaFile(
+      item.url,
+      filename,
+      (status) => setDownloadStatus(status),
+      item.needsMerge ? item.audioUrl : undefined
+    );
+
+    if (!outcome.ok) {
+      const code = outcome.error?.code;
+      const friendly: Record<string, string> = {
+        RATE_LIMIT: 'Too many requests. Please wait a minute and try again.',
+        FILE_TOO_LARGE: 'This file is too large to download here. Please choose a lower quality.',
+      };
+      setDownloadError(
+        (code && friendly[code]) ||
+        outcome.error?.message ||
+        'Download failed. Please try another quality.'
+      );
+    }
 
     setTimeout(() => {
       setDownloadingUrl(null);
       setDownloadStatus('');
-    }, 2500);
+    }, outcome.ok ? 2500 : 300);
   };
 
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? null : index);
   };
 
-  // Video items sorted: videos first (highest quality), then audio
   const videoItems = result?.items?.filter(i => i.type === 'video') ?? [];
   const audioItems = result?.items?.filter(i => i.type === 'audio') ?? [];
-  const selectedItem = result?.items?.find(i => i.quality === selectedQuality) ?? null;
+  const shortsFlag = result?.isShorts ?? isShorts(resolvedUrl);
+  const videoIdShown = extractVideoId(resolvedUrl);
 
   const faqs = [
     {
@@ -147,7 +178,11 @@ export default function YouTubeVideoDownloader() {
     },
     {
       q: 'What video quality options are available?',
-      a: 'Available quality options depend on the original upload: 144p, 360p, 480p, 720p HD, 1080p Full HD. Audio-only downloads are available as MP3 or M4A. Options are shown after fetching the video info.'
+      a: 'Available quality options depend on the original upload: 240p, 360p, 480p, 720p HD and 1080p Full HD. Audio-only downloads are available in M4A format. Options are shown after fetching the video info.'
+    },
+    {
+      q: 'Why do some qualities say "Sound Guaranteed"?',
+      a: 'YouTube stores higher quality video and audio as separate tracks. Options marked Sound Guaranteed are already combined, so they download instantly with sound. Higher qualities are merged for you during the download, which can take a little longer.'
     },
     {
       q: 'Can I download YouTube Shorts?',
@@ -158,8 +193,8 @@ export default function YouTubeVideoDownloader() {
       a: 'No. We only process publicly available videos. Private videos, members-only content, age-restricted videos, and live streams cannot be downloaded to protect user privacy and platform policies.'
     },
     {
-      q: 'How do I download audio only (MP3) from a YouTube video?',
-      a: 'After fetching the video info, scroll down to the Audio section in the quality selector and choose MP3 or M4A format. Click Download to save the audio track.'
+      q: 'How do I download audio only from a YouTube video?',
+      a: 'After fetching the video info, scroll down to the Audio Track section and click Download M4A. The audio file plays on phones, computers and most music players.'
     },
     {
       q: 'Is it legal to download YouTube videos?',
@@ -184,7 +219,7 @@ export default function YouTubeVideoDownloader() {
     url: 'https://protoolbox.in/tools/youtube-video-downloader',
     applicationCategory: 'MultimediaApplication',
     operatingSystem: 'All',
-    description: 'Free online YouTube Video Downloader. Download public YouTube videos and Shorts in MP4 HD quality or extract audio as MP3. No sign-up required.',
+    description: 'Free online YouTube Video Downloader. Download public YouTube videos and Shorts in MP4 up to 1080p or save the audio as M4A. No sign-up required.',
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' }
   };
 
@@ -194,7 +229,7 @@ export default function YouTubeVideoDownloader() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webAppSchema) }} />
 
-      {/* ── TOOL INPUT CARD ── */}
+      {/* TOOL INPUT CARD */}
       <div className="downloader-hero-card">
         <form onSubmit={handleFetchMedia}>
           <div>
@@ -230,7 +265,7 @@ export default function YouTubeVideoDownloader() {
                 disabled={isLoading}
               >
                 {isLoading
-                  ? <><RefreshCw size={16} className="spin-icon" /> Fetching…</>
+                  ? <><RefreshCw size={16} className="spin-icon" /> Fetching...</>
                   : <><PlayCircle size={16} /> Fetch Video</>}
               </button>
             </div>
@@ -272,7 +307,7 @@ export default function YouTubeVideoDownloader() {
           )}
         </form>
 
-        {/* ── RESULT CARD ── */}
+        {/* RESULT CARD */}
         {result && result.ok && (
           <div className="downloader-result-box">
             {/* Video info row */}
@@ -299,7 +334,7 @@ export default function YouTubeVideoDownloader() {
                   </h3>
                 )}
                 <div className="downloader-badges-row">
-                  {isShorts(inputUrl) && (
+                  {shortsFlag && (
                     <span className="downloader-badge-pill" style={{ background: '#fef2f2', color: '#dc2626' }}>
                       <Film size={12} /> Shorts
                     </span>
@@ -315,16 +350,31 @@ export default function YouTubeVideoDownloader() {
                     </span>
                   )}
                 </div>
-                {/* Video ID badge */}
-                {extractVideoId(inputUrl) && (
+                {videoIdShown && (
                   <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '4px 0 0' }}>
-                    Video ID: <code style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 6, color: '#475569' }}>{extractVideoId(inputUrl)}</code>
+                    Video ID: <code style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 6, color: '#475569' }}>{videoIdShown}</code>
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Quality selection — Video */}
+            {/* Download error */}
+            {downloadError && (
+              <div
+                role="alert"
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '10px',
+                  padding: '12px 16px', borderRadius: '12px', marginTop: '14px',
+                  background: 'rgba(239,68,68,0.08)', border: '1px solid #fca5a5',
+                  color: '#dc2626', fontSize: '0.9rem',
+                }}
+              >
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>{downloadError}</span>
+              </div>
+            )}
+
+            {/* Quality selection: Video */}
             {videoItems.length > 0 && (
               <div className="downloader-quality-section">
                 <p className="downloader-section-title">
@@ -345,10 +395,15 @@ export default function YouTubeVideoDownloader() {
                             <span className="downloader-quality-name">
                               {item.quality}
                             </span>
-                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                               {item.isHighest && (
                                 <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#ede9fe', color: '#6d28d9', padding: '2px 8px', borderRadius: 9999 }}>
                                   Highest Quality
+                                </span>
+                              )}
+                              {item.recommended && (
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 9999 }}>
+                                  Sound Guaranteed
                                 </span>
                               )}
                               <span className="downloader-format-tag">
@@ -365,7 +420,7 @@ export default function YouTubeVideoDownloader() {
                           disabled={isDownloading}
                         >
                           {isDownloading
-                            ? <><RefreshCw size={13} className="spin-icon" /> {downloadStatus || 'Saving…'}</>
+                            ? <><RefreshCw size={13} className="spin-icon" /> {downloadStatus || 'Saving...'}</>
                             : <><Download size={13} /> Download</>}
                         </button>
                       </div>
@@ -408,7 +463,7 @@ export default function YouTubeVideoDownloader() {
                           style={{ height: '36px', fontSize: '0.82rem', padding: '0 14px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}
                         >
                           {isDownloading
-                            ? <><RefreshCw size={13} className="spin-icon" /> {downloadStatus || 'Saving…'}</>
+                            ? <><RefreshCw size={13} className="spin-icon" /> {downloadStatus || 'Saving...'}</>
                             : <><Download size={13} /> Download {item.format.toUpperCase()}</>}
                         </button>
                       </div>
@@ -428,11 +483,11 @@ export default function YouTubeVideoDownloader() {
         )}
       </div>
 
-      {/* ── FEATURES ROW ── */}
+      {/* FEATURES ROW */}
       <div className="downloader-features-grid">
         {[
           { icon: <Film size={20} />, title: 'HD Quality', desc: 'Up to 1080p MP4' },
-          { icon: <Music size={20} />, title: 'Audio Only', desc: 'MP3 & M4A tracks' },
+          { icon: <Music size={20} />, title: 'Audio Only', desc: 'High quality M4A track' },
           { icon: <Sparkles size={20} />, title: 'Shorts Support', desc: 'Fast shorts extraction' },
           { icon: <ShieldCheck size={20} />, title: 'Public & Safe', desc: 'No login required' },
         ].map((f, i) => (
@@ -444,7 +499,7 @@ export default function YouTubeVideoDownloader() {
         ))}
       </div>
 
-      {/* ── SEO GUIDE SECTION ── */}
+      {/* SEO GUIDE SECTION */}
       <div className="card" style={{ padding: 'clamp(1.5rem, 3vw, 2.5rem)' }}>
         {/* How to Use */}
         <section style={{ marginBottom: '2.5rem' }}>
@@ -452,14 +507,14 @@ export default function YouTubeVideoDownloader() {
             <PlayCircle size={22} color="#dc2626" /> How to Download YouTube Videos Online (Free)
           </h2>
           <p style={{ color: '#475569', lineHeight: 1.7, marginBottom: '1rem' }}>
-            ProToolBox YouTube Video Downloader lets you save public YouTube videos and Shorts directly in your browser — no software install, no sign-up, completely free. Here's how:
+            ProToolBox YouTube Video Downloader lets you save public YouTube videos and Shorts directly in your browser. There is no software to install, no sign-up, and it is completely free. Here's how:
           </p>
           <ol style={{ paddingLeft: '1.5rem', color: '#475569', lineHeight: 1.9, margin: 0 }}>
-            <li><strong>Copy the YouTube URL</strong> — Open YouTube, navigate to your video or Short, and copy the URL from your browser's address bar.</li>
-            <li><strong>Paste the link</strong> — Click the <em>Paste</em> button above or press Ctrl+V to paste the URL into the input box.</li>
-            <li><strong>Click "Fetch Video"</strong> — Our server retrieves the video metadata and available quality streams.</li>
-            <li><strong>Select your quality</strong> — Choose MP4 (144p to 1080p) or audio-only (MP3/M4A) based on your needs.</li>
-            <li><strong>Download</strong> — Click the Download button for your chosen quality and save the file to your device.</li>
+            <li><strong>Copy the YouTube URL</strong>: Open YouTube, navigate to your video or Short, and copy the URL from your browser's address bar.</li>
+            <li><strong>Paste the link</strong>: Click the <em>Paste</em> button above or press Ctrl+V to paste the URL into the input box.</li>
+            <li><strong>Click "Fetch Video"</strong>: Our server retrieves the video details and available quality options.</li>
+            <li><strong>Select your quality</strong>: Choose MP4 (240p to 1080p) or the audio-only M4A track based on your needs.</li>
+            <li><strong>Download</strong>: Click the Download button for your chosen quality and save the file to your device.</li>
           </ol>
         </section>
 
@@ -490,11 +545,11 @@ export default function YouTubeVideoDownloader() {
             To respect platform policies and user privacy, the following types of content are not supported:
           </p>
           <ul style={{ paddingLeft: '1.5rem', color: '#475569', lineHeight: 1.9, margin: 0 }}>
-            <li><strong>Private videos</strong> — Videos set to Private or Unlisted with restricted access.</li>
-            <li><strong>Members-only videos</strong> — Channel membership paywalled content.</li>
-            <li><strong>Age-restricted videos</strong> — Content requiring sign-in for age verification.</li>
-            <li><strong>Live streams</strong> — Active live broadcasts (try after the stream is over and archived).</li>
-            <li><strong>DRM-protected content</strong> — Premium or encrypted content.</li>
+            <li><strong>Private videos</strong>: Videos set to Private or with restricted access.</li>
+            <li><strong>Members-only videos</strong>: Channel membership paywalled content.</li>
+            <li><strong>Age-restricted videos</strong>: Content requiring sign-in for age verification.</li>
+            <li><strong>Live streams</strong>: Active live broadcasts (try after the stream is over and archived).</li>
+            <li><strong>DRM-protected content</strong>: Premium or encrypted content.</li>
           </ul>
         </section>
 
@@ -515,9 +570,8 @@ export default function YouTubeVideoDownloader() {
                   ['1080p Full HD', 'MP4', 'High-quality offline viewing, large screens'],
                   ['720p HD', 'MP4', 'Standard quality, balanced file size'],
                   ['480p / 360p', 'MP4', 'Slower connections, limited storage'],
-                  ['144p', 'MP4', 'Very low bandwidth or preview use'],
-                  ['Audio Only', 'MP3', 'Music, podcasts, lectures — no video track'],
-                  ['Audio Only', 'M4A', 'High-quality audio, iOS/Mac compatible'],
+                  ['240p', 'MP4', 'Very low bandwidth or preview use'],
+                  ['Audio Only', 'M4A', 'Music, podcasts and lectures with no video track'],
                 ].map(([q, f, b], i) => (
                   <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
                     <td style={{ padding: '10px 14px', color: '#0f172a', fontWeight: 600 }}>{q}</td>
@@ -536,7 +590,7 @@ export default function YouTubeVideoDownloader() {
             Privacy, Safety &amp; Legal Notice
           </h3>
           <p style={{ color: '#475569', lineHeight: 1.7, marginBottom: '1rem' }}>
-            ProToolBox processes your request server-side and immediately discards the data — we do not store any video content, metadata, or downloaded files on our servers beyond the duration of your request. No cookies, no tracking, no account required.
+            ProToolBox does not store any video or downloaded file on its servers. No account is required. To prevent abuse, we may briefly keep an anonymized request counter for rate limiting.
           </p>
           <div style={{ background: 'rgba(99,102,241,0.05)', padding: '1.25rem 1.5rem', borderRadius: '12px', border: '1px solid rgba(99,102,241,0.15)' }}>
             <h4 style={{ margin: '0 0 8px', color: '#4f46e5', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.95rem' }}>
