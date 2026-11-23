@@ -619,14 +619,6 @@ if ($action === 'merge_stream') {
     @set_time_limit(0);
     @ignore_user_abort(false);
 
-    header('Content-Type: video/mp4');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Cache-Control: public, max-age=86400');
-    header('X-Accel-Buffering: no');
-    while (ob_get_level() > 0) {
-        @ob_end_clean();
-    }
-
     $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
     $binEscaped = escapeshellarg($ffmpegBin);
     $errFile = tempnam(sys_get_temp_dir(), 'ff_err_');
