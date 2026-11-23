@@ -1116,18 +1116,7 @@ if ($platform === 'youtube') {
     ]);
     $raw = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlErr = curl_error($ch);
     curl_close($ch);
-    $innertubeParsed = $raw ? json_decode($raw, true) : null;
-    $innertubeDebug = [
-        'code' => $code,
-        'curlErr' => $curlErr,
-        'rawLen' => $raw ? strlen($raw) : 0,
-        'playabilityStatus' => $innertubeParsed['playabilityStatus'] ?? null,
-        'hasVideoDetails' => !empty($innertubeParsed['videoDetails']),
-        'hasStreamingData' => !empty($innertubeParsed['streamingData']),
-        'streamingKeys' => !empty($innertubeParsed['streamingData']) ? array_keys($innertubeParsed['streamingData']) : []
-    ];
     if ($code === 200 && $raw) {
         $parsed = json_decode($raw, true);
         if (($parsed['playabilityStatus']['status'] ?? '') === 'OK' && !empty($parsed['videoDetails'])) {
@@ -1217,11 +1206,11 @@ if ($platform === 'youtube') {
 
     $makeProxyUrl = function ($rawUrl) use ($usedInstHost) {
         if (empty($rawUrl)) return '';
-        if (str_starts_with($rawUrl, 'http://') || str_starts_with($rawUrl, 'https://')) {
-            return $rawUrl;
-        }
         if (!empty($usedInstHost)) {
-            return "https://{$usedInstHost}" . (str_starts_with($rawUrl, '/') ? '' : '/') . $rawUrl;
+            $parsed = parse_url($rawUrl);
+            $path = $parsed['path'] ?? '/videoplayback';
+            $query = isset($parsed['query']) ? ('?' . $parsed['query']) : '';
+            return "https://{$usedInstHost}{$path}{$query}";
         }
         return $rawUrl;
     };
@@ -1430,7 +1419,7 @@ if ($platform === 'youtube') {
         'thumbnail' => $thumbnail,
         'duration' => $duration,
         'isShorts' => (bool)$isShorts,
-        'source' => $usedInstHost !== '' ? ('invidious:' . $usedInstHost) : 'direct-youtube', 'innertube_debug' => $innertubeDebug ?? null,
+        'source' => $usedInstHost !== '' ? ('invidious:' . $usedInstHost) : 'direct-youtube',
         'items' => $items
     ]);
     exit;
