@@ -618,6 +618,10 @@ if ($action === 'merge_stream') {
 
     @set_time_limit(0);
     @ignore_user_abort(false);
+    @ini_set('zlib.output_compression', '0');
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
 
     $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
     $binEscaped = escapeshellarg($ffmpegBin);
@@ -652,11 +656,16 @@ if ($action === 'merge_stream') {
                     header('Content-Disposition: attachment; filename="' . $filename . '"');
                     header('Cache-Control: public, max-age=86400');
                     header('X-Accel-Buffering: no');
+                    header('Content-Transfer-Encoding: binary');
                 }
                 echo $data;
+                if (ob_get_level() > 0) {
+                    @ob_flush();
+                }
                 flush();
             }
             if (connection_aborted()) {
+                @proc_terminate($proc);
                 break;
             }
         }

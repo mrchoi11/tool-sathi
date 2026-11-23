@@ -311,12 +311,7 @@ async function mergeAndDownloadClientSide(
   ffmpeg.FS('writeFile', inA, new Uint8Array(aBuffer));
 
   try {
-    try {
-      await ffmpeg.run('-i', inV, '-i', inA, '-c', 'copy', '-movflags', '+faststart', outF);
-    } catch (copyErr) {
-      console.warn('Direct stream copy failed, falling back to AAC transcode:', copyErr);
-      await ffmpeg.run('-i', inV, '-i', inA, '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', outF);
-    }
+    await ffmpeg.run('-i', inV, '-i', inA, '-c:v', 'copy', '-c:a', 'aac', '-strict', '-2', '-movflags', '+faststart', outF);
 
     const outData = ffmpeg.FS('readFile', outF);
     const mergedBlob = new Blob([outData.buffer], { type: 'video/mp4' });
@@ -341,8 +336,8 @@ async function downloadMerged(
 ): Promise<void> {
   const endpoint = getGatewayEndpoint();
 
-  // 1) Try server-side ffmpeg merge first
-  onProgress?.('Preparing and merging video...');
+  // 1) Try server-side ffmpeg merge first (fast, single step, native high quality)
+  onProgress?.('Preparing video & audio...');
   const mergeStreamUrl =
     `${endpoint}?action=merge_stream&video_url=${encodeURIComponent(mediaUrl)}` +
     `&audio_url=${encodeURIComponent(audioUrl)}&filename=${encodeURIComponent(suggestedFilename)}`;
@@ -351,19 +346,23 @@ async function downloadMerged(
     const res = await fetch(mergeStreamUrl);
     const contentType = (res.headers.get('content-type') || '').toLowerCase();
     if (res.ok && (contentType.includes('video/') || contentType.includes('application/octet-stream'))) {
-      const blob = await readBlobWithProgress(res, 'Merging', onProgress, 'video/mp4');
+      const blob = await readBlobWithProgress(res, 'Downloading', onProgress, 'video/mp4');
       if (blob.size > 0) {
         saveBlob(blob, suggestedFilename);
         onProgress?.('Download complete!');
         return;
       }
     }
-    // 501 means "no ffmpeg on server", which is expected on shared hosting
-    if (res.status !== 501) {
-      console.warn('[downloader] merge_stream failed with status', res.status);
+    if (res.status === 429) {
+      const e = await readGatewayError(res);
+      throw makeError(e.code, e.message);
     }
-  } catch (e) {
-    console.warn('[downloader] merge_stream request failed', e);
+    if (res.status !== 501) {
+      console.warn('[downloader] merge_stream returned status', res.status);
+    }
+  } catch (e: any) {
+    if (e?.code === 'RATE_LIMIT') throw e;
+    console.warn('[downloader] merge_stream request error:', e);
   }
 
   // 2) Fallback: in-browser WebAssembly merge
