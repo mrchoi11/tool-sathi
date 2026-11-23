@@ -629,30 +629,38 @@ if ($action === 'merge_stream') {
 
     $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
     $binEscaped = escapeshellarg($ffmpegBin);
-    $cmd = "$binEscaped -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+    $errFile = tempnam(sys_get_temp_dir(), 'ff_err_');
+
+    $cmd = "$binEscaped -nostdin -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
          . " -headers " . escapeshellarg("User-Agent: $ua\r\n")
          . " -i " . escapeshellarg($videoUrl);
 
     if (!empty($audioUrl) && isAllowedDomain($audioUrl, 'stream')) {
         $cmd .= " -headers " . escapeshellarg("User-Agent: $ua\r\n")
              . " -i " . escapeshellarg($audioUrl)
-             . " -c:v copy -c:a aac -strict -2 -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1";
+             . " -c:v copy -c:a aac -strict -2 -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1 2>" . escapeshellarg($errFile);
     } else {
-        $cmd .= " -c:v copy -strict -2 -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1";
+        $cmd .= " -c:v copy -strict -2 -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1 2>" . escapeshellarg($errFile);
     }
 
-    $proc = proc_open($cmd, [
+    $proc = @proc_open($cmd, [
         0 => ['pipe', 'r'],
         1 => ['pipe', 'w'],
-        2 => ['pipe', 'w']
     ], $pipes);
 
     if (is_resource($proc)) {
         fclose($pipes[0]);
-        fclose($pipes[2]);
+        $hasOutput = false;
         while (!feof($pipes[1])) {
             $data = fread($pipes[1], 65536);
             if ($data !== false && strlen($data) > 0) {
+                if (!$hasOutput) {
+                    $hasOutput = true;
+                    header('Content-Type: video/mp4');
+                    header('Content-Disposition: attachment; filename="' . $filename . '"');
+                    header('Cache-Control: public, max-age=86400');
+                    header('X-Accel-Buffering: no');
+                }
                 echo $data;
                 flush();
             }
@@ -661,7 +669,23 @@ if ($action === 'merge_stream') {
             }
         }
         fclose($pipes[1]);
-        proc_close($proc);
+        $status = proc_close($proc);
+
+        if (!$hasOutput) {
+            $errContent = file_exists($errFile) ? trim(file_get_contents($errFile)) : 'No error output';
+            @unlink($errFile);
+            http_response_code(502);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'ok' => false,
+                'error' => [
+                    'code' => 'MERGE_FAILED',
+                    'message' => 'Server FFmpeg exited with code ' . $status . ': ' . substr($errContent, -300)
+                ]
+            ]);
+            exit;
+        }
+        @unlink($errFile);
         exit;
     }
 
