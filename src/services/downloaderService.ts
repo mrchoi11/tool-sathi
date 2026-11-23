@@ -275,7 +275,7 @@ async function getFFmpegWasm(): Promise<any> {
   let lastErr: any = null;
   for (const corePath of corePaths) {
     try {
-      const instance = createFFmpeg({ log: false, corePath });
+      const instance = createFFmpeg({ log: false, corePath, mainName: 'main' });
       await instance.load();
       ffmpegInstance = instance;
       return ffmpegInstance;
@@ -342,7 +342,7 @@ async function downloadMerged(
   const endpoint = getGatewayEndpoint();
 
   // 1) Try server-side ffmpeg merge first
-  onProgress?.('Merging video and voice...');
+  onProgress?.('Preparing and merging video...');
   const mergeStreamUrl =
     `${endpoint}?action=merge_stream&video_url=${encodeURIComponent(mediaUrl)}` +
     `&audio_url=${encodeURIComponent(audioUrl)}&filename=${encodeURIComponent(suggestedFilename)}`;

@@ -531,103 +531,6 @@ function streamDownload(string $startUrl, string $filename, bool $isMediaVideo, 
 
 // ==== READ REQUEST INPUT ====
 $action = $_GET['action'] ?? $_POST['action'] ?? 'resolve';
-if ($action === 'server_info') {
-    $binDir = dirname(__DIR__, 2) . '/ffmpeg_bin';
-    if (!is_dir($binDir)) @mkdir($binDir, 0755, true);
-    $ffmpegPath = $binDir . '/ffmpeg';
-
-    $runProc = function($cmd) {
-        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-        $p = @proc_open($cmd, $descriptors, $pipes);
-        if (!is_resource($p)) return 'failed to open';
-        fclose($pipes[0]);
-        $out = trim(stream_get_contents($pipes[1]));
-        $err = trim(stream_get_contents($pipes[2]));
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $code = proc_close($p);
-        return ['code' => $code, 'out' => $out, 'err' => $err];
-    };
-
-    if (!file_exists($ffmpegPath) || filesize($ffmpegPath) < 10000000) {
-        // Download static ffmpeg
-        $cmd = "/bin/curl -sL https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64.gz | /bin/gzip -d > " . escapeshellarg($ffmpegPath) . " && chmod 755 " . escapeshellarg($ffmpegPath);
-        $res = $runProc($cmd);
-    } else {
-        $res = 'already exists';
-    }
-
-    $ver = file_exists($ffmpegPath) ? $runProc("$ffmpegPath -version") : null;
-
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode([
-        'binDir' => $binDir,
-        'download_result' => $res,
-        'ffmpeg_exists' => file_exists($ffmpegPath),
-        'ffmpeg_size' => file_exists($ffmpegPath) ? filesize($ffmpegPath) : 0,
-        'ffmpeg_version' => $ver
-    ], JSON_PRETTY_PRINT);
-    exit;
-}
-if (false) {
-    $testScript = __DIR__ . '/test.sh';
-    file_put_contents($testScript, "#!/bin/sh
-echo 'HELLO_FROM_HOSTINGER_PROC_OPEN'");
-    @chmod($testScript, 0755);
-
-    $runProc = function($cmd) {
-        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-        $p = @proc_open($cmd, $descriptors, $pipes);
-        if (!is_resource($p)) return 'failed to open';
-        fclose($pipes[0]);
-        $out = trim(stream_get_contents($pipes[1]));
-        $err = trim(stream_get_contents($pipes[2]));
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $code = proc_close($p);
-        return ['code' => $code, 'out' => $out, 'err' => $err];
-    };
-
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode([
-        'script_exec' => $runProc($testScript),
-        'tmp_exec' => $runProc('/bin/sh -c "echo SH_WORKS"'),
-        'curl_installed' => $runProc('which curl'),
-        'tar_installed' => $runProc('which tar'),
-        'gzip_installed' => $runProc('which gzip')
-    ], JSON_PRETTY_PRINT);
-    @unlink($testScript);
-    exit;
-}
-if (false) {
-    header('Content-Type: application/json; charset=utf-8');
-    $runProc = function($cmd) {
-        if (!function_exists('proc_open')) return 'proc_open not available';
-        $descriptors = [
-            0 => ['pipe', 'r'],
-            1 => ['pipe', 'w'],
-            2 => ['pipe', 'w']
-        ];
-        $process = @proc_open($cmd, $descriptors, $pipes);
-        if (!is_resource($process)) return 'failed to spawn proc_open';
-        fclose($pipes[0]);
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $status = proc_close($process);
-        return ['status' => $status, 'stdout' => trim($stdout), 'stderr' => trim($stderr)];
-    };
-
-    echo json_encode([
-        'proc_open_available' => isProcOpenAvailable(),
-        'proc_which_ffmpeg' => $runProc('which ffmpeg'),
-        'proc_usr_bin_ffmpeg' => $runProc('/usr/bin/ffmpeg -version'),
-        'proc_ffmpeg' => $runProc('ffmpeg -version'),
-        'proc_find_ffmpeg' => $runProc('find /usr -name ffmpeg 2>/dev/null'),
-    ], JSON_PRETTY_PRINT);
-    exit;
-}
 $inputUrl = trim($_GET['url'] ?? $_POST['url'] ?? '');
 
 if (empty($inputUrl)) {
@@ -664,26 +567,35 @@ if ($action === 'merge_stream') {
     }
 
     $findFfmpeg = function (): ?string {
-        if (!isShellExecAvailable() || !isProcOpenAvailable()) {
+        if (!isProcOpenAvailable()) {
             return null;
         }
 
-        $candidates = ['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/bin/ffmpeg'];
-
-        $userProfile = getenv('USERPROFILE') ?: '';
-        if ($userProfile) {
-            $ffmpegExe = glob($userProfile . '/AppData/Roaming/Python/Python*/site-packages/imageio_ffmpeg/binaries/ffmpeg-*.exe');
-            if (!empty($ffmpegExe)) {
-                foreach ($ffmpegExe as $exe) {
-                    $candidates[] = '"' . $exe . '"';
-                }
-            }
-        }
+        $candidates = [
+            dirname(__DIR__, 2) . '/ffmpeg_bin/ffmpeg',
+            dirname(__DIR__, 1) . '/bin/ffmpeg',
+            __DIR__ . '/ffmpeg_bin/ffmpeg',
+            '/usr/bin/ffmpeg',
+            '/usr/local/bin/ffmpeg',
+            '/bin/ffmpeg',
+            'ffmpeg'
+        ];
 
         foreach ($candidates as $bin) {
-            $ver = @shell_exec("$bin -version 2>&1");
-            if ($ver && stripos($ver, 'ffmpeg version') !== false) {
-                return $bin;
+            if (str_starts_with($bin, '/') && (!file_exists($bin) || !is_executable($bin))) {
+                continue;
+            }
+            $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+            $p = @proc_open("$bin -version", $descriptors, $pipes);
+            if (is_resource($p)) {
+                fclose($pipes[0]);
+                $ver = stream_get_contents($pipes[1]);
+                fclose($pipes[1]);
+                fclose($pipes[2]);
+                $code = proc_close($p);
+                if ($code === 0 && stripos($ver, 'ffmpeg version') !== false) {
+                    return $bin;
+                }
             }
         }
         return null;
@@ -716,17 +628,17 @@ if ($action === 'merge_stream') {
     }
 
     $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
-    $cmd = escapeshellcmd($ffmpegBin)
-         . " -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+    $binEscaped = escapeshellarg($ffmpegBin);
+    $cmd = "$binEscaped -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5"
          . " -headers " . escapeshellarg("User-Agent: $ua\r\n")
          . " -i " . escapeshellarg($videoUrl);
 
     if (!empty($audioUrl) && isAllowedDomain($audioUrl, 'stream')) {
         $cmd .= " -headers " . escapeshellarg("User-Agent: $ua\r\n")
              . " -i " . escapeshellarg($audioUrl)
-             . " -c:v copy -c:a aac -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1 2>/dev/null";
+             . " -c:v copy -c:a aac -strict -2 -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1";
     } else {
-        $cmd .= " -c:v copy -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1 2>/dev/null";
+        $cmd .= " -c:v copy -strict -2 -movflags +faststart+frag_keyframe+empty_moov -f mp4 pipe:1";
     }
 
     $proc = proc_open($cmd, [
