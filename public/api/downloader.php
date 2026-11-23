@@ -1118,11 +1118,15 @@ if ($platform === 'youtube') {
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlErr = curl_error($ch);
     curl_close($ch);
+    $innertubeParsed = $raw ? json_decode($raw, true) : null;
     $innertubeDebug = [
         'code' => $code,
         'curlErr' => $curlErr,
         'rawLen' => $raw ? strlen($raw) : 0,
-        'rawPreview' => $raw ? substr($raw, 0, 300) : ''
+        'playabilityStatus' => $innertubeParsed['playabilityStatus'] ?? null,
+        'hasVideoDetails' => !empty($innertubeParsed['videoDetails']),
+        'hasStreamingData' => !empty($innertubeParsed['streamingData']),
+        'streamingKeys' => !empty($innertubeParsed['streamingData']) ? array_keys($innertubeParsed['streamingData']) : []
     ];
     if ($code === 200 && $raw) {
         $parsed = json_decode($raw, true);
