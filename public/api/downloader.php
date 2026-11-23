@@ -531,6 +531,18 @@ function streamDownload(string $startUrl, string $filename, bool $isMediaVideo, 
 
 // ==== READ REQUEST INPUT ====
 $action = $_GET['action'] ?? $_POST['action'] ?? 'resolve';
+if ($action === 'server_info') {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'shell_exec_available' => isShellExecAvailable(),
+        'proc_open_available' => isProcOpenAvailable(),
+        'disabled_functions' => ini_get('disable_functions'),
+        'which_ffmpeg' => isShellExecAvailable() ? @shell_exec('which ffmpeg 2>&1') : null,
+        'ffmpeg_usr_bin' => isShellExecAvailable() ? @shell_exec('/usr/bin/ffmpeg -version 2>&1') : null,
+        'uname' => @php_uname()
+    ]);
+    exit;
+}
 $inputUrl = trim($_GET['url'] ?? $_POST['url'] ?? '');
 
 if (empty($inputUrl)) {
