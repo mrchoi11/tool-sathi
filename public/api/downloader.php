@@ -532,6 +532,36 @@ function streamDownload(string $startUrl, string $filename, bool $isMediaVideo, 
 // ==== READ REQUEST INPUT ====
 $action = $_GET['action'] ?? $_POST['action'] ?? 'resolve';
 if ($action === 'server_info') {
+    $testScript = __DIR__ . '/test.sh';
+    file_put_contents($testScript, "#!/bin/sh
+echo 'HELLO_FROM_HOSTINGER_PROC_OPEN'");
+    @chmod($testScript, 0755);
+
+    $runProc = function($cmd) {
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $p = @proc_open($cmd, $descriptors, $pipes);
+        if (!is_resource($p)) return 'failed to open';
+        fclose($pipes[0]);
+        $out = trim(stream_get_contents($pipes[1]));
+        $err = trim(stream_get_contents($pipes[2]));
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $code = proc_close($p);
+        return ['code' => $code, 'out' => $out, 'err' => $err];
+    };
+
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'script_exec' => $runProc($testScript),
+        'tmp_exec' => $runProc('/bin/sh -c "echo SH_WORKS"'),
+        'curl_installed' => $runProc('which curl'),
+        'tar_installed' => $runProc('which tar'),
+        'gzip_installed' => $runProc('which gzip')
+    ], JSON_PRETTY_PRINT);
+    @unlink($testScript);
+    exit;
+}
+if (false) {
     header('Content-Type: application/json; charset=utf-8');
     $runProc = function($cmd) {
         if (!function_exists('proc_open')) return 'proc_open not available';
