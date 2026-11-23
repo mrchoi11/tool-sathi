@@ -533,14 +533,31 @@ function streamDownload(string $startUrl, string $filename, bool $isMediaVideo, 
 $action = $_GET['action'] ?? $_POST['action'] ?? 'resolve';
 if ($action === 'server_info') {
     header('Content-Type: application/json; charset=utf-8');
+    $runProc = function($cmd) {
+        if (!function_exists('proc_open')) return 'proc_open not available';
+        $descriptors = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w']
+        ];
+        $process = @proc_open($cmd, $descriptors, $pipes);
+        if (!is_resource($process)) return 'failed to spawn proc_open';
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $status = proc_close($process);
+        return ['status' => $status, 'stdout' => trim($stdout), 'stderr' => trim($stderr)];
+    };
+
     echo json_encode([
-        'shell_exec_available' => isShellExecAvailable(),
         'proc_open_available' => isProcOpenAvailable(),
-        'disabled_functions' => ini_get('disable_functions'),
-        'which_ffmpeg' => isShellExecAvailable() ? @shell_exec('which ffmpeg 2>&1') : null,
-        'ffmpeg_usr_bin' => isShellExecAvailable() ? @shell_exec('/usr/bin/ffmpeg -version 2>&1') : null,
-        'uname' => @php_uname()
-    ]);
+        'proc_which_ffmpeg' => $runProc('which ffmpeg'),
+        'proc_usr_bin_ffmpeg' => $runProc('/usr/bin/ffmpeg -version'),
+        'proc_ffmpeg' => $runProc('ffmpeg -version'),
+        'proc_find_ffmpeg' => $runProc('find /usr -name ffmpeg 2>/dev/null'),
+    ], JSON_PRETTY_PRINT);
     exit;
 }
 $inputUrl = trim($_GET['url'] ?? $_POST['url'] ?? '');
