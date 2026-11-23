@@ -1116,7 +1116,14 @@ if ($platform === 'youtube') {
     ]);
     $raw = curl_exec($ch);
     $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr = curl_error($ch);
     curl_close($ch);
+    $innertubeDebug = [
+        'code' => $code,
+        'curlErr' => $curlErr,
+        'rawLen' => $raw ? strlen($raw) : 0,
+        'rawPreview' => $raw ? substr($raw, 0, 300) : ''
+    ];
     if ($code === 200 && $raw) {
         $parsed = json_decode($raw, true);
         if (($parsed['playabilityStatus']['status'] ?? '') === 'OK' && !empty($parsed['videoDetails'])) {
@@ -1419,7 +1426,7 @@ if ($platform === 'youtube') {
         'thumbnail' => $thumbnail,
         'duration' => $duration,
         'isShorts' => (bool)$isShorts,
-        'source' => $usedInstHost !== '' ? ('invidious:' . $usedInstHost) : 'direct-youtube',
+        'source' => $usedInstHost !== '' ? ('invidious:' . $usedInstHost) : 'direct-youtube', 'innertube_debug' => $innertubeDebug ?? null,
         'items' => $items
     ]);
     exit;
